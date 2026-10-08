@@ -609,6 +609,12 @@ const RUN={
     say(pl.P,'PAR PITIÉ LE KHEY',2.5);toAll(w,{t:'chat',who:pl.S.name,text:'PAR PITIÉ LE KHEY'});
     if(w.bots)later(w,1.2,()=>{const bots=w.maps.over.bots,b=bots.find(b=>b.g==='Par Pitié')||w.r.pick(bots);toAll(w,{t:'chat',who:b.n,text:'AYAAA un vrai du 18-25'});say(b,'AYAAA un vrai du 18-25',3)});
   },
+  annonce:(w,pl,v)=>{
+    const text=v.replace(/^\S+\s*/,'');
+    if(!text){msg(w,pl.id,'sys','Usage : /annonce <texte>');return}
+    toAll(w,{t:'announce',who:pl.S.name,text});
+    toAll(w,{t:'msg',cls:'yell',text:`[Annonce] ${pl.S.name} : ${text}`});
+  },
   douche:(w,pl)=>msg(w,pl.id,'sys','Vous cherchez la douche. Erreur 404 : salle de bain introuvable.'),
 };
 function runCommand(w,pl,v){

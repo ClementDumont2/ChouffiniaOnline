@@ -4,7 +4,7 @@ import {cleanName} from '../shared/protocol.js';
 import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
 import {burst,floater,paintWorld,parts,render,resize,updFx} from './render.js';
-import {banner,buildBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
+import {announce,banner,buildBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
 import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
@@ -50,6 +50,7 @@ hooks.event=e=>{
     case 'approach':nav.follow=e.id;nav.goal=null;break;
     case 'chest':showChest(e);break;
     case 'trade':showTrade(e);break;
+    case 'announce':announce(e.who,e.text);break;
     case 'online':online.splice(0,online.length,...e.names);break;
     case 'campaignEnd':setTimeout(showEnd,900);break;
   }

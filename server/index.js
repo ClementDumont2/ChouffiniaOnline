@@ -40,7 +40,10 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
   function saveAll() {
     for (const c of conns.values()) {
       const tmp = saveFile(c.name) + '.tmp';
-      writeFileSync(tmp, JSON.stringify(world.players[c.id].S));
+      // Les droits s'éditent à la main dans le fichier : on garde ceux du disque, la mémoire ne fait que les avoir lus à la connexion.
+      const S = {...world.players[c.id].S}, disk = loadSave(c.name);
+      if (disk && Array.isArray(disk.droits)) S.droits = disk.droits; else delete S.droits;
+      writeFileSync(tmp, JSON.stringify(S));
       renameSync(tmp, saveFile(c.name));
     }
   }

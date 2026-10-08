@@ -121,6 +121,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #banner span{display:block;font-size:clamp(13px,2vw,17px);color:var(--gold);text-shadow:0 1px 2px #000;margin-top:4px;font-style:italic;text-wrap:balance}
 #banner.lvl b{color:var(--sys)} #banner.dg b{color:#c9a8ff}
 #banner.show{animation:banner 3.2s ease forwards}
+#announce{top:0;left:50%;transform:translateX(-50%);width:min(760px,calc(100% - 24px));padding:10px 22px 12px;text-align:center;pointer-events:none;opacity:0;z-index:7;background:linear-gradient(180deg,#5a4318,#2a1f0a);border:2px solid var(--gold);border-top:0;box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 24px rgba(212,173,96,.45)}
+#announce small{display:block;font-family:var(--f-display);font-size:11px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase}
+#announce b{display:block;font-family:var(--f-display);font-size:clamp(17px,3vw,26px);color:#ffe9a8;text-shadow:0 2px 0 #000;text-wrap:balance}
+#announce.show{animation:announce 8s ease forwards}
+@keyframes announce{0%{opacity:0;transform:translate(-50%,-100%)}5%{opacity:1;transform:translate(-50%,0)}92%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-100%)}}
 @keyframes banner{0%{opacity:0;transform:translate(-50%,8px)}12%{opacity:1;transform:translate(-50%,0)}78%{opacity:1}100%{opacity:0}}
 
 .panel{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:12px 14px 14px}
@@ -279,7 +284,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #vig.low{opacity:1;animation:vig 1.6s ease-in-out infinite}
 #vig.crit{opacity:1;background:radial-gradient(ellipse at center,transparent 38%,rgba(220,0,0,.8) 100%);animation:vig .7s ease-in-out infinite}
 @keyframes vig{50%{opacity:.45}}
-@media (prefers-reduced-motion:reduce){.toast,#banner.show{animation-duration:.01s}#vig.low,#vig.crit{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast,#banner.show{animation-duration:.01s}#announce.show{animation:announceFade 8s linear forwards}@keyframes announceFade{0%{opacity:0;transform:translate(-50%,0)}4%,92%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}#vig.low,#vig.crit{animation:none}}
 </style>
 </head>
 <body>
@@ -337,6 +342,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
     <div id="err" class="hud"></div>
     <div id="toasts" class="hud"></div>
     <div id="banner" class="hud"><b></b><span></span></div>
+    <div id="announce" class="hud" role="alert"><small></small><b></b></div>
 
     <div id="bag" class="frame panel" hidden>
       <div class="ph"><h2>Sac à dos</h2><span class="goldv" id="goldv"></span><button class="x" data-close="bag" aria-label="Fermer">×</button></div>

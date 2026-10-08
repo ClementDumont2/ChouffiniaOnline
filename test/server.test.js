@@ -241,3 +241,22 @@ test('/top lit aussi les sauvegardes des joueurs hors-ligne', async () => {
     assert.match(ev.list.find(e => /Top Niveau/.test(e.text || '')).text, /1\. Fantome \(42\) · 2\. alice \(1\)/i);
   } finally { await stop(); }
 });
+
+test('les droits édités à la main survivent aux sauvegardes, et la mémoire ne les invente pas', async () => {
+  const {client, savesDir, stop} = await setup();
+  try {
+    const f = join(savesDir, 'alice.json');
+    writeFileSync(f, JSON.stringify({name: 'alice', lvl: 3, droits: ['annonce']}));
+    const a = await client('alice');
+    assert.deepEqual(a.welcome.save.droits, ['annonce']);
+    writeFileSync(f, JSON.stringify({name: 'alice', lvl: 3, droits: ['annonce', 'autre']}));
+    a.ws.close();
+    await new Promise(r => setTimeout(r, 200));
+    assert.deepEqual(JSON.parse(readFileSync(f, 'utf8')).droits, ['annonce', 'autre'], 'le disque fait foi');
+    const b = await client('bob');
+    assert.ok(!(b.welcome.save.droits || []).length);
+    b.ws.close();
+    await new Promise(r => setTimeout(r, 200));
+    assert.equal('droits' in JSON.parse(readFileSync(join(savesDir, 'bob.json'), 'utf8')), false, 'pas de champ droits écrit pour un joueur sans droit');
+  } finally { await stop(); }
+});

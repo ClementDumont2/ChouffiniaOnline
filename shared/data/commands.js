@@ -13,5 +13,6 @@ export const COMMANDS=[
   {nom:'mlady',alias:["m'lady"],args:[],description:'Soulève le fedora.'},
   {nom:'herbe',alias:[],args:[],description:'Tente de toucher l\'herbe.'},
   {nom:'khey',alias:[],args:[],description:'Par pitié le khey.'},
+  {nom:'annonce',alias:[],args:['texte'],description:'Bannière dorée chez tous les joueurs.',droit:'annonce'},
   {nom:'douche',alias:[],args:[],description:'Cherche la douche.'},
 ];

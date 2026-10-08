@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createWorld, addPlayer, removePlayer, tick, handleAction, handleChat, takeEvents} from '../shared/sim.js';
 import {snapshotFor} from '../shared/protocol.js';
-import {statsDeMob} from '../shared/rules.js';
+import {statsDeMob, newSave} from '../shared/rules.js';
 import {BOT_LINES, DIFFS, ITEMS, NPCS} from '../shared/data.js';
 
 const npc = id => NPCS.find(n => n.id === id);
@@ -487,4 +487,22 @@ test('les trois nouvelles répliques existent chez les bots et chez des PNJ, et 
   const dits = new Set();
   for (let i = 0; i < 20 * 70; i++) { tick(w, .05); for (const n of w.maps.over.npcs) if (n.sayT > 0) dits.add(n.say); }
   assert.ok([...dits].some(t => lignes.includes(t)), 'au moins une réplique prononcée en 70 s');
+});
+
+test('/annonce : bannière chez tous avec le droit ; sans le droit, « Commande inconnue » même à la main', () => {
+  const w = createWorld({seed: 1}), a = addPlayer(w, 'a', {name: 'Alice', save: {...newSave('Alice'), droits: ['annonce']}}), b = addPlayer(w, 'b', {name: 'Bob'});
+  takeEvents(w, 'a'); takeEvents(w, 'b');
+  handleChat(w, 'b', '/annonce Free Palestine du Sous-Sol');
+  assert.match(msgs(w, 'b')[0], /Commande inconnue : \/annonce/);
+  assert.ok(!takeEvents(w, 'a').some(e => e.t === 'announce'));
+  handleChat(w, 'a', '/annonce Maintenance dans 5 minutes');
+  for (const id of ['a', 'b']) {
+    const evs = takeEvents(w, id);
+    assert.deepEqual(evs.find(e => e.t === 'announce'), {to: id, t: 'announce', who: 'Alice', text: 'Maintenance dans 5 minutes'});
+    assert.ok(evs.some(e => e.t === 'msg' && /\[Annonce\] Alice : Maintenance/.test(e.text)), 'ligne de chat');
+  }
+  handleChat(w, 'a', '/aide'); handleChat(w, 'b', '/aide');
+  assert.match(msgs(w, 'a')[0], /\/annonce/);
+  assert.doesNotMatch(msgs(w, 'b')[0], /annonce/);
+  assert.ok(a && b);
 });
