@@ -9,6 +9,7 @@ import {announce,banner,buildBar,syncBar,chat,drawPortrait,err,fmtMsg,hud,render
 import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
+import {wheels} from './sound.js';
 import {buildMap,connect,hooks,interp} from './net.js';
 import {P,S,WD,online,running,setMap} from './state.js';
 import './chatcmd.js';
@@ -82,7 +83,7 @@ function showStartSw(){document.querySelectorAll('#sw button').forEach((b,i)=>b.
 let last=performance.now(),hudT=0;
 function frame(now){
   const dt=Math.min(.05,(now-last)/1000);last=now;const t=now/1000;
-  if(running){updControl(dt,t);interp(now);syncView();updZone();hudT-=dt;if(hudT<=0){hudT=.1;hud(t)}}
+  if(running){updControl(dt,t);wheels(P.mount==='chaise'&&P.moving);interp(now);syncView();updZone();hudT-=dt;if(hudT<=0){hudT=.1;hud(t)}}
   else drawPreview(t);
   updFx(dt);
   render(t);

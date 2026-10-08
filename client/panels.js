@@ -4,6 +4,8 @@ import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
 import {buildBar,itemLink,tipEl,tipOn} from './hud.js';
+import {MOUNTS} from '../shared/data/mounts.js';
+import {getSound,setSound} from './sound.js';
 import {ACTIONS,helpHTML,keyOf,label,rebind,resetKeys} from './keys.js';
 import {P,S,WD,me,send} from './state.js';
 
@@ -50,8 +52,27 @@ function compareHTML(id){
 function itemHTML(id,n){const it=ITEMS[id];const sl=statLine(it);
   const ty=it.t==='eq'?SLOTS[it.s]:it.t==='use'?'Consommable':it.t==='art'?'Artéfact · se revend chez Gérard':'Bric-à-brac';
   return`<div class="nm q-${it.r}">${esc(it.n)}${n>1?` ×${n}`:''}</div><div class="ty">${ty} · ${RN[it.r]}${it.rl>1?` · <span style="color:${S.lvl<it.rl?'var(--bad)':'inherit'}">Niveau ${it.rl} requis</span>`:''}</div>${sl?`<div class="stt">${sl}</div>`:''}${it.t==='eq'?compareHTML(id):''}<div class="fl">« ${esc(it.d)} »</div><div class="pr">Revente : ${it.price} po${n>1?` (×${n} = ${fmt(it.price*n)} po)`:''}</div>`}
+let charTab='eq';
+document.querySelectorAll('#ctabs button').forEach(b=>b.onclick=()=>{charTab=b.dataset.tab;renderChar()});
+function renderMounts(){
+  const box=$('#mntlist');box.innerHTML='';
+  for(const [id,m] of Object.entries(MOUNTS)){
+    const own=S.mounts.includes(id),sel=S.mount===id,row=document.createElement('div');
+    row.className='mrow'+(own?'':' off');
+    row.innerHTML=`<b class="q-${m.r}">${esc(m.n)}</b>`;
+    const b=document.createElement('button');b.type='button';b.className='btn'+(sel?'':' alt');
+    b.textContent=own?(sel?'Choisie':'Choisir'):'Non possédée';b.disabled=!own||sel;b.onclick=()=>send({a:'selectMount',id});row.appendChild(b);
+    row.insertAdjacentHTML('beforeend',`<small>+${Math.round(m.speed*100)} % de vitesse${own?'':' · '+(m.seller?`Kévin, Bourg-Forum · niveau ${m.rl} · ${fmt(m.price)} po`:'Battre Maman 10 fois')}</small>`);
+    box.appendChild(row);
+  }
+  box.insertAdjacentHTML('beforeend',`<p class="ty">${esc(keyLabelHint())} pour monter (1 s immobile). On descend en attaquant, en prenant un coup ou en entrant en donjon.</p>`);
+}
+const keyLabelHint=()=>`Touche ${label(keyOf('mount'))}`;
 export function renderChar(){
   if($('#char').hidden)return;
+  $('#eqlist').hidden=$('#cstats').hidden=charTab!=='eq';$('#mntlist').hidden=charTab!=='mnt';
+  document.querySelectorAll('#ctabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===charTab));
+  if(charTab==='mnt'){$('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom}`;renderMounts();return}
   $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · <Sous-Sol Éternel>`;
   const l=$('#eqlist');l.innerHTML='';
   for(const k in SLOTS){const id=S.eq[k];const b=document.createElement('button');b.type='button';b.className='eqrow';
@@ -61,6 +82,7 @@ export function renderChar(){
   renderCharStats();
 }
 export function renderCharStats(){
+  if(charTab!=='eq')return;
   const st=stats(S,P.drunk),dig=Math.max(0,100-S.tips),days=6+Math.floor(S.played/60);
   const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${S.eq.tete==='fedora'?2:3} <small>${S.eq.tete==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
   $('#cstats').innerHTML=rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
@@ -97,6 +119,13 @@ function showNpc(n){
   }
   if(n.id==='bernard'){btns.unshift(["Voir l'armurerie",()=>openShop(n)])}
   if(n.id==='gardien'){btns.unshift(['Descendre dans les Archives',()=>openDungeonMenu(n)])}
+  if(n.id==='kevin'){
+    for(const [id,m] of Object.entries(MOUNTS).filter(([,m])=>m.seller==='kevin')){
+      const own=S.mounts.includes(id);
+      html+=`<p class="rw"><b class="q-${m.r}">${esc(m.n)}</b> · niveau ${m.rl} · ${fmt(m.price)} po<br><span class="ty">${esc(m.d)}</span></p>`;
+      btns.push([own?`${m.n} (possédée)`:`Acheter : ${m.n} (${fmt(m.price)} po)`,()=>send({a:'buyMount',id}),false,own||S.lvl<m.rl||S.gold<m.price]);
+    }
+  }
   if(n.id==='conseiller'){btns.unshift(['Changer de classe',()=>openClassMenu(n)])}
   btns.push(['Au revoir',()=>closePanel('dlg'),true]);
   dialog(n.n,n.ti,html,btns,false,n);
@@ -198,6 +227,7 @@ let waiting=null;
 export function refreshKeyLabels(){buildBar();$('#help').innerHTML=helpHTML()}
 export function renderOpts(){
   if($('#opts').hidden)return;
+  const snd=getSound();$('#optSnd').checked=snd.on;$('#optVol').value=Math.round(snd.vol*100);
   const body=$('#optsBody');body.innerHTML='';
   for(const [id,lbl] of ACTIONS){
     body.insertAdjacentHTML('beforeend',`<span>${lbl}</span><kbd>${waiting===id?'…':esc(label(keyOf(id)))}</kbd>`);
@@ -211,5 +241,7 @@ addEventListener('keydown',e=>{
   if(e.code!=='Escape'){rebind(waiting,e.code);refreshKeyLabels()}
   waiting=null;renderOpts();
 },true);
+$('#optSnd').onchange=e=>setSound({on:e.target.checked});
+$('#optVol').oninput=e=>setSound({vol:e.target.value/100});
 $('#deadbtn').onclick=()=>send({a:'respawn'});
 $('#optsReset').onclick=()=>{resetKeys();waiting=null;renderOpts();refreshKeyLabels()};

@@ -45,6 +45,30 @@ export function drawChouffin(g,cx,fy,s,o){
     else if(o.armor==='eva'){R(4,9.6+b,8,5.6,'#3a6a8a');R(4.6,10.2+b,6.8,2,'#5a8aaa');R(4,9.6+b,8,.5,'#d4ad60')}
   }});
 }
+// Hauteur (en unités de sprite) dont le cavalier est surélevé : la selle, le plateau ou le toit.
+export const MOUNT_LIFT={chaise:5,trottinette:2,maman:8};
+export function drawMount(g,cx,fy,s,id,o){
+  const u=s/16,f=o.face||1;
+  // Dessiné pour un cavalier qui regarde à droite ; f<0 retourne tout.
+  const R=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(cx+((f>0?x:16-x-w)-8)*u,fy+(y-18)*u,w*u+.6,h*u+.6)};
+  const wheel=(x,y,r)=>{
+    const X=cx+((f>0?x:16-x)-8)*u,Y=fy+(y-18)*u,a=o.moving?o.step*1.5:0;
+    g.fillStyle='#111';g.beginPath();g.arc(X,Y,r*u,0,7);g.fill();
+    g.strokeStyle='#8a8a94';g.lineWidth=u*.5;g.beginPath();g.moveTo(X-Math.cos(a)*r*u*.8,Y-Math.sin(a)*r*u*.8);g.lineTo(X+Math.cos(a)*r*u*.8,Y+Math.sin(a)*r*u*.8);g.stroke();
+  };
+  g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(cx,fy-.2*u,(id==='maman'?9:6)*u,1.6*u,0,0,7);g.fill();
+  if(id==='chaise'){
+    R(7.2,13,1.6,3.4,'#333');R(3,16.2,10,.8,'#333');wheel(3.5,17.2,.9);wheel(8,17.4,.9);wheel(12.5,17.2,.9);
+    R(4,11.4,8,1.8,'#1c1c22');R(4,11.4,8,.5,'#e03a3a');R(2.2,3.5,1.8,8,'#1c1c22');R(2.2,3.5,.5,8,'#e03a3a');R(1.8,2.6,2.6,1.2,'#33333c');
+  }else if(id==='trottinette'){
+    R(2,15.4,12,1.4,'#2a2a30');R(2,16.5,12,.3,'#7fe0ff');wheel(3.2,17.1,1.1);wheel(12.8,17.1,1.1);
+    R(12.6,5.5,.9,10,'#9a9aa4');R(11.6,5.3,3,.8,'#9a9aa4');R(12,13,1.6,1,'#3a3a44');
+  }else if(id==='maman'){
+    R(0,11.5,16,4.2,'#c0392b');R(2,8.6,12,3,'#c0392b');R(3.2,9.1,4.5,2.3,'#9fd0e8');R(8.6,9.1,4.5,2.3,'#9fd0e8');
+    R(4.4,9.5,1.9,1.9,'#e8c09c');R(4.2,9.1,2.3,.8,'#6a4a3a');R(0,14.6,16,.8,'#8a8a94');R(14.6,12.2,1.4,1,'#f4f04a');R(0,12.2,.8,1,'#ff4a4a');
+    wheel(3.5,16.2,1.8);wheel(12.5,16.2,1.8);
+  }
+}
 export function playerLook(S){
   const t=S.eq.torse,h=S.eq.tete;
   return{cls:S.cls,hat:S.hat,coat:t==='trench'?'#1f1c23':t==='tshirt'?'#2d2a33':t==='sweat'?'#4a5a6a':'#4a4552',coatLong:t==='trench',armor:(t==='carton'||t==='eva')?t:null,shirt:t==='tshirt'?'#111':'#161419',logo:t==='tshirt'?'#e07a1f':'#d4ad60',band:h==='bandeau'?'#2b3a8a':'#7a2f2f',wpn:S.eq.arme,glasses:h!=='heaume',vr:h==='heaume',ears:h==='casque',pants:S.eq.jambes==='jambieres'?'#5f5e34':S.eq.jambes==='jogging'?'#2a2a3a':'#25232b'};
@@ -154,6 +178,7 @@ export function drawMob(g,m,cx,fy,s,t){
 export function drawNpc(g,n,cx,fy,s,t){
   if(n.id==='sage')drawChouffin(g,cx,fy,s,{hat:'#4a4552',coat:'#3b2a4a',shirt:'#22182a',band:'#d4ad60',beard:'#d8d3c8',longBeard:true,face:1,glasses:true,skin:'#e8c09c'});
   else if(n.id==='conseiller')drawHuman(g,cx,fy,s,{skin:'#efc8a4',top:'#34456a',pants:'#22283a',hair:'#8a8a90',face:-1,extra:(R,b,f)=>{R(6.6,9.5+b,2.8,6,'#e8e8f0');R(7.6,10+b,.9,4.6,'#a83232');R(5.3+f*.5,5.5+b,2,.4,'#111');R(8.3+f*.5,5.5+b,2,.4,'#111');R(10.6,11+b,3,3.4,'#8a6a3a');R(11.2,10.4+b,1.8,.8,'#6a4a22')}});
+  else if(n.id==='kevin')drawHuman(g,cx,fy,s,{skin:'#efc8a4',top:'#2f7a3a',pants:'#2a2a3a',hair:'#2a1c10',face:-1,extra:(R,b,f)=>{R(4.4,2.4+b,7.2,1.4,'#e03a3a');R(f>0?9.6:2.8,3.4+b,3.6,.8,'#e03a3a');R(7.4,9.6+b,1.2,4,'#e8e8f0');R(6.8,13.4+b,2.4,1.4,'#d4ad60')}});
   else if(n.id==='gerard')drawHuman(g,cx,fy,s,{skin:'#eabf98',top:'#d9d2c0',pants:'#3a3a44',hair:'#5a4632',face:-1,extra:(R,b,f)=>{R(4.8,9.6+b,6.4,5.8,'#2f6b4a');R(6.8,11+b,2.4,1.2,'#d4ad60');R(5.3+f*.5,5.5+b,2.2,2,'rgba(160,210,255,.35)');R(8.3+f*.5,5.5+b,2.2,2,'rgba(160,210,255,.35)');R(5.3+f*.5,5.5+b,5.2,.4,'#111');R(4.4,3+b,7.2,.9,'#efc8a4')}});
   else if(n.id==='bernard')drawHuman(g,cx,fy,s,{wide:true,skin:'#e0a888',top:'#5a4a40',pants:'#2a2420',face:1,extra:(R,b)=>{R(4.8,9.4+b,6.4,6.6,'#6b4a2f');R(4.4,7.6+b,7.2,2.2,'#7a4a2a');R(5,9.6+b,6,1,'#7a4a2a');R(4.4,3+b,7.2,.8,'#e0a888');R(12.8,8+b,1,6,'#6b4a2f');R(11.8,6.8+b,3,2,'#8a8f96')}});
   else if(n.id==='tavernier')drawHuman(g,cx,fy,s,{skin:'#efc8a4',top:'#5a5a62',pants:'#2a2a32',hair:'#3a2a1a',face:1,extra:(R,b,f)=>{R(4.2,2.4+b,7.6,1.8,'#1e1e1e');R(f>0?2.4:10,3.4+b,3.6,.8,'#1e1e1e');R(4.4,7.8+b,7.2,1.4,'#3a2a1a');R(10.6,9.4+b,2,4,'#efe6d6');R(6,11+b,4,1.6,'#c0392b');R(6.4,11.3+b,3.2,1,'#fff')}});

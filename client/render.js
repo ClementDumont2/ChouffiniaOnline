@@ -2,7 +2,7 @@ import {QUESTS} from '../shared/data.js';
 import {clamp,dist} from '../shared/rules.js';
 import {T,tileAt} from '../shared/map.js';
 import {$,rnd,rr} from './util.js';
-import {drawChouffin,drawMob,drawNpc,drawObj,playerLook} from './sprites.js';
+import {MOUNT_LIFT,drawChouffin,drawMob,drawMount,drawNpc,drawObj,playerLook} from './sprites.js';
 import {P,S,WD,me,targetEnt,world} from './state.js';
 
 export const cv=$('#world'),ctx=cv.getContext('2d');
@@ -118,13 +118,13 @@ export function render(t){
   if(!me)ents.push(P);
   ents.sort((a,b)=>a.y-b.y);
   const vis=e=>e.x>cam.x-2&&e.x<cam.x+vw+2&&e.y>cam.y-1&&e.y<cam.y+vh+3;
-  const S1=TS*1.12;
+  const S1=TS*1.12,lift=e=>e.mount?MOUNT_LIFT[e.mount]*S1/16:0;
   for(const e of ents){if(!vis(e))continue;const X=sx(e.x),Y=sy(e.y);
     if(e.kind==='mob'){ctx.globalAlpha=e.alive?1:Math.max(0,e.dieT/.7);drawMob(ctx,e,X,Y,S1*(e.d.scale||1),t);ctx.globalAlpha=1;if(e.stun>0){for(let i=0;i<3;i++){const a=t*4+i*2.1;ctx.fillStyle='#ffd84a';ctx.fillRect(X+Math.cos(a)*TS*.35-2,Y-e.hgt*TS-4+Math.sin(a)*TS*.1,4,4)}}}
     else if(e.kind==='npc')drawNpc(ctx,e,X,Y,S1,t);
     else if(e.kind==='obj')drawObj(ctx,e,X,Y,t);
     else if(e.kind==='bot')drawChouffin(ctx,X,Y,S1,{hat:e.hat,coat:e.coat,shirt:e.shirt,face:e.face,moving:e.moving,step:e.step,tip:e.tip});
-    else if(e.id){if(e.dead)ctx.globalAlpha=.45;const lean=e.drunk>0?Math.sin(t*2.7)*.12:0;if(lean){ctx.save();ctx.translate(X,Y);ctx.rotate(lean);ctx.translate(-X,-Y)}drawChouffin(ctx,X,Y,S1,{...playerLook(world.players[e.id].S),face:e.face,moving:e.moving,step:e.step,tip:e.tipT});if(lean)ctx.restore();ctx.globalAlpha=1}
+    else if(e.id){if(e.dead)ctx.globalAlpha=.45;const lean=e.drunk>0?Math.sin(t*2.7)*.12:0;if(lean){ctx.save();ctx.translate(X,Y);ctx.rotate(lean);ctx.translate(-X,-Y)}if(e.mount)drawMount(ctx,X,Y,S1,e.mount,e);drawChouffin(ctx,X,Y-lift(e),S1,{...playerLook(world.players[e.id].S),face:e.face,moving:e.moving,step:e.step,tip:e.tipT});if(lean)ctx.restore();ctx.globalAlpha=1}
   }
   for(const p of parts){ctx.globalAlpha=1-p.t/p.life;ctx.fillStyle=p.col;ctx.fillRect(sx(p.x),sy(p.y),p.sz*TS,p.sz*TS)}ctx.globalAlpha=1;
   if(WD.id!=='over'){
@@ -134,7 +134,7 @@ export function render(t){
     ctx.globalCompositeOperation='source-over';
   }
   const fs=Math.max(11,Math.round(TS*.31));
-  for(const e of ents){if(!vis(e))continue;if(e.kind==='mob'&&!e.alive)continue;const X=sx(e.x),top=sy(e.y)-e.hgt*TS*(e.kind==='mob'&&e.d.scale?Math.min(1.2,e.d.scale*.75):1)-4;
+  for(const e of ents){if(!vis(e))continue;if(e.kind==='mob'&&!e.alive)continue;const X=sx(e.x),top=sy(e.y)-lift(e)-e.hgt*TS*(e.kind==='mob'&&e.d.scale?Math.min(1.2,e.d.scale*.75):1)-4;
     if(e.kind==='mob'){const col=e.d.boss?'#ff8a3a':e.l>S.lvl+1?'#ff5a4a':e.l<S.lvl-1?'#9d9d9d':'#ffd84a';
       const showBar=e.hp<e.mhp||P.target===e.id||e.st==='chase';let yy=top;
       if(showBar){const bw=TS*(e.d.boss?1.6:.95),bh=Math.max(4,TS*.12);ctx.fillStyle='#000';ctx.fillRect(X-bw/2-1,yy-bh-1,bw+2,bh+2);ctx.fillStyle='#b9352c';ctx.fillRect(X-bw/2,yy-bh,bw*e.hp/e.mhp,bh);yy-=bh+4}
@@ -145,6 +145,6 @@ export function render(t){
     else label(e.n||S.name,X,top,e.id&&e.id!==me?'#7fb6ff':'#ffffff',fs);
   }
   for(const f of floaters){const a=1-f.t/f.life;ctx.globalAlpha=Math.min(1,a*1.6);label(f.txt,sx(f.x),sy(f.y)-f.t*TS*1.1,f.col,f.big?fs*1.5:fs*1.15,800)}ctx.globalAlpha=1;
-  for(const e of ents){if(e.sayT>0&&e.say&&vis(e)&&(e.kind!=='mob'||e.alive)){const extra=e.kind==='npc'||(e.kind==='bot'&&e.g)?fs:0;drawBubble(e.say,sx(e.x),sy(e.y)-e.hgt*TS*(e.kind==='mob'&&e.d.scale?Math.min(1.2,e.d.scale*.75):1)-fs*1.6-extra-(e.kind==='mob'&&(e.hp<e.mhp||P.target===e.id)?TS*.2:0))}}
+  for(const e of ents){if(e.sayT>0&&e.say&&vis(e)&&(e.kind!=='mob'||e.alive)){const extra=e.kind==='npc'||(e.kind==='bot'&&e.g)?fs:0;drawBubble(e.say,sx(e.x),sy(e.y)-lift(e)-e.hgt*TS*(e.kind==='mob'&&e.d.scale?Math.min(1.2,e.d.scale*.75):1)-fs*1.6-extra-(e.kind==='mob'&&(e.hp<e.mhp||P.target===e.id)?TS*.2:0))}}
 }
 export function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);TS=Math.max(30,Math.min(50,Math.floor(Math.min(W,H)/12)))}

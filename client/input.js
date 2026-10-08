@@ -1,5 +1,5 @@
 import {WHISPERS} from '../shared/data.js';
-import {dist,stats} from '../shared/rules.js';
+import {dist,moveSpeed} from '../shared/rules.js';
 import {findEnt} from '../shared/sim.js';
 import {moveEnt} from '../shared/map.js';
 import {$,esc,pick} from './util.js';
@@ -27,6 +27,7 @@ addEventListener('keydown',e=>{
   if(act==='chouffe'||act==='chips'){send({a:'useItem',id:act});e.preventDefault();return}
   if(act==='target'){e.preventDefault();const list=WD.mobs.filter(m=>m.alive&&dist(m,P)<10).sort((a,b)=>dist(a,P)-dist(b,P));if(list.length){const i=list.findIndex(m=>m.id===P.target);send({a:'target',id:list[(i+1)%list.length].id})}return}
   if(act==='bag'||act==='char'||act==='opts'){togglePanel(act);return}
+  if(act==='mount'){send({a:'mount'});e.preventDefault();return}
   if(act==='chat'){e.preventDefault();chatIn.focus();return}
   if(e.code==='Escape'){if(!$('#dlg').hidden)closePanel('dlg');else if(['bag','char','opts'].some(id=>!$('#'+id).hidden)){for(const id of ['bag','char','opts'])$('#'+id).hidden=true}else send({a:'target',id:null})}
 });
@@ -63,7 +64,7 @@ export function updControl(dt,t){
   let L=Math.hypot(dx,dy);
   if(L>0&&(kb||!P.cast)){
     if(P.drunk>0){const a=Math.sin(t*2.7)*.55,c=Math.cos(a),s2=Math.sin(a);const nx=dx*c-dy*s2,ny=dx*s2+dy*c;dx=nx;dy=ny}
-    const s=Math.min(4.4*stats(S,P.drunk).spd*dt,kb?99:L),o={x:P.x,y:P.y};
+    const s=Math.min(4.4*moveSpeed(S,P)*dt,kb?99:L),o={x:P.x,y:P.y};
     moveEnt(WD,o,dx/L*s,dy/L*s);
     const moved=Math.hypot(o.x-P.x,o.y-P.y);
     sendMove(o.x,o.y,Math.abs(dx)>.01?(dx>0?1:-1):0);
