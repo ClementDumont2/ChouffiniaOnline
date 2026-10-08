@@ -15,12 +15,13 @@
 //   {t:'self', save}               état privé complet, envoyé seulement quand il change (avant 'ev' et 'snap')
 //   {t:'ev', list}                 événements du joueur : msg, chat, emote, err, toast, banner, float, burst, puff, lvlup,
 //                                  ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade, online, announce (voir shared/sim.js)
+//                                  board = {tops:[[intitulé, [[pseudo, valeur, guilde], …]], …]} : réponse au 'talk' du Tableau d'Honneur.
 //                                  announce = {who, text} : bannière dorée pour tous (/annonce, droit « annonce »).
 //                                  online = {names} : pseudos de tous les connectés, à chaque arrivée/départ.
 //                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les
 //                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.
-//                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, group).
+//                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, crew : autres joueurs du même donjon).
 import {HATS} from './data.js';
 import {CLASSES} from './data/classes.js';
 import {bossUpcoming,stats} from './rules.js';
@@ -33,14 +34,15 @@ const r2=n=>Math.round(n*100)/100;
 const mobRec=m=>({id:m.id,kind:'mob',type:m.type,l:m.l,x:r2(m.x),y:r2(m.y),hp:Math.round(m.hp),mhp:m.mhp,alive:m.alive,dieT:r2(m.dieT),st:m.st,stun:m.stun>0?1:0,cast:r2(m.cast),castMax:m.castMax,castN:m.castN,castK:m.castK,castR:m.castR,gauge:r2(m.gauge),gaugeN:m.gaugeN,mark:m.mark,spots:m.spots?m.spots.map(q=>({x:r2(q.x),y:r2(q.y)})):null,castI:m.castA&&m.castA.interrupt!=null&&m.cast>0?1:0,zone:m.zone?{x:r2(m.zone.x),y:r2(m.zone.y),r:r2(m.zone.r)}:null,shield:Math.round(m.shield),mshield:m.mshield,affix:m.affix,elite:m.elite,up:m.b&&m.alive?bossUpcoming(m):null,enr:m.enr,face:m.face,moving:m.moving,step:r2(m.step),ph:r2(m.ph),hgt:m.hgt,say:m.sayT>0?m.say:'',sayT:r2(Math.max(0,m.sayT))});
 const objRec=(o,viewer)=>({id:o.id,kind:'obj',type:o.type,n:o.n,x:o.x,y:o.y,hgt:o.hgt,opened:!!o.openedBy&&o.openedBy.includes(viewer),exit:!!o.exit});
 const botRec=b=>({id:b.id,kind:'bot',n:b.n,g:b.g,lvl:b.lvl,hat:b.hat,coat:b.coat,shirt:b.shirt,x:r2(b.x),y:r2(b.y),face:b.face,moving:b.moving,step:r2(b.step),tip:r2(Math.max(0,b.tip)),hgt:b.hgt,say:b.sayT>0?b.say:'',sayT:r2(Math.max(0,b.sayT))});
-function groupRec(w,pl){
-  const g=pl.group&&w.groups[pl.group];if(!g)return null;
-  return{leader:g.leader,members:g.members.filter(id=>id!==pl.id).map(id=>{const p=w.players[id];return{id,n:p.S.name,lvl:p.S.lvl,hp:Math.round(p.S.hp),mhp:stats(p.S,p.P.drunk).maxhp,dead:p.P.dead}})};
+// Les autres joueurs du même donjon : cadres de vie à gauche de l'écran.
+function crewRec(w,pl){
+  if(pl.mapId==='over')return null;
+  return Object.values(w.players).filter(p=>p.mapId===pl.mapId&&p!==pl).map(p=>({id:p.id,n:p.S.name,lvl:p.S.lvl,hp:Math.round(p.S.hp),mhp:stats(p.S,p.P.drunk).maxhp,dead:p.P.dead}));
 }
 function playerRec(w,pl,mine){
   const {S,P}=pl;
-  const rec={id:pl.id,kind:'player',n:P.n,lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
-  if(mine)rec.priv={hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,group:groupRec(w,pl)};
+  const rec={id:pl.id,kind:'player',n:P.n,g:S.guilde||'',lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
+  if(mine)rec.priv={hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,crew:crewRec(w,pl)};
   return rec;
 }
 

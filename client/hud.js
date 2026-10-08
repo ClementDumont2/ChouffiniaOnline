@@ -1,4 +1,6 @@
-import {DIFFS,DUNGEONS,ITEMS,MAXLVL,MOBS,NPCS,QUESTS} from '../shared/data.js';
+import {DIFFS,DUNGEONS,ITEMS,MAXLVL,MOBS,NPCS,QUESTS,STOCK,ZONES} from '../shared/data.js';
+import {MOUNTS} from '../shared/data/mounts.js';
+import {zoneLabels} from '../shared/map.js';
 import {CLASSES,SKILL_DEFS} from '../shared/data/classes.js';
 import {AFFIXES} from '../shared/data/bosses.js';
 import {clamp,npcById,skillsOf,stats,xpNeed} from '../shared/rules.js';
@@ -56,16 +58,26 @@ export function updTarget(){
   if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?'Élite · Gardien de donjon':t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Donjon':'Hostile';$('#thpw').className='bar hp'}
   else if(t.kind==='npc'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='PNJ';$('#tsub').textContent=t.ti;$('#thpw').className='bar npc'}
   else if(t.kind==='obj'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='Objet';$('#tsub').textContent=t.type==='chest'?'Contient des artéfacts':'Portail';$('#thpw').className='bar npc'}
-  else if(t.kind==='player'){un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=`${CLASSES[t.cls]?CLASSES[t.cls].nom:'Chouffin'} · Joueur${t.dead?' · Mort':''}`;$('#thpw').className='bar hp'}
+  else if(t.kind==='player'){un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=`${t.g?`<${t.g}> · `:''}${CLASSES[t.cls]?CLASSES[t.cls].nom:'Chouffin'} · Joueur${t.dead?' · Mort':''}`;$('#thpw').className='bar hp'}
   else{un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=t.g?`<${t.g}> · Chouffin`:'Chouffin · Sans guilde';$('#thpw').className='bar npc'}
 }
-const miniC=$('#mini'),mctx=miniC.getContext('2d');
-export function setMini(){miniC.width=WD.w*MINI_S;miniC.height=WD.h*MINI_S}
+const miniC=$('#mini'),mctx=miniC.getContext('2d'),mapbox=$('#mapbox');
+const SELLERS=new Set([...Object.keys(STOCK),...Object.values(MOUNTS).map(m=>m.seller)]);
+const npcCol=n=>{const q=QUESTS[S.q.i];return q&&q.g===n.id&&S.q.st!=='active'?'#ffd84a':n.dungeon?'#ff4fd8':SELLERS.has(n.id)?'#4ad8ff':n.look==='sign'?'#d8d0b8':'#7be37b'};
+function wrapText(txt,max){const lines=[];for(const wd of txt.split(' ')){const l=lines.length?lines[lines.length-1]+' '+wd:wd;if(lines.length&&mctx.measureText(l).width<=max)lines[lines.length-1]=l;else lines.push(wd)}return lines}
+let zoneLbl=[];
+export function setMini(){miniC.width=WD.w*MINI_S;miniC.height=WD.h*MINI_S;zoneLbl=WD.id==='over'?zoneLabels(WD).map(l=>({...l,n:ZONES[l.z].n})):[]}
+miniC.onclick=()=>mapbox.classList.toggle('big');
+// Infobulle native sur le PNJ le plus proche du curseur (carte agrandie surtout).
+miniC.onmousemove=e=>{
+  const r=miniC.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*WD.w,y=(e.clientY-r.top)/r.height*WD.h;
+  const n=WD.npcs.find(n=>Math.hypot(n.x-x,n.y-y)<2);miniC.title=n?`${n.n} · ${n.ti}`:'';
+};
 export function hud(t){
   const st=stats(S,P.drunk);
   $('#php').style.width=clamp(S.hp/st.maxhp*100,0,100)+'%';$('#phpt').textContent=`${Math.ceil(S.hp)} / ${st.maxhp}`;
   $('#pcaf').style.width=clamp(S.caf/st.maxcaf*100,0,100)+'%';$('#pcaft').textContent=`Caféine ${Math.floor(S.caf)} / ${st.maxcaf}`;
-  $('#plvl').textContent=S.lvl;$('#pname').textContent=S.name+(P.group&&P.group.leader===me?' ★':'');
+  $('#plvl').textContent=S.lvl;$('#pname').textContent=S.name;
   const ratio=S.hp/st.maxhp;$('#vig').className=P.dead?'':ratio<.15?'crit':ratio<.3?'low':'';
   renderParty();
   $('#buffs').innerHTML=(P.drunk>0?`<span>Pompette ${Math.ceil(P.drunk)} s</span>`:'')+Object.entries(P.buffs||{}).map(([id,t])=>`<span>${esc(SKILL_DEFS[id].n)} ${Math.ceil(t)} s</span>`).join('');
@@ -81,18 +93,21 @@ export function hud(t){
   mctx.imageSmoothingEnabled=false;if(WD.mini)mctx.drawImage(WD.mini,0,0);
   const dot=(x,y,c,r)=>{mctx.fillStyle=c;mctx.fillRect(x*MINI_S-r,y*MINI_S-r,r*2,r*2)};
   for(const m of WD.mobs)if(m.alive)dot(m.x,m.y,m.d.boss?'#ff8a3a':'#e2574c',m.d.boss?3.5:1.5);
-  if(WD.id==='over'){for(const b of WD.bots)dot(b.x,b.y,'#7fb6ff',1.5);for(const n of NPCS){const q=QUESTS[S.q.i];dot(n.x,n.y,q&&q.g===n.id&&S.q.st!=='active'?'#ffd84a':'#7be37b',2.5)}}
+  if(WD.id==='over'){for(const b of WD.bots)dot(b.x,b.y,'#7fb6ff',1.5);for(const n of NPCS)dot(n.x,n.y,npcCol(n),n.dungeon?3.5:2.5)}
   for(const o of WD.objs)dot(o.x,o.y,o.type==='chest'?'#f0d070':'#c9a8ff',3);
   mctx.strokeStyle='rgba(255,255,255,.6)';mctx.lineWidth=1;mctx.strokeRect(cam.x*MINI_S+.5,cam.y*MINI_S+.5,(W/TS)*MINI_S,(H/TS)*MINI_S);
   for(const pl of Object.values(world.players))if(pl.id!==me)dot(pl.P.x,pl.P.y,'#7fb6ff',2.5);
   dot(P.x,P.y,'#fff',2.5);
+  if(mapbox.classList.contains('big')){mctx.font='bold 7px sans-serif';mctx.textAlign='center';mctx.lineWidth=2;mctx.strokeStyle='#000';mctx.fillStyle='#ffe9a8';
+    mctx.textBaseline='middle';
+    for(const z of zoneLbl){const ls=wrapText(z.n,Math.max(2*z.r*MINI_S,40));ls.forEach((l,i)=>{const y=(z.y+(i-(ls.length-1)/2)*2.6)*MINI_S,hw=mctx.measureText(l).width/2+1,x=clamp(z.x*MINI_S,hw,miniC.width-hw);mctx.strokeText(l,x,y);mctx.fillText(l,x,y)})}}
   const d=new Date();$('#clk').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   $('#pop').textContent=`${fmt(1247+Math.round(Math.sin(t/40)*23))} en ligne`;
   if(WD.id!=='over'){const left=WD.mobs.filter(m=>m.alive&&!m.d.boss).length,boss=WD.mobs.some(m=>m.alive&&m.d.boss);const el=$('#dgleft');if(el)el.textContent=`Ennemis restants : ${left} · Boss : ${boss?'en vie':'vaincu'}`}
   if(!$('#char').hidden)renderCharStats();
 }
-const partyRow=(m,leader)=>`<div class="frame pm${m.dead?' dead':''}"><div class="uname"><span>${esc(m.n)}${m.id===leader?' ★':''}</span><span class="lvl">${m.lvl}</span></div><div class="bar hp"><i style="width:${clamp(m.hp/m.mhp*100,0,100)}%"></i><span>${m.hp} / ${m.mhp}</span></div></div>`;
-function renderParty(){const g=P.group;$('#party').innerHTML=g?g.members.map(m=>partyRow(m,g.leader)).join(''):''}
+const partyRow=m=>`<div class="frame pm${m.dead?' dead':''}"><div class="uname"><span>${esc(m.n)}</span><span class="lvl">${m.lvl}</span></div><div class="bar hp"><i style="width:${clamp(m.hp/m.mhp*100,0,100)}%"></i><span>${m.hp} / ${m.mhp}</span></div></div>`;
+function renderParty(){$('#party').innerHTML=(P.crew||[]).map(partyRow).join('')}
 export function renderQuest(){
   const q=QUESTS[S.q.i],el=$('#qbody');let h='';
   if(WD.id!=='over'){const df=DIFFS[WD.ti];h+=`<div class="dgbox"><b>${DUNGEONS[WD.dg].n} · ${df.n}</b><span class="obj" id="dgleft"></span><br><button class="btn alt" type="button" id="dgquit">Quitter le donjon</button></div>`}

@@ -271,97 +271,80 @@ test('/danse, /mlady et /khey sont diffusés aux autres joueurs', () => {
   }
 });
 
-function groupe(w, ...ids) {
-  for (const id of ids.slice(1)) { handleChat(w, ids[0], `/inviter ${w.players[id].S.name}`); handleChat(w, id, '/accepter'); }
-}
 const trio = () => {
   const w = createWorld({seed: 2}), p = ['a', 'b', 'c', 'd', 'e'].map(id => addPlayer(w, id, {name: id.toUpperCase()}));
   return {w, a: p[0], b: p[1], c: p[2], d: p[3], e: p[4]};
 };
 const bossOf = D => D.mobs.find(m => m.type === 'archiviste');
+// Le premier entre seul dans les Archives (Normal), puis fait venir les autres un par un.
+function donjon(w, ...ids) {
+  for (const id of ids) w.players[id].S.lvl = 4;
+  const lead = w.players[ids[0]];
+  if (lead.mapId === 'over') { aupres(lead, 'gardien'); handleAction(w, ids[0], {a: 'enterDungeon', ti: 0}); }
+  for (const id of ids.slice(1)) { handleChat(w, ids[0], `/inviter ${w.players[id].S.name}`); handleChat(w, id, '/accepter'); }
+  return w.maps[lead.mapId];
+}
 
-test('groupe : /inviter, /accepter, chef, 4 joueurs maximum', () => {
-  const {w, a, b, c, d, e} = trio();
-  groupe(w, 'a', 'b', 'c', 'd');
-  assert.equal(a.group, b.group);
-  assert.equal(w.groups[a.group].leader, 'a');
-  assert.deepEqual(w.groups[a.group].members, ['a', 'b', 'c', 'd']);
-  takeEvents(w, 'a');
-  handleChat(w, 'a', '/inviter E');
-  assert.match(msgs(w, 'a')[0], /complet/);
-  assert.equal(e.group, null);
-  assert.ok(c && d);
+test('guilde : fonder, nom unique, recruter, /accepter, canal /g, quitter', () => {
+  const {w, a, b, c} = trio();
+  handleChat(w, 'a', '/guilde  Les <Incompris> ');
+  assert.equal(a.S.guilde, 'Les Incompris');
+  handleChat(w, 'c', '/guilde les incompris');
+  assert.equal(c.S.guilde, null, 'nom déjà pris (casse ignorée)');
+  handleChat(w, 'a', '/recruter B'); handleChat(w, 'b', '/accepter');
+  assert.equal(b.S.guilde, 'Les Incompris');
+  takeEvents(w, 'a'); takeEvents(w, 'c');
+  handleChat(w, 'b', '/g salut la guilde');
+  assert.ok(takeEvents(w, 'a').some(e => e.t === 'chat' && e.ch === 'Guilde' && e.text === 'salut la guilde'));
+  assert.ok(!takeEvents(w, 'c').some(e => e.t === 'chat'), 'hors guilde : rien');
+  handleChat(w, 'b', '/quitter');
+  assert.equal(b.S.guilde, null);
+  assert.equal(snapshotFor(w, 'a').ents.find(e => e.id === 'a').g, 'Les Incompris');
 });
 
-test('groupe : seul le chef invite, invitation expirée ou absente refusée, pas de double groupe', () => {
-  const {w, a, b} = trio();
-  groupe(w, 'a', 'b');
-  takeEvents(w, 'b'); takeEvents(w, 'c');
-  handleChat(w, 'b', '/inviter C');
-  assert.match(msgs(w, 'b')[0], /Seul le chef/);
-  handleChat(w, 'c', '/accepter');
-  assert.match(msgs(w, 'c')[0], /Personne ne vous a invité/);
-  handleChat(w, 'a', '/inviter C');
-  tick(w, 61);
+test('invitation : absente ou expirée refusée ; /inviter hors donjon explique quoi faire', () => {
+  const {w} = trio();
   takeEvents(w, 'c');
   handleChat(w, 'c', '/accepter');
   assert.match(msgs(w, 'c')[0], /Personne ne vous a invité/);
-  handleChat(w, 'c', '/inviter A');
-  assert.ok(a && b);
+  takeEvents(w, 'a');
+  handleChat(w, 'a', '/inviter C');
+  assert.match(msgs(w, 'a')[0], /Entrez d'abord dans un donjon/);
+  handleChat(w, 'a', '/guilde Ctrl');
+  handleChat(w, 'a', '/recruter C');
+  tick(w, 61); takeEvents(w, 'c');
+  handleChat(w, 'c', '/accepter');
+  assert.match(msgs(w, 'c')[0], /Personne ne vous a invité/);
 });
 
-test('groupe : le chef qui part passe la main, le dernier membre dissout le groupe, la déconnexion aussi', () => {
-  const {w, a, b} = trio();
-  groupe(w, 'a', 'b', 'c');
-  handleChat(w, 'a', '/quitter');
-  assert.equal(a.group, null);
-  assert.equal(w.groups[b.group].leader, 'b');
-  removePlayer(w, 'c');
-  assert.equal(b.group, null);
-  assert.deepEqual(w.groups, {});
-});
-
-test('Archives en groupe : une seule instance, seul le chef lance, PV ×(1 + 0,6 × (joueurs − 1))', () => {
-  const {w, a, b, c} = trio();
-  groupe(w, 'a', 'b');
-  for (const p of [a, b, c]) { p.S.lvl = 4; aupres(p, 'gardien'); }
-  handleAction(w, 'b', {a: 'enterDungeon', ti: 0});
-  assert.equal(b.mapId, 'over');
-  assert.ok(takeEvents(w, 'b').some(e => e.t === 'err' && /chef de groupe/.test(e.text)));
-  handleAction(w, 'a', {a: 'enterDungeon', ti: 0});
+test('donjon : seul, PV de base ; chaque invité qui rejoint renforce les ennemis ×(1 + 0,6 × (joueurs − 1)), 4 maximum', () => {
+  const {w, a, b, e} = trio();
+  const D = donjon(w, 'a');
   assert.notEqual(a.mapId, 'over');
-  assert.equal(a.mapId, b.mapId);
-  assert.equal(c.mapId, 'over', 'hors groupe : reste dehors');
-  const D = w.maps[a.mapId];
-  assert.equal(D.seed > 0, true);
-  assert.equal(D.mobs.length, D.spawns.length);
-  D.mobs.forEach((m, i) => assert.equal(m.mhp, Math.round(statsDeMob(D.spawns[i].type, D.spawns[i].l).hp * 1.6)));
-  assert.equal(Object.values(w.maps).filter(m => m.id !== 'over').length, 1);
-  handleAction(w, 'c', {a: 'enterDungeon', ti: 0});
-  assert.notEqual(w.maps[c.mapId].id, D.id, 'le solo a sa propre instance');
+  D.mobs.forEach((m, i) => assert.equal(m.mhp, statsDeMob(D.spawns[i].type, D.spawns[i].l).hp, 'seul : pas de bonus'));
+  const base = D.mobs.map(m => m.mhp);
+  donjon(w, 'a', 'b');
+  assert.equal(b.mapId, D.id, 'b rejoint l\'instance de a');
+  D.mobs.forEach((m, i) => assert.ok(Math.abs(m.mhp - base[i] * 1.6) <= 1));
+  donjon(w, 'a', 'c', 'd', 'e');
+  assert.equal(Object.values(w.players).filter(p => p.mapId === D.id).length, 4);
+  assert.equal(e.mapId, 'over', 'cinquième : complet');
+  aupres(e, 'gardien'); handleAction(w, 'e', {a: 'enterDungeon', ti: 0});
+  assert.notEqual(e.mapId, D.id, 'le solo a sa propre instance');
 });
 
-test('Archives en groupe : un membre absent du Bourg-Forum ou trop bas ne descend pas', () => {
-  const {w, a, b, c} = trio();
-  groupe(w, 'a', 'b', 'c');
-  for (const p of [a, b, c]) { p.S.lvl = 4; aupres(p, 'gardien'); }
-  place(b, 7.5, 8.5);
-  c.S.lvl = 3;
-  handleAction(w, 'a', {a: 'enterDungeon', ti: 0});
-  assert.notEqual(a.mapId, 'over');
+test('donjon : un invité trop bas reste dehors', () => {
+  const {w, b} = trio();
+  donjon(w, 'a');
+  handleChat(w, 'a', '/inviter B'); takeEvents(w, 'b');
+  b.S.lvl = 3; handleChat(w, 'b', '/accepter');
   assert.equal(b.mapId, 'over');
-  assert.equal(c.mapId, 'over');
-  assert.ok(msgs(w, 'c').some(t => /Niveau 4 requis/.test(t)));
-  const D = w.maps[a.mapId];
-  assert.equal(D.mobs[0].mhp, statsDeMob(D.spawns[0].type, D.spawns[0].l).hp, 'seul : pas de bonus');
+  assert.ok(msgs(w, 'b').some(t => /Niveau 4 requis/.test(t)));
 });
 
-test('Archives en groupe : boss tué ensemble, chaque membre ouvre son coffre une fois, puis tous remontent', () => {
+test('donjon à deux : boss tué ensemble, chaque joueur ouvre son coffre une fois, puis tous remontent', () => {
   const {w, a, b} = trio();
-  groupe(w, 'a', 'b');
-  for (const p of [a, b]) { p.S.lvl = 4; aupres(p, 'gardien'); }
-  handleAction(w, 'a', {a: 'enterDungeon', ti: 0});
-  const D = w.maps[a.mapId], boss = bossOf(D);
+  const D = donjon(w, 'a', 'b'), boss = bossOf(D);
   for (const p of [a, b]) { place(p, boss.x - 1, boss.y); p.S.hp = 9999; }
   frappe(w, 'a', boss); frappe(w, 'b', boss);
   boss.hp = 1; a.P.cd.tip = 0; frappe(w, 'a', boss);
@@ -375,7 +358,7 @@ test('Archives en groupe : boss tué ensemble, chaque membre ouvre son coffre un
   const goldA = a.S.gold;
   takeEvents(w, 'a');
   handleAction(w, 'a', {a: 'openChest', id: chest.id});
-  assert.equal(a.S.gold, goldA, 'une seule ouverture par membre');
+  assert.equal(a.S.gold, goldA, 'une seule ouverture par joueur');
   assert.ok(takeEvents(w, 'a').some(e => e.t === 'err' && /vide/.test(e.text)));
   assert.deepEqual(chest.openedBy, ['a', 'b']);
   handleAction(w, 'a', {a: 'leaveDungeon'});
@@ -387,15 +370,21 @@ test('Archives en groupe : boss tué ensemble, chaque membre ouvre son coffre un
   assert.deepEqual([a.P.x, a.P.y], [21.5, 20.4]);
 });
 
-test('le snapshot décrit le groupe aux membres et l\'état du coffre par joueur', () => {
-  const {w, a, b} = trio();
-  groupe(w, 'a', 'b');
+test('le snapshot décrit les autres joueurs du donjon (crew), rien sur la carte du monde', () => {
+  const {w, b} = trio();
+  donjon(w, 'a', 'b');
   b.S.lvl = 3;
-  const mine = snapshotFor(w, 'a').ents.find(e => e.id === 'a').priv.group;
-  assert.equal(mine.leader, 'a');
-  assert.deepEqual(mine.members.map(m => [m.id, m.n, m.lvl, m.mhp]), [['b', 'B', 3, 90]]);
-  assert.equal(snapshotFor(w, 'c').ents.find(e => e.id === 'c').priv.group, null);
-  assert.ok(a);
+  const crew = snapshotFor(w, 'a').ents.find(e => e.id === 'a').priv.crew;
+  assert.deepEqual(crew.map(m => [m.id, m.n, m.lvl, m.mhp]), [['b', 'B', 3, 90]]);
+  assert.equal(snapshotFor(w, 'c').ents.find(e => e.id === 'c').priv.crew, null);
+});
+
+test('Tableau d\'Honneur du sous-sol : parler renvoie le classement', () => {
+  const {w, a} = trio();
+  a.S.lvl = 9; aupres(a, 'tableau'); takeEvents(w, 'a');
+  handleAction(w, 'a', {a: 'talk', id: 'tableau'});
+  const board = takeEvents(w, 'a').find(e => e.t === 'board');
+  assert.deepEqual(board.tops[0][1][0], ['A', '9', '']);
 });
 
 function echange() {

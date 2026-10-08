@@ -90,7 +90,7 @@ export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
-export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null});
+export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null});
 // Les sauvegardes viennent d'un fichier (parfois édité à la main, parfois abîmé) : on les remet d'aplomb sans jamais lever d'exception.
 // Entier borné ; une valeur absente donne `def`, une valeur absurde (texte, NaN, négatif) donne `min`.
 const int=(v,def,min=0,max=1e12)=>v===undefined?def:Number.isFinite(+v)&&v!==null&&v!==''?Math.min(max,Math.max(min,Math.floor(+v))):min;
@@ -107,6 +107,7 @@ export function normalizeSave(sv){
   S.ach=isObj(sv.ach)?sv.ach:{};
   S.q={i:int(isObj(sv.q)?sv.q.i:0,0,0,QUESTS.length),st:isObj(sv.q)&&['avail','active','ready'].includes(sv.q.st)?sv.q.st:'avail',n:int(isObj(sv.q)?sv.q.n:0,0)};
   S.concede=typeof sv.concede==='string'?sv.concede:null;
+  S.guilde=typeof sv.guilde==='string'&&sv.guilde.trim()?sv.guilde.slice(0,32):null;
   if(typeof sv.titre!=='string')delete S.titre;
   const rawInv=Array.isArray(sv.inv)?sv.inv:base.inv,rawEq=isObj(sv.eq)?sv.eq:{};
   S.eq=Object.assign(newSave().eq,rawEq);

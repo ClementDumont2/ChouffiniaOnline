@@ -55,6 +55,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #mapbox{top:12px;right:12px;width:168px;padding:6px}
 #zone{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--gold);text-align:center;line-height:1.2;min-height:2.4em;display:grid;place-items:center;text-wrap:balance}
 #mini{display:block;width:100%;height:auto;border:1px solid #000;margin-top:4px;image-rendering:pixelated;background:#000}
+#mini{cursor:zoom-in}
+#mapbox.big{top:50%;left:50%;right:auto;transform:translate(-50%,-50%);width:min(1000px,calc(100% - 32px));z-index:8}
+#mapbox.big #mini{cursor:zoom-out}
+#maplg{display:none;flex-wrap:wrap;gap:4px 12px;justify-content:center;margin-top:6px;font-size:12px}
+#mapbox.big #maplg{display:flex}
+#maplg i{display:inline-block;width:8px;height:8px;margin-right:4px;border:1px solid #000}
 #clock{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
 #quests{top:214px;right:12px;width:220px;padding:8px 10px 10px}
 #quests h3{margin:0 0 4px;font-family:var(--f-display);font-size:12px;letter-spacing:.08em;color:var(--gold);text-transform:uppercase}
@@ -93,6 +99,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #log .m{overflow-wrap:anywhere}
 #log .who{color:var(--friend);font-weight:700}
 #log .gen .ch{color:#d9b48a}
+#log .guild,#log .guild .ch{color:#7be37b}
+.board{margin:0 0 8px;padding:0;list-style:none}
+.board li{display:flex;gap:6px;align-items:baseline}
+.board li span:last-child{margin-left:auto;color:var(--gold)}
 #log .sys{color:var(--sys)}
 #log .cb{color:#c9bfb0} #log .cb.in{color:#f08a7e}
 #log .loot{color:var(--r-unc)} #log .xpm{color:#b79af0}
@@ -340,6 +350,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
     <div id="mapbox" class="hud frame">
       <div id="zone"></div>
       <canvas id="mini"></canvas>
+      <div id="maplg"><span><i style="background:#fff"></i>Vous</span><span><i style="background:#4ad8ff"></i>Marchand</span><span><i style="background:#ff4fd8"></i>Donjon</span><span><i style="background:#ff8a3a"></i>Boss</span><span><i style="background:#ffd84a"></i>Quête</span><span><i style="background:#7be37b"></i>PNJ</span><span><i style="background:#d8d0b8"></i>Panneau</span><span><i style="background:#7fb6ff"></i>Joueur</span><span><i style="background:#e2574c"></i>Monstre</span></div>
       <div id="clock"><span id="clk"></span><span id="pop"></span></div>
     </div>
 
@@ -388,7 +399,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
       <div class="ph"><h2>Options</h2><button class="x" data-close="opts" aria-label="Fermer">×</button></div>
       <p class="ty">Touches de cet appareil. « Changer » attend la prochaine touche (Échap pour annuler) ; une touche déjà prise est échangée.</p>
       <div id="optsBody" class="optk"></div>
-      <div class="optk snd"><label><input type="checkbox" id="optSnd"> Sons</label><label>Volume <input type="range" id="optVol" min="0" max="100"></label></div>
+      <div class="optk snd"><label><input type="checkbox" id="optSnd"> Sons</label><label><input type="checkbox" id="optMus"> Musique</label><label>Volume <input type="range" id="optVol" min="0" max="100"></label></div>
       <div class="acts"><button class="btn alt" id="optsReset" type="button">Réinitialiser</button></div>
     </div>
 

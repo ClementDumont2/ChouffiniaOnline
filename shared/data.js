@@ -100,7 +100,7 @@ export const NPCS=[
     greet:"Armes et armures, tout est fait main. Enfin, fait à l'autre bout du monde, mais assemblé à la main. Par moi. Au pistolet à colle."},
   {id:'tavernier',kind:'npc',n:"Le Khey Tavernier",tag:"Taverne du 18-25",ti:"Taverne du 18-25 · Membre depuis 2011",x:12.9,y:18.55,hgt:1.2,
     greet:"Bienvenue au 18-25, khey. Ici on a tous 18 ans depuis 2011. Une Chouffe ? Par pitié le khey, prends une Chouffe, t'as une tête de PNJ de zone de départ."},
-  {id:'gardien',kind:'npc',n:"Le Gardien des Archives",tag:"Archives du Forum",ti:"Donjon · Les Archives Oubliées du Forum",x:22.6,y:18.7,hgt:1.25,
+  {id:'gardien',kind:'npc',n:"Le Gardien des Archives",tag:"Archives du Forum",ti:"Donjon · Les Archives Oubliées du Forum",x:22.6,y:18.7,hgt:1.25,dungeon:'archives',
     greet:"Sous ce bourg dorment les Archives Oubliées du Forum : quinze ans de topics morts, de pavés et de flame wars. Des trésors y attendent. Des nécroposteurs aussi."},
   {id:'kevin',kind:'npc',n:"Kévin, Concessionnaire",tag:"Montures",ti:"Concessionnaire · Chaises et trottinettes",x:22.4,y:15.3,hgt:1.2,
     greet:"Salut le khey. Chaise de Gamer, Trottinette Électrique : tout roule, littéralement. Je prends les paiements en or, en Chouffe, ou en compliments. Surtout en or."},
@@ -109,7 +109,9 @@ export const NPCS=[
   {id:'fanfiqueuse',kind:'npc',n:"La Fanfiqueuse",tag:"Fusion d'équipement",ti:"Écrivaine · Fusionne deux objets du même emplacement",x:23.4,y:20.2,hgt:1.2,
     greet:"Chut, j'écris. Tiens, j'ai un crossover à te proposer : tes deux objets, dans le même univers, avec une tension qu'on ne voit pas à l'écran. Rassure-toi, ça ne choque que les objets."},
   {id:'conseiller',kind:'npc',n:"Le Conseiller d'Orientation",tag:"Reconversion",ti:"Orientation · Changement de classe",x:16.9,y:19.8,hgt:1.2,
-    greet:"Bonjour. Vous voulez être soigneur, tank ou en vitesse ? Dans la vraie vie on n'a pas ce choix, profitez. Je ne juge pas votre parcours. Enfin si, mais ça se règle avec de l'or."}
+    greet:"Bonjour. Vous voulez être soigneur, tank ou en vitesse ? Dans la vraie vie on n'a pas ce choix, profitez. Je ne juge pas votre parcours. Enfin si, mais ça se règle avec de l'or."},
+  {id:'tableau',kind:'npc',n:"Tableau d'Honneur",tag:"Classement",ti:"Classement du serveur · Mis à jour en direct",x:10.5,y:9.6,hgt:1.2,look:'sign',board:true,
+    greet:"Punaisé au mur du sous-sol par Maman, à côté du dessin de CP. Les meilleurs chouffins du serveur. Si vous n'y êtes pas, ce n'est pas grave. Si, un peu."}
 
 ].map(n=>({...n,lines:LIGNES_PNJ[n.id]||[]}));
 export const BOTS=[['xX_DarkSasuke_Xx','Les Incompris'],['Kévin_du_42','Ctrl+Alt+Défaite'],['FedoraLord1987','Sous-Sol Éternel'],['MangaKing2009',''],['LeMageNoir','Sans Lumière du Jour'],['Sylvain_Tank','Ctrl+Alt+Défaite'],['NeckbeardSama','Les Incompris'],['PapyGamer',''],['Khey_du_18-25','Par Pitié'],['Célestin_Niv99','Par Pitié']];

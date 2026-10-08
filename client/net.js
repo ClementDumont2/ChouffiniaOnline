@@ -83,7 +83,7 @@ function applySnap(m){
   const r=by.player.find(x=>x.id===me);
   if(r){
     const prev=P.target,{priv}=r;
-    Object.assign(P,{tipT:r.tipT,dead:r.dead,drunk:r.drunk,say:r.say,sayT:r.sayT,cd:priv.cd,buffs:priv.buffs,mount:r.mount,cast:priv.cast,target:priv.target,auto:priv.auto,group:priv.group});
+    Object.assign(P,{tipT:r.tipT,dead:r.dead,drunk:r.drunk,say:r.say,sayT:r.sayT,cd:priv.cd,buffs:priv.buffs,mount:r.mount,cast:priv.cast,target:priv.target,auto:priv.auto,crew:priv.crew});
     mine.S.hp=priv.hp;mine.S.caf=priv.caf;
     if(prev!==P.target)hooks.target();
   }

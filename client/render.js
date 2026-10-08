@@ -187,9 +187,11 @@ export function render(t){
     else if(e.kind==='bot'){if(e.g){label(e.n,X,top-fs*.9,'#7fb6ff',fs-1);label(`<${e.g}>`,X,top,'rgba(180,200,230,.9)',fs-3,500)}else label(e.n,X,top,'#7fb6ff',fs-1)}
     else{
       // Titre obtenu (ex. « Diplômé (enfin) ») : sous le nom, comme la guilde d'un PNJ.
-      const ti=e.titre||(e.id===me?S.titre:'');
-      if(ti){label(`<${ti}>`,X,top,'rgba(240,208,112,.95)',fs-3,500);label(e.n||S.name,X,top-fs*.9,e.id&&e.id!==me?'#7fb6ff':'#ffffff',fs)}
-      else label(e.n||S.name,X,top,e.id&&e.id!==me?'#7fb6ff':'#ffffff',fs);
+      // Empilés de bas en haut : guilde, titre, pseudo.
+      const ti=e.titre||(e.id===me?S.titre:''),g=e.g||(e.id===me?S.guilde:'');let y=top;
+      if(g){label(`<${g}>`,X,y,'rgba(180,200,230,.9)',fs-3,500);y-=fs*.9}
+      if(ti){label(`« ${ti} »`,X,y,'rgba(240,208,112,.95)',fs-3,500);y-=fs*.9}
+      label(e.n||S.name,X,y,e.id&&e.id!==me?'#7fb6ff':'#ffffff',fs);
     }
   }
   for(const f of floaters){const a=1-f.t/f.life;ctx.globalAlpha=Math.min(1,a*1.6);label(f.txt,sx(f.x),sy(f.y)-f.t*TS*1.1,f.col,f.big?fs*1.5:fs*1.15,800)}ctx.globalAlpha=1;

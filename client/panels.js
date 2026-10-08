@@ -9,7 +9,7 @@ import {buildBar,itemLink,tipEl,tipOn} from './hud.js';
 import {MOUNTS} from '../shared/data/mounts.js';
 import {getSound,setSound} from './sound.js';
 import {ACTIONS,helpHTML,keyOf,label,rebind,resetKeys} from './keys.js';
-import {P,S,WD,me,send} from './state.js';
+import {P,S,WD,send} from './state.js';
 
 let dlgNpc=null,dlgRedo=null,trade=null;
 let selItem=-1,selId=null;
@@ -141,6 +141,7 @@ function showNpc(n){
   }
   if(n.id==='fanfiqueuse'){btns.unshift(['Fusionner deux objets',()=>{fusSel=[];openFusion(n)}])}
   if(n.id==='conseiller'){btns.unshift(['Changer de classe',()=>openClassMenu(n)])}
+  if(n.board)html+=board?board.map(([lbl,rows])=>`<h4>${esc(lbl)}</h4><ol class="board">${rows.map(([nm,v,g],i)=>`<li><span class="ty">${i+1}.</span><b>${esc(nm)}</b>${g?` <span class="ty">&lt;${esc(g)}&gt;</span>`:''}<span>${esc(v)}</span></li>`).join('')}</ol>`).join(''):'<p class="ty">Chargement du classement…</p>';
   btns.push(['Au revoir',()=>closePanel('dlg'),true]);
   dialog(n.n,n.ti,html,btns,false,n);
   dlgRedo=()=>showNpc(n);
@@ -216,9 +217,8 @@ function openDungeonMenu(n){
   const dg=DUNGEONS[n.dungeon],wrap=document.createElement('div');
   wrap.innerHTML=`<p>${esc(dg.desc)} Plus la difficulté est haute, plus les artéfacts sont rares et chers.</p><p class="rw">Astuce : ${esc(dg.astuce)}</p>`;
   const box=document.createElement('div');box.className='diff';
-  const g=P.group,follower=g&&g.leader!==me;
-  if(g)wrap.insertAdjacentHTML('beforeend',`<p class="rw">${follower?`Seul le chef de groupe peut lancer ${esc(dg.court)}.`:'Tous les membres présents dans la zone descendent avec vous. Chaque joueur en plus renforce les ennemis de 60 % de PV.'}</p>`);
-  dgDiffs(n.dungeon).forEach((df,i)=>{const b=document.createElement('button');b.type='button';b.className='dbtn';b.disabled=follower||S.lvl<df.rl;
+  wrap.insertAdjacentHTML('beforeend','<p class="rw">Vous entrez seul. Une fois dedans, <b>/inviter &lt;pseudo&gt;</b> fait venir un ami (4 joueurs maximum) ; chaque joueur en plus renforce les ennemis de 60 % de PV.</p>');
+  dgDiffs(n.dungeon).forEach((df,i)=>{const b=document.createElement('button');b.type='button';b.className='dbtn';b.disabled=S.lvl<df.rl;
     const rar=Object.keys(df.w).map(k=>RN[k]).join(', ');
     b.innerHTML=`<b>${df.n}</b><span>${esc(df.sub)} · Artéfacts : ${rar}</span><em>Niveau ${df.rl}+<br>Ennemis niv. ${df.L}</em>`;b.onclick=()=>{closePanel('dlg');send({a:'enterDungeon',ti:i,dg:n.dungeon})};box.appendChild(b)});
   wrap.appendChild(box);
@@ -227,6 +227,9 @@ function openDungeonMenu(n){
 export function unlockDlg(){dlgLocked=false;$('#dlg').hidden=true}
 export function autoCloseDlg(){if(dlgNpc&&!$('#dlg').hidden&&dist(P,dlgNpc)>3.2)closePanel('dlg')}
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.close;if(id==='dlg'&&dlgLocked){send({a:'respawn'});return}closePanel(id)}));
+// Classement envoyé par le serveur quand on parle au Tableau d'Honneur.
+let board=null;
+export function setBoard(t){board=t;refreshDialog()}
 export function refreshDialog(){if(dlgRedo&&!dlgLocked&&!$('#dlg').hidden)dlgRedo()}
 export function openPortal(){
   dialog(DUNGEONS[WD.dg].sortie,DUNGEONS[WD.dg].n,`<p>${WD.done?'Le butin est à vous. Gérard rachète tous les artéfacts au Bourg-Forum.':`Vous partez déjà ? ${DUNGEONS[WD.dg].n} n'est pas terminé. Vous ne pourrez pas reprendre cette exploration.`}</p>`,[['Sortir du donjon',()=>{closePanel('dlg');send({a:'leaveDungeon'})}],['Rester',()=>closePanel('dlg'),true]]);
@@ -284,7 +287,7 @@ let waiting=null;
 export function refreshKeyLabels(){buildBar();$('#help').innerHTML=helpHTML()}
 export function renderOpts(){
   if($('#opts').hidden)return;
-  const snd=getSound();$('#optSnd').checked=snd.on;$('#optVol').value=Math.round(snd.vol*100);
+  const snd=getSound();$('#optSnd').checked=snd.on;$('#optMus').checked=snd.music;$('#optVol').value=Math.round(snd.vol*100);
   const body=$('#optsBody');body.innerHTML='';
   for(const [id,lbl] of ACTIONS){
     body.insertAdjacentHTML('beforeend',`<span>${lbl}</span><kbd>${waiting===id?'…':esc(label(keyOf(id)))}</kbd>`);
@@ -300,5 +303,6 @@ addEventListener('keydown',e=>{
 },true);
 $('#optSnd').onchange=e=>setSound({on:e.target.checked});
 $('#optVol').oninput=e=>setSound({vol:e.target.value/100});
+$('#optMus').onchange=e=>setSound({music:e.target.checked});
 $('#deadbtn').onclick=()=>send({a:'respawn'});
 $('#optsReset').onclick=()=>{resetKeys();waiting=null;renderOpts();refreshKeyLabels()};
