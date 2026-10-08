@@ -592,6 +592,7 @@ export function handleChat(w,id,text){
     else if(/^\/(mp|w)(\s|$)/.test(c))whisper(w,pl,v);
     else if(/^\/inviter?(\s|$)/.test(c))invite(w,pl,v.split(/\s+/)[1]);
     else if(/^\/(echanger|trade)(\s|$)/.test(c))requestTrade(w,pl,v.split(/\s+/)[1]);
+    else if(c==='/top')top(w,pl);
     else if(c==='/accepter'||c==='/accept')acceptInvite(w,pl);
     else if(c==='/quitter'||c==='/leave')leaveGroup(w,pl);
     else if(c==='/danse'||c==='/dance'){say(P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote('danse maladroitement. Personne ne regarde. Heureusement.')}
@@ -612,6 +613,16 @@ export function handleChat(w,id,text){
 }
 
 const zoneName=(map,P)=>{const z=zoneAt(map,P.x,P.y);return z==='dungeon'?`Archives Oubliées, ${DIFFS[map.ti].n}`:ZONES[z].n};
+
+// w.saves() est fourni par le serveur (toutes les sauvegardes, hors-ligne compris) ; la sim seule ne connaît que les connectés.
+const TOPS=[['Niveau',S=>S.lvl,(a,b)=>b.xp-a.xp],['Archives terminées',S=>S.dg||0],['Chouffes bues',S=>S.chouffes||0]];
+function top(w,pl){
+  const rows=w.saves?w.saves():Object.values(w.players).map(p=>p.S);
+  for(const [label,val,tie] of TOPS){
+    const best=[...rows].sort((a,b)=>val(b)-val(a)||(tie?tie(a,b):0)).slice(0,5);
+    msg(w,pl.id,'sys',`Top ${label} : ${best.map((S,i)=>`${i+1}. ${S.name} (${fmt(val(S))})`).join(' · ')}`);
+  }
+}
 
 function whisper(w,pl,v){
   const [,to,...words]=v.split(/\s+/),text=words.join(' ');

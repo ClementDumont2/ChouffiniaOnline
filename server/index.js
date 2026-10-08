@@ -1,5 +1,5 @@
 import http from 'node:http';
-import {mkdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
+import {mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {extname, join, normalize, sep} from 'node:path';
 import {networkInterfaces} from 'node:os';
@@ -44,6 +44,14 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
       renameSync(tmp, saveFile(c.name));
     }
   }
+  // ponytail: relit tous les fichiers à chaque /top ; un cache si la liste dépasse quelques centaines de joueurs.
+  world.saves = () => {
+    const all = new Map();
+    for (const f of readdirSync(savesDir)) if (f.endsWith('.json')) { const S = loadSave(f.slice(0, -5)); if (S && S.name) all.set(f.toLowerCase(), S); }
+    // L'état en mémoire est plus récent que le disque (sauvegarde toutes les 10 s).
+    for (const c of conns.values()) all.set(c.name.toLowerCase() + '.json', world.players[c.id].S);
+    return [...all.values()];
+  };
   const send = (ws, msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
 
   const server = http.createServer(async (req, res) => {

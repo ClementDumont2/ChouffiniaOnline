@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync, existsSync, readFileSync} from 'node:fs';
+import {mkdtempSync, existsSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import WebSocket from 'ws';
@@ -229,4 +229,15 @@ test('heartbeat : une connexion qui ne répond plus aux pings est purgée et son
     await new Promise(r => setTimeout(r, 400));
     assert.equal(Object.keys(srv.world.players).length, 0, 'le zombie a été retiré');
   } finally { await srv.close(); }
+});
+
+test('/top lit aussi les sauvegardes des joueurs hors-ligne', async () => {
+  const {client, savesDir, stop} = await setup();
+  try {
+    writeFileSync(join(savesDir, 'fantome.json'), JSON.stringify({name: 'Fantome', lvl: 42, xp: 0, dg: 3, chouffes: 9}));
+    const a = await client('alice');
+    a.send({t: 'chat', text: '/top'});
+    const ev = await a.next(m => m.t === 'ev' && m.list.some(e => /Top Niveau/.test(e.text || '')));
+    assert.match(ev.list.find(e => /Top Niveau/.test(e.text || '')).text, /1\. Fantome \(42\) · 2\. alice \(1\)/i);
+  } finally { await stop(); }
 });

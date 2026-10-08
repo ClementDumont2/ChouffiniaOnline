@@ -462,3 +462,16 @@ test('échange : annulation, mort et déconnexion ferment la fenêtre des deux c
     assert.ok(takeEvents(w, 'b').some(e => e.t === 'trade' && e.end));
   }
 });
+
+test('/top : trois classements, triés, hors-ligne compris via w.saves()', () => {
+  const w = createWorld({seed: 1}), a = addPlayer(w, 'a', {name: 'Alice'});
+  const S = (name, lvl, dg, chouffes) => ({name, lvl, xp: 0, dg, chouffes});
+  w.saves = () => [S('Zed', 12, 0, 1), S('Yan', 30, 5, 0), a.S, S('Xia', 30, 9, 40)];
+  a.S.lvl = 7; a.S.chouffes = 3;
+  takeEvents(w, 'a');
+  handleChat(w, 'a', '/top');
+  const [niv, dg, chouffes] = msgs(w, 'a');
+  assert.match(niv, /^Top Niveau : 1\. (Yan|Xia) \(30\) · 2\. (Yan|Xia) \(30\) · 3\. Zed \(12\) · 4\. Alice \(7\)$/);
+  assert.match(dg, /^Top Archives terminées : 1\. Xia \(9\) · 2\. Yan \(5\)/);
+  assert.match(chouffes, /^Top Chouffes bues : 1\. Xia \(40\) · 2\. Alice \(3\) · 3\. Zed \(1\)/);
+});
