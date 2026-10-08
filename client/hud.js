@@ -46,6 +46,7 @@ export function hud(t){
   $('#php').style.width=clamp(S.hp/st.maxhp*100,0,100)+'%';$('#phpt').textContent=`${Math.ceil(S.hp)} / ${st.maxhp}`;
   $('#pcaf').style.width=clamp(S.caf/st.maxcaf*100,0,100)+'%';$('#pcaft').textContent=`Caféine ${Math.floor(S.caf)} / ${st.maxcaf}`;
   $('#plvl').textContent=S.lvl;$('#pname').textContent=S.name+(P.group&&P.group.leader===me?' ★':'');
+  const ratio=S.hp/st.maxhp;$('#vig').className=P.dead?'':ratio<.15?'crit':ratio<.3?'low':'';
   renderParty();
   $('#buffs').innerHTML=P.drunk>0?`<span>Pompette ${Math.ceil(P.drunk)} s</span>`:'';
   const need=xpNeed(S.lvl);$('#xp i').style.width=(S.lvl>=MAXLVL?100:S.xp/need*100)+'%';$('#xp span').textContent=S.lvl>=MAXLVL?'Niveau maximum. Il est temps de sortir.':`XP ${fmt(S.xp)} / ${fmt(need)}`;

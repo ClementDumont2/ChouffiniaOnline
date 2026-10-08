@@ -267,12 +267,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   #start .card{padding:16px 14px}
   #bagGrid{grid-template-columns:repeat(6,1fr)}
 }
-@media (prefers-reduced-motion:reduce){.toast,#banner.show{animation-duration:.01s}}
+/* Au-dessus du canvas, sous les cadres du HUD : le liseré ne doit pas teinter l'interface. */
+#vig{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(200,0,0,.55) 100%)}
+#vig.low{opacity:1;animation:vig 1.6s ease-in-out infinite}
+#vig.crit{opacity:1;background:radial-gradient(ellipse at center,transparent 38%,rgba(220,0,0,.8) 100%);animation:vig .7s ease-in-out infinite}
+@keyframes vig{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.toast,#banner.show{animation-duration:.01s}#vig.low,#vig.crit{animation:none}}
 </style>
 </head>
 <body>
 <div id="app">
   <canvas id="world" aria-label="Monde du jeu"></canvas>
+  <div id="vig"></div>
 
   <div id="hudwrap" hidden>
     <div id="pframe" class="hud frame unit">
