@@ -5,7 +5,7 @@ import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
 import {burst,floater,paintWorld,parts,render,resize,updFx} from './render.js';
 import {banner,buildBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
-import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,unlockDlg} from './panels.js';
+import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {buildMap,connect,hooks,interp} from './net.js';
 import {P,S,WD,running,setMap} from './state.js';
@@ -47,6 +47,7 @@ hooks.event=e=>{
     case 'tp':case 'stop':nav.goal=nav.follow=null;break;
     case 'approach':nav.follow=e.id;nav.goal=null;break;
     case 'chest':showChest(e);break;
+    case 'trade':showTrade(e);break;
     case 'campaignEnd':setTimeout(showEnd,900);break;
   }
 };

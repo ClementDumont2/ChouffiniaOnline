@@ -58,7 +58,7 @@ export function addPlayer(w,id,{save,name,hat}={}){
 
 export function removePlayer(w,id){
   const pl=w.players[id];if(!pl)return;
-  dropAggro(w,pl);leaveGroup(w,pl,true);
+  endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);dropAggro(w,pl);leaveGroup(w,pl,true);
   for(const k in w.invites)if(k===id||w.invites[k].from===id)delete w.invites[k];
   delete w.players[id];
   destroyIfEmpty(w,pl.mapId);
@@ -238,7 +238,7 @@ function hurtPlayer(w,pl,d,m,verb){
 
 function die(w,pl){
   const {S,P}=pl;
-  P.dead=true;P.cast=null;P.auto=false;S.deaths++;ach(w,pl,'death');
+  P.dead=true;P.cast=null;P.auto=false;S.deaths++;ach(w,pl,'death');endTrade(w,pl,'Échange annulé : un des joueurs est mort.');
   dropAggro(w,pl);
   ev(w,pl.id,{t:'died'});ev(w,pl.id,{t:'self'});
 }
@@ -339,6 +339,7 @@ function acceptInvite(w,pl){
   const inv=w.invites[pl.id],from=inv&&w.players[inv.from];
   delete w.invites[pl.id];
   if(!inv||inv.exp<w.time||!from){msg(w,pl.id,'sys','Personne ne vous a invité récemment. Ça arrive.');return}
+  if(inv.kind==='trade'){openTrade(w,from,pl);return}
   if(pl.group){msg(w,pl.id,'sys','Vous êtes déjà dans un groupe : /quitter d\'abord.');return}
   let g=groupOf(w,from);
   if(g&&(g.leader!==from.id||g.members.length>=GROUP_MAX)){msg(w,pl.id,'sys','Ce groupe est complet ou son chef a changé.');return}
@@ -357,6 +358,84 @@ function leaveGroup(w,pl,quiet){
   }
   toGroup(w,g,`[${pl.S.name}] quitte le groupe.`);
   if(g.leader===pl.id){g.leader=g.members[0];toGroup(w,g,`[${w.players[g.leader].S.name}] devient chef de groupe.`)}
+}
+
+// Échange : l'offre de chaque joueur vit dans pl.trade. Toute modification d'une offre annule les deux validations,
+// sinon on pourrait changer l'objet après que l'autre a validé.
+const owned=(S,id)=>S.inv.reduce((a,s)=>a+(s.id===id?s.n:0),0);
+function takeItem(S,id,n){
+  for(const s of S.inv){if(s.id!==id)continue;const k=Math.min(n,s.n);s.n-=k;n-=k;if(!n)break}
+  S.inv=S.inv.filter(s=>s.n>0);
+}
+const tradeSide=T=>({items:T.items,gold:T.gold,ok:T.ok});
+function sendTrade(w,pl){
+  const T=pl.trade,o=w.players[T.with];
+  ev(w,pl.id,{t:'trade',with:o.S.name,mine:tradeSide(T),theirs:tradeSide(o.trade)});
+}
+function endTrade(w,pl,why){
+  const T=pl.trade;if(!T)return;
+  const o=w.players[T.with];
+  for(const p of [pl,o])if(p&&p.trade){p.trade=null;ev(w,p.id,{t:'trade',end:true});if(why)msg(w,p.id,'sys',why)}
+}
+
+function requestTrade(w,pl,name){
+  if(!name){msg(w,pl.id,'sys','Usage : /echanger <pseudo>');return}
+  const dest=byName(w,name);
+  if(!dest){msg(w,pl.id,'sys',`Personne ne s'appelle ${name} en ligne.`);return}
+  if(dest===pl){msg(w,pl.id,'sys','Vous échangez avec vous-même. Le taux est avantageux, mais ça ne rapporte rien.');return}
+  if(pl.trade||dest.trade){msg(w,pl.id,'sys','Un échange est déjà en cours.');return}
+  w.invites[dest.id]={from:pl.id,exp:w.time+INVITE_TTL,kind:'trade'};
+  msg(w,dest.id,'sys',`[${pl.S.name}] vous propose un échange. Tapez /accepter pour ouvrir la fenêtre (l'invitation expire dans ${INVITE_TTL} s).`);
+  msg(w,pl.id,'sys',`Proposition d'échange envoyée à [${dest.S.name}].`);
+}
+
+function openTrade(w,a,b){
+  if(a.trade||b.trade||a.P.dead||b.P.dead){msg(w,b.id,'sys','Échange impossible pour le moment.');return}
+  for(const [p,o] of [[a,b],[b,a]])p.trade={with:o.id,items:[],gold:0,ok:false};
+  sendTrade(w,a);sendTrade(w,b);
+}
+
+function tradeOffer(w,pl,a){
+  const T=pl.trade;if(!T)return;
+  const items=new Map();
+  for(const x of Array.isArray(a.items)?a.items.slice(0,BAG):[]){
+    if(!x||!ITEMS[x.id]||!Number.isInteger(x.n)||x.n<1)continue;
+    items.set(x.id,(items.get(x.id)||0)+x.n);
+  }
+  const gold=Number.isInteger(a.gold)?a.gold:0;
+  if(gold<0||gold>pl.S.gold||[...items].some(([id,n])=>n>owned(pl.S,id)))err(w,pl.id,'Offre refusée : vous ne possédez pas tout ça.');
+  else{T.items=[...items].map(([id,n])=>({id,n}));T.gold=gold;T.ok=false;w.players[T.with].trade.ok=false}
+  sendTrade(w,pl);sendTrade(w,w.players[T.with]);
+}
+
+function tradeOk(w,pl){
+  const T=pl.trade;if(!T)return;
+  const o=w.players[T.with];T.ok=true;
+  if(o.trade.ok)commitTrade(w,pl,o);
+  else{sendTrade(w,pl);sendTrade(w,o)}
+}
+
+function commitTrade(w,a,b){
+  const valid=p=>p.trade.gold<=p.S.gold&&p.trade.items.every(({id,n})=>owned(p.S,id)>=n);
+  if(!valid(a)||!valid(b)){endTrade(w,a,'Échange annulé : une offre n\'est plus valide.');return}
+  const bak=[a,b].map(p=>JSON.stringify([p.S.inv,p.S.gold]));
+  for(const p of [a,b])for(const {id,n} of p.trade.items)takeItem(p.S,id,n);
+  // Les emplacements libérés par l'un servent à l'autre : on ne teste la place qu'une fois les deux sacs vidés.
+  const give=(from,to)=>{
+    to.S.gold+=from.trade.gold;from.S.gold-=from.trade.gold;
+    return from.trade.items.every(({id,n})=>stackable(id)?addItem(w,to,id,n):Array.from({length:n},()=>addItem(w,to,id,1)).every(Boolean));
+  };
+  if(!(give(a,b)&&give(b,a))){
+    [a,b].forEach((p,i)=>{[p.S.inv,p.S.gold]=JSON.parse(bak[i])});
+    endTrade(w,a,'Échange annulé : un des sacs est plein.');return;
+  }
+  for(const [p,o] of [[a,b],[b,a]]){
+    for(const {id} of o.trade.items)msg(w,p.id,'loot',`Vous recevez [[${id}]] de [${o.S.name}].`);
+    if(o.trade.gold)msg(w,p.id,'loot',`Vous recevez ${fmt(o.trade.gold)} po de [${o.S.name}].`);
+    if(p.S.gold>=100)ach(w,p,'rich');
+  }
+  endTrade(w,a,'Échange terminé.');
+  ev(w,a.id,{t:'self'});ev(w,b.id,{t:'self'});
 }
 
 const nearNpc=(pl,id)=>{const n=npcById(id);return !!n&&pl.mapId==='over'&&dist(pl.P,n)<NEAR};
@@ -493,6 +572,9 @@ export function handleAction(w,id,a){
     case 'enterDungeon':enterDungeon(w,pl,a.ti);break;
     case 'leaveDungeon':leaveDungeon(w,pl);break;
     case 'openChest':openChest(w,pl,a.id);break;
+    case 'tradeOffer':tradeOffer(w,pl,a);break;
+    case 'tradeOk':tradeOk(w,pl);break;
+    case 'tradeCancel':endTrade(w,pl,'Échange annulé.');break;
     case 'respawn':if(P.dead)respawn(w,pl);break;
     default:return;
   }
@@ -505,10 +587,11 @@ export function handleChat(w,id,text){
   const c=v.toLowerCase();
   if(c.startsWith('/')){
     const emote=(txt)=>toAll(w,{t:'emote',who:S.name,text:txt});
-    if(c==='/aide'||c==='/help')msg(w,id,'sys','Commandes : /qui · /mp · /inviter · /accepter · /quitter · /danse · /mlady · /herbe · /khey · /douche · /aide');
+    if(c==='/aide'||c==='/help')msg(w,id,'sys','Commandes : /qui · /mp · /inviter · /accepter · /quitter · /echanger · /top · /danse · /mlady · /herbe · /khey · /douche · /aide');
     else if(c==='/qui'||c==='/who'){const all=Object.values(w.players);msg(w,id,'sys',`Joueurs connectés (${all.length}) : ${all.map(p=>`${p.S.name} (niv. ${p.S.lvl}, ${zoneName(w.maps[p.mapId],p.P)})`).join(', ')}.`)}
     else if(/^\/(mp|w)(\s|$)/.test(c))whisper(w,pl,v);
     else if(/^\/inviter?(\s|$)/.test(c))invite(w,pl,v.split(/\s+/)[1]);
+    else if(/^\/(echanger|trade)(\s|$)/.test(c))requestTrade(w,pl,v.split(/\s+/)[1]);
     else if(c==='/accepter'||c==='/accept')acceptInvite(w,pl);
     else if(c==='/quitter'||c==='/leave')leaveGroup(w,pl);
     else if(c==='/danse'||c==='/dance'){say(P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote('danse maladroitement. Personne ne regarde. Heureusement.')}

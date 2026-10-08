@@ -396,3 +396,69 @@ test('le snapshot décrit le groupe aux membres et l\'état du coffre par joueur
   assert.equal(snapshotFor(w, 'c').ents.find(e => e.id === 'c').priv.group, null);
   assert.ok(a);
 });
+
+function echange() {
+  const w = createWorld({seed: 1}), a = addPlayer(w, 'a', {name: 'Alice'}), b = addPlayer(w, 'b', {name: 'Bob'});
+  handleChat(w, 'a', '/echanger bob');
+  handleChat(w, 'b', '/accepter');
+  return {w, a, b};
+}
+const lastTrade = (w, id) => takeEvents(w, id).filter(e => e.t === 'trade').pop();
+
+test('/echanger + /accepter ouvre la fenêtre chez les deux ; /accepter sans proposition ne fait rien', () => {
+  const {w, a, b} = echange();
+  assert.ok(a.trade && b.trade);
+  assert.equal(lastTrade(w, 'a').with, 'Bob');
+  assert.equal(lastTrade(w, 'b').with, 'Alice');
+  handleChat(w, 'a', '/accepter');
+  assert.match(msgs(w, 'a').pop(), /Personne ne vous a invité/);
+});
+
+test('échange : les deux valident → objets et or changent de mains', () => {
+  const {w, a, b} = echange();
+  a.S.gold = 50;
+  handleAction(w, 'a', {a: 'tradeOffer', items: [{id: 'chips', n: 2}], gold: 30});
+  handleAction(w, 'b', {a: 'tradeOffer', items: [{id: 'chouffe', n: 1}], gold: 0});
+  handleAction(w, 'a', {a: 'tradeOk'});
+  assert.ok(a.trade, 'une seule validation ne suffit pas');
+  handleAction(w, 'b', {a: 'tradeOk'});
+  assert.equal(a.trade, null);
+  assert.equal(b.trade, null);
+  const n = (p, id) => p.S.inv.filter(s => s.id === id).reduce((t, s) => t + s.n, 0);
+  assert.deepEqual([n(a, 'chips'), n(a, 'chouffe'), a.S.gold], [1, 2, 20]);
+  assert.deepEqual([n(b, 'chips'), n(b, 'chouffe'), b.S.gold], [5, 0, 35]);
+  assert.ok(takeEvents(w, 'a').some(e => e.t === 'trade' && e.end));
+});
+
+test('échange : modifier son offre annule la validation de l\'autre', () => {
+  const {w, a, b} = echange();
+  handleAction(w, 'b', {a: 'tradeOk'});
+  assert.equal(b.trade.ok, true);
+  handleAction(w, 'a', {a: 'tradeOffer', items: [{id: 'chips', n: 1}], gold: 0});
+  assert.equal(b.trade.ok, false);
+  handleAction(w, 'a', {a: 'tradeOk'});
+  assert.ok(a.trade && b.trade, 'b doit revalider');
+});
+
+test('échange : offre qu\'on ne possède pas refusée ; sac plein = rien ne bouge', () => {
+  const {w, a, b} = echange();
+  takeEvents(w, 'a');
+  handleAction(w, 'a', {a: 'tradeOffer', items: [{id: 'chips', n: 99}], gold: 0});
+  assert.deepEqual(a.trade.items, []);
+  assert.ok(takeEvents(w, 'a').some(e => e.t === 'err' && /ne possédez pas/.test(e.text)));
+  b.S.inv = Array.from({length: 24}, () => ({id: 'epee_rouillee', n: 1}));
+  handleAction(w, 'a', {a: 'tradeOffer', items: [{id: 'chips', n: 1}], gold: 0});
+  handleAction(w, 'a', {a: 'tradeOk'}); handleAction(w, 'b', {a: 'tradeOk'});
+  assert.equal(a.trade, null);
+  assert.equal(a.S.inv.find(s => s.id === 'chips').n, 3, 'rollback');
+  assert.equal(b.S.inv.length, 24);
+});
+
+test('échange : annulation, mort et déconnexion ferment la fenêtre des deux côtés', () => {
+  for (const fin of [w => handleAction(w, 'a', {a: 'tradeCancel'}), w => removePlayer(w, 'a')]) {
+    const {w, b} = echange();
+    fin(w);
+    assert.equal(b.trade, null);
+    assert.ok(takeEvents(w, 'b').some(e => e.t === 'trade' && e.end));
+  }
+});

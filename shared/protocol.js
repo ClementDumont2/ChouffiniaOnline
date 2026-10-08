@@ -4,7 +4,8 @@
 //   {t:'join', name, hat}          une seule fois par connexion ; le pseudo désigne la sauvegarde saves/<pseudo>.json
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
-//                                  acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn
+//                                  acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn,
+//                                  tradeOffer {items:[{id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
 //   {t:'chat', text}
 //
 // Serveur → client
@@ -12,7 +13,8 @@
 //   {t:'refused', msg}             join refusé (pseudo déjà connecté) ; le serveur ferme ensuite la connexion
 //   {t:'self', save}               état privé complet, envoyé seulement quand il change (avant 'ev' et 'snap')
 //   {t:'ev', list}                 événements du joueur : msg, chat, emote, err, toast, banner, float, burst, puff, lvlup,
-//                                  ach, died, respawned, tp, stop, approach, chest, campaignEnd (voir shared/sim.js)
+//                                  ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade (voir shared/sim.js)
+//                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les
 //                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.
 //                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, group).

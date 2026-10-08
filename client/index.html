@@ -120,6 +120,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 @keyframes banner{0%{opacity:0;transform:translate(-50%,8px)}12%{opacity:1;transform:translate(-50%,0)}78%{opacity:1}100%{opacity:0}}
 
 .panel{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:12px 14px 14px}
+.trade{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trade h4{margin:4px 0;font-family:var(--f-display);font-size:12px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
+.trl{display:block;width:100%;text-align:left;margin:2px 0;background:var(--well);border:1px solid #3a2f24;padding:4px 6px;color:inherit;cursor:pointer}
+.trbag{display:grid;grid-template-columns:repeat(2,1fr);gap:2px}
 #dlg.wide{width:min(560px,calc(100% - 32px))}
 .ph{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--gold-dim);padding-bottom:6px;margin-bottom:10px}
 .ph h2{margin:0;font-family:var(--f-display);font-size:18px;color:var(--gold);flex:1;text-wrap:balance}

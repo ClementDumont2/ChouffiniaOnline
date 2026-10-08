@@ -5,10 +5,10 @@ import {iconCanvas} from './sprites.js';
 import {itemLink,tipEl,tipOn} from './hud.js';
 import {P,S,WD,me,send} from './state.js';
 
-let dlgNpc=null,dlgRedo=null;
+let dlgNpc=null,dlgRedo=null,trade=null;
 let selItem=-1,selId=null;
 export function togglePanel(id){const p=$('#'+id);if(p.hidden){for(const o of ['bag','char'])if(o!==id)$('#'+o).hidden=true;if(id==='bag'){p.hidden=false;renderBag()}else{p.hidden=false;renderChar()}}else p.hidden=true;tipEl.hidden=true}
-export function closePanel(id){if(id==='dlg'){if(dlgLocked)return;dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
+export function closePanel(id){if(id==='dlg'){if(dlgLocked)return;if(trade)send({a:'tradeCancel'});dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
 function nearMerchant(){return WD.id==='over'&&['gerard','bernard','tavernier'].some(id=>dist(P,npcById(id))<3.5)}
 function sellValue(s){return ITEMS[s.id].price*s.n}
 export function renderBag(){
@@ -153,4 +153,23 @@ export function showDeath(){
 }
 export function showEnd(){
   dialog('Chouffinia est sauvée','Fin de la campagne · Le farm continue',`<p>Vous avez terminé Chouffinia Online.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Il reste la difficulté Sans Douche des Archives, au niveau 13. Par pitié le khey, vas-y.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
+}
+
+// Fenêtre d'échange : l'état vient entièrement du serveur ({with, mine, theirs}) ; chaque clic renvoie l'offre complète.
+export function showTrade(e){
+  if(e.end){if(trade){trade=null;if($('#dlgT').textContent==='Échange')unlockDlg()}return}
+  const first=!trade;trade=e;
+  const sendOffer=(items,gold)=>send({a:'tradeOffer',items,gold});
+  const left=id=>S.inv.filter(s=>s.id===id).reduce((a,s)=>a+s.n,0)-(e.mine.items.find(x=>x.id===id)||{n:0}).n;
+  const list=(side,mine)=>side.items.map(x=>`<button type="button" class="trl" ${mine?`data-rm="${x.id}"`:'disabled'}>${itemLink(x.id)} ×${x.n}</button>`).join('')||'<span class="ty">Rien pour l\'instant.</span>';
+  const wrap=document.createElement('div');
+  wrap.innerHTML=`<div class="trade"><div><h4>Vous proposez</h4>${list(e.mine,true)}<label class="chk">Or : <input type="number" id="trGold" min="0" max="${S.gold}" value="${e.mine.gold}"> po</label><div class="${e.mine.ok?'up':'ty'}">${e.mine.ok?'✔ Validé':'Pas encore validé'}</div></div>`+
+    `<div><h4>${esc(e.with)} propose</h4>${list(e.theirs,false)}<div class="goldv">${fmt(e.theirs.gold)} po</div><div class="${e.theirs.ok?'up':'ty'}">${e.theirs.ok?'✔ Validé':'Pas encore validé'}</div></div></div>`+
+    `<h4>Votre sac (toucher pour ajouter 1)</h4><div class="trbag">${[...new Set(S.inv.map(s=>s.id))].filter(id=>left(id)>0).map(id=>`<button type="button" class="trl" data-add="${id}">${itemLink(id)} ×${left(id)}</button>`).join('')||'<span class="ty">Sac vide.</span>'}</div>`;
+  wrap.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const id=b.dataset.add,it=e.mine.items.map(x=>({...x})),x=it.find(y=>y.id===id);x?x.n++:it.push({id,n:1});sendOffer(it,e.mine.gold)});
+  wrap.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const id=b.dataset.rm,it=e.mine.items.map(x=>({...x})).map(x=>x.id===id?{...x,n:x.n-1}:x).filter(x=>x.n>0);sendOffer(it,e.mine.gold)});
+  wrap.querySelector('#trGold').onchange=ev=>sendOffer(e.mine.items,Math.max(0,Math.min(S.gold,Math.floor(+ev.target.value)||0)));
+  const sc=first||$('#dlg').hidden?0:$('#dlg').scrollTop;
+  dialog('Échange',`Avec ${e.with} · Les deux doivent valider ; modifier une offre annule les validations`,wrap,[[e.mine.ok?'Validé ✔':'Valider',()=>send({a:'tradeOk'}),false,e.mine.ok],['Annuler',()=>closePanel('dlg'),true]]);
+  dlgRedo=null;$('#dlg').classList.add('wide');$('#dlg').scrollTop=sc;
 }
