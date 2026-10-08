@@ -3,12 +3,12 @@
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
 import {clamp,classOf,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,score,skillsOf,stackable,stats,statsDeMob,xpNeed} from './rules.js';
-import {CLASSES,SKILL_DEFS} from './data/classes.js';
+import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
-const CLASS_COST=50,GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
+const GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
 const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});

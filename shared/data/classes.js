@@ -31,3 +31,4 @@ export const CLASSES={
   modo:{nom:"Modo Repenti",desc:"A banni 4 000 membres, puis s'est calmé. Encaisse tout, sauf les critiques.",mods:{hp:1.3,atk:1,arm:1.2,spd:1},skills:['avertissement','ban','lock','canette','reglement']}
 };
 export const DEFAULT_CLASS='chouffin';
+export const CLASS_COST=50; // po par niveau, au Conseiller d'Orientation

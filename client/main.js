@@ -1,10 +1,11 @@
 import {ACH,DIFFS,HATS,ZONES} from '../shared/data.js';
+import {CLASSES,DEFAULT_CLASS} from '../shared/data/classes.js';
 import {zoneAt} from '../shared/map.js';
 import {cleanName} from '../shared/protocol.js';
 import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
 import {burst,floater,paintWorld,parts,render,resize,updFx} from './render.js';
-import {announce,banner,buildBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
+import {announce,banner,buildBar,syncBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
 import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
@@ -28,7 +29,7 @@ const refreshUI=()=>{renderBag();renderChar();renderQuest();updTarget();drawPort
 const joinMsg=t=>{const e=$('#joinerr');e.textContent=t||'';e.hidden=!t};
 hooks.refused=joinMsg;
 hooks.welcome=()=>{joinMsg();$('#start').hidden=true;$('#hudwrap').hidden=false;syncView();buildBar();refreshUI();rememberName()};
-hooks.self=()=>{refreshUI();refreshDialog()};
+hooks.self=()=>{syncBar();refreshUI();refreshDialog()};
 hooks.target=()=>updTarget();
 hooks.offline=()=>{if(running)err('Connexion perdue. Reconnexion…');else joinMsg('Serveur injoignable, nouvelle tentative…')};
 hooks.event=e=>{
@@ -57,15 +58,24 @@ hooks.event=e=>{
 };
 
 const pv=$('#preview'),pg=pv.getContext('2d');
-function drawPreview(t){pg.clearRect(0,0,pv.width,pv.height);pg.imageSmoothingEnabled=false;const tip=(t%3.2)<.45?(t%3.2):0;drawChouffin(pg,75,172,140,{hat:S.hat,coat:'#4a4552',shirt:'#161419',glasses:true,face:Math.sin(t*.7)>0?1:-1,moving:false,step:0,tip})}
+function drawPreview(t){pg.clearRect(0,0,pv.width,pv.height);pg.imageSmoothingEnabled=false;const tip=(t%3.2)<.45?(t%3.2):0;drawChouffin(pg,75,172,140,{cls:pickCls,hat:S.hat,coat:'#4a4552',shirt:'#161419',glasses:true,face:Math.sin(t*.7)>0?1:-1,moving:false,step:0,tip})}
+let pickCls=DEFAULT_CLASS;
+function showClasses(){
+  const box=$('.classes');box.innerHTML='';
+  for(const [id,c] of Object.entries(CLASSES)){
+    const b=document.createElement('button');b.type='button';b.className='cls'+(id===pickCls?' on':'');
+    b.innerHTML=`${esc(c.nom)}<small>${esc(c.desc)}</small>`;b.onclick=()=>{pickCls=id;showClasses()};box.appendChild(b);
+  }
+}
 function showStart(){
+  showClasses();
   $('#help').innerHTML=helpHTML();
   const sw=$('#sw');sw.innerHTML='';
   HATS.forEach(([c,n])=>{const b=document.createElement('button');b.type='button';b.style.background=c;b.title=n;b.setAttribute('aria-label','Fedora '+n);b.onclick=()=>{S.hat=c;showStartSw()};sw.appendChild(b)});
   showStartSw();
   const last=lastName();
-  if(last){$('#nm').value=last;const c=$('#cont');c.hidden=false;c.textContent=`Continuer : ${last}`;c.onclick=()=>connect(last,S.hat)}
-  $('#newg').onclick=()=>connect(cleanName($('#nm').value),S.hat);
+  if(last){$('#nm').value=last;const c=$('#cont');c.hidden=false;c.textContent=`Continuer : ${last}`;c.onclick=()=>connect(last,S.hat,pickCls)}
+  $('#newg').onclick=()=>connect(cleanName($('#nm').value),S.hat,pickCls);
 }
 function showStartSw(){document.querySelectorAll('#sw button').forEach((b,i)=>b.className=HATS[i][0]===S.hat?'on':'');const h=HATS.find(h=>h[0]===S.hat);$('#swn').textContent=h?`${h[1]} · Fourni sans odeur (pour l'instant)`:''}
 

@@ -1,5 +1,6 @@
-import {DIFFS,ITEMS,MAXLVL,MOBS,NPCS,QUESTS,SKILLS} from '../shared/data.js';
-import {clamp,npcById,stats,xpNeed} from '../shared/rules.js';
+import {DIFFS,ITEMS,MAXLVL,MOBS,NPCS,QUESTS} from '../shared/data.js';
+import {CLASSES,SKILL_DEFS} from '../shared/data/classes.js';
+import {clamp,npcById,skillsOf,stats,xpNeed} from '../shared/rules.js';
 import {$,esc,fmt} from './util.js';
 import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
 import {H,MINI_S,TS,W,cam} from './render.js';
@@ -19,11 +20,13 @@ export function err(msg){const e=$('#err');e.textContent=msg;e.classList.add('on
 export function toast(kicker,title,sub){const d=document.createElement('div');d.className='toast frame';d.innerHTML=`<small>${esc(kicker)}</small><b>${esc(title)}</b>${sub?`<span>${esc(sub)}</span>`:''}`;$('#toasts').appendChild(d);setTimeout(()=>d.remove(),5100)}
 export function banner(title,sub,cls){const b=$('#banner');b.className='hud '+(cls||'');b.querySelector('b').textContent=title;b.querySelector('span').textContent=sub||'';void b.offsetWidth;b.classList.add('show')}
 export function announce(who,text){const a=$('#announce');a.querySelector('small').textContent=`Annonce de ${who}`;a.querySelector('b').textContent=text;a.classList.remove('show');void a.offsetWidth;a.classList.add('show')}
-const skEls=[];let conEls=[];
+const skEls=[];let conEls=[],barCls=null;
+// La barre dépend de la classe : à reconstruire quand l'état privé annonce un changement.
+export const syncBar=()=>{if(S.cls!==barCls)buildBar()};
 export function buildBar(){
-  const bar=$('#bar');bar.innerHTML='';skEls.length=0;conEls=[];
-  SKILLS.forEach((sk,i)=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',sk.n);b.appendChild(iconCanvas(sk.id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${label(keyOf('s'+(i+1)))}</span>`);
-    b.addEventListener('click',()=>send({a:'skill',i}));tipOn(b,()=>`<b>${esc(sk.n)}</b><div class="c">${sk.c?sk.c+' Caféine · ':''}${sk.self?'Soi-même':'Portée '+sk.rg+' cases'} · Recharge ${String(sk.cd).replace('.',',')} s${S.lvl<sk.l?` · <span style="color:var(--bad)">Niveau ${sk.l} requis</span>`:''}</div><p>${esc(sk.d)}</p>`);
+  const bar=$('#bar');bar.innerHTML='';skEls.length=0;conEls=[];barCls=S.cls;
+  skillsOf(S).forEach((sk,i)=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',sk.n);b.appendChild(iconCanvas(sk.id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${label(keyOf('s'+(i+1)))}</span>`);
+    b.addEventListener('click',()=>send({a:'skill',i}));tipOn(b,()=>`<b>${esc(sk.n)}</b><div class="c">${sk.c?sk.c+' Caféine · ':''}${sk.self?(sk.r?'Rayon '+sk.r+' cases':'Soi-même'):'Portée '+sk.rg+' cases'+(sk.ally?' · allié':'')} · Recharge ${String(sk.cd).replace('.',',')} s${S.lvl<sk.l?` · <span style="color:var(--bad)">Niveau ${sk.l} requis</span>`:''}</div><p>${esc(sk.d)}</p>`);
     bar.appendChild(b);skEls.push({b,cd:b.querySelector('.cd'),cdt:b.querySelector('.cdt'),sk})});
   bar.insertAdjacentHTML('beforeend','<span class="sep"></span>');
   ['chouffe','chips'].forEach(id=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',ITEMS[id].n);b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${label(keyOf(id))}</span><span class="cnt"></span>`);b.addEventListener('click',()=>send({a:'useItem',id}));tipOn(b,()=>`<b>${esc(ITEMS[id].n)}</b><div class="c">Consommable · ${count(id)} dans le sac · Recharge partagée 6 s</div><p>${esc(ITEMS[id].d)}</p>`);bar.appendChild(b);conEls.push({b,id,cd:b.querySelector('.cd'),cdt:b.querySelector('.cdt'),cnt:b.querySelector('.cnt')})});
@@ -40,6 +43,7 @@ export function updTarget(){
   if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?'Élite · Gardien de donjon':t.d.dg?'Hostile · Archives':'Hostile';$('#thpw').className='bar hp'}
   else if(t.kind==='npc'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='PNJ';$('#tsub').textContent=t.ti;$('#thpw').className='bar npc'}
   else if(t.kind==='obj'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='Objet';$('#tsub').textContent=t.type==='chest'?'Contient des artéfacts':'Portail';$('#thpw').className='bar npc'}
+  else if(t.kind==='player'){un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=`${CLASSES[t.cls]?CLASSES[t.cls].nom:'Chouffin'} · Joueur${t.dead?' · Mort':''}`;$('#thpw').className='bar hp'}
   else{un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=t.g?`<${t.g}> · Chouffin`:'Chouffin · Sans guilde';$('#thpw').className='bar npc'}
 }
 const miniC=$('#mini'),mctx=miniC.getContext('2d');
@@ -51,10 +55,11 @@ export function hud(t){
   $('#plvl').textContent=S.lvl;$('#pname').textContent=S.name+(P.group&&P.group.leader===me?' ★':'');
   const ratio=S.hp/st.maxhp;$('#vig').className=P.dead?'':ratio<.15?'crit':ratio<.3?'low':'';
   renderParty();
-  $('#buffs').innerHTML=P.drunk>0?`<span>Pompette ${Math.ceil(P.drunk)} s</span>`:'';
+  $('#buffs').innerHTML=(P.drunk>0?`<span>Pompette ${Math.ceil(P.drunk)} s</span>`:'')+Object.entries(P.buffs||{}).map(([id,t])=>`<span>${esc(SKILL_DEFS[id].n)} ${Math.ceil(t)} s</span>`).join('');
+  $('#deadbar').hidden=!(P.dead&&$('#dlg').hidden);
   const need=xpNeed(S.lvl);$('#xp i').style.width=(S.lvl>=MAXLVL?100:S.xp/need*100)+'%';$('#xp span').textContent=S.lvl>=MAXLVL?'Niveau maximum. Il est temps de sortir.':`XP ${fmt(S.xp)} / ${fmt(need)}`;
   const tg=targetEnt();
-  if(tg&&!$('#tframe').hidden){if(tg.kind==='mob'){if(!tg.alive){updTarget()}else{$('#thp').style.width=(tg.hp/tg.mhp*100)+'%';$('#thpt').textContent=`${Math.ceil(tg.hp)} / ${tg.mhp}`;const cw=$('#tcastw');if(tg.cast>0){cw.hidden=false;$('#tcast').style.width=((1-tg.cast/tg.castMax)*100)+'%';$('#tcastt').textContent=tg.d.aoe.n}else cw.hidden=true}}else{$('#thp').style.width='100%';$('#thpt').textContent=tg.kind==='npc'?'Amical':tg.kind==='obj'?'Interagir':'Joueur';$('#tcastw').hidden=true}}
+  if(tg&&!$('#tframe').hidden){if(tg.kind==='mob'){if(!tg.alive){updTarget()}else{$('#thp').style.width=(tg.hp/tg.mhp*100)+'%';$('#thpt').textContent=`${Math.ceil(tg.hp)} / ${tg.mhp}`;const cw=$('#tcastw');if(tg.cast>0){cw.hidden=false;$('#tcast').style.width=((1-tg.cast/tg.castMax)*100)+'%';$('#tcastt').textContent=tg.d.aoe.n}else cw.hidden=true}}else if(tg.kind==='player'){$('#thp').style.width=clamp(tg.hp/tg.mhp*100,0,100)+'%';$('#thpt').textContent=`${tg.hp} / ${tg.mhp}`;$('#tcastw').hidden=true}else{$('#thp').style.width='100%';$('#thpt').textContent=tg.kind==='npc'?'Amical':tg.kind==='obj'?'Interagir':'Joueur';$('#tcastw').hidden=true}}
   for(const e of skEls){const sk=e.sk,cd=P.cd[sk.id]||0,lock=S.lvl<sk.l;e.b.classList.toggle('locked',lock);e.b.classList.toggle('nores',!lock&&S.caf<sk.c);
     if(lock){e.cd.style.height='0';e.cdt.textContent='Niv '+sk.l}else if(cd>0){e.cd.style.height=(cd/sk.cd*100)+'%';e.cdt.textContent=cd>=1.5?Math.ceil(cd):''}else{e.cd.style.height='0';e.cdt.textContent=''}}
   const pc=P.cd.pot||0;

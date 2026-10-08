@@ -1,5 +1,5 @@
 import {WHISPERS} from '../shared/data.js';
-import {dist} from '../shared/rules.js';
+import {dist,stats} from '../shared/rules.js';
 import {findEnt} from '../shared/sim.js';
 import {moveEnt} from '../shared/map.js';
 import {$,esc,pick} from './util.js';
@@ -7,7 +7,7 @@ import {TS,cam,cv,setMarker} from './render.js';
 import {chat} from './hud.js';
 import {autoCloseDlg,closePanel,openNpc,openPortal,togglePanel} from './panels.js';
 import {actionOf} from './keys.js';
-import {P,WD,running,send,sendChat,sendMove,world} from './state.js';
+import {P,S,WD,me,running,send,sendChat,sendMove,world} from './state.js';
 
 export const keys={};
 // Déplacement : le client calcule sa position et la propose ; la sim ne fait que la valider.
@@ -38,11 +38,12 @@ export function initInput(){cv.addEventListener('pointerdown',e=>{
   if(document.activeElement===chatIn)chatIn.blur();
   const r=cv.getBoundingClientRect(),wx=cam.x+(e.clientX-r.left)/TS,wy=cam.y+(e.clientY-r.top)/TS;
   let best=null,bd=99;
-  const cands=[...WD.mobs.filter(m=>m.alive),...WD.npcs,...WD.objs,...WD.bots];
+  const cands=[...WD.mobs.filter(m=>m.alive),...WD.npcs,...WD.objs,...WD.bots,...Object.values(world.players).filter(p=>p.id!==me).map(p=>p.P)];
   for(const c of cands){const sc=c.kind==='mob'&&c.d.scale?Math.min(1.2,c.d.scale*.75):1;const cy=c.y-c.hgt*sc*.5;const rad=Math.max(.5,c.hgt*sc*.55);const d=Math.hypot(wx-c.x,(wy-cy)*.75);if(d<rad&&d<bd){bd=d;best=c}}
   if(best){
     if(best.kind==='mob'){send({a:'target',id:best.id,auto:true});nav.goal=null;if(dist(P,best)>1.35)nav.follow=best.id}
     else if(best.kind==='npc'||best.kind==='obj'){send({a:'target',id:best.id});nav.goal=null;const need=best.kind==='npc'?1.7:1.3;if(dist(P,best)<need){best.kind==='npc'?openNpc(best):openObj(best)}else nav.follow=best.id}
+    else if(best.kind==='player')send({a:'target',id:best.id});
     else{send({a:'target',id:best.id});chat('wsp',`[${esc(best.n)}] vous chuchote : ${esc(pick(WHISPERS))}`)}
   }else{nav.goal={x:wx,y:wy};nav.follow=null;setMarker({x:wx,y:wy,t:0})}
 });}
@@ -62,7 +63,7 @@ export function updControl(dt,t){
   let L=Math.hypot(dx,dy);
   if(L>0&&(kb||!P.cast)){
     if(P.drunk>0){const a=Math.sin(t*2.7)*.55,c=Math.cos(a),s2=Math.sin(a);const nx=dx*c-dy*s2,ny=dx*s2+dy*c;dx=nx;dy=ny}
-    const s=Math.min(4.4*dt,kb?99:L),o={x:P.x,y:P.y};
+    const s=Math.min(4.4*stats(S,P.drunk).spd*dt,kb?99:L),o={x:P.x,y:P.y};
     moveEnt(WD,o,dx/L*s,dy/L*s);
     const moved=Math.hypot(o.x-P.x,o.y-P.y);
     sendMove(o.x,o.y,Math.abs(dx)>.01?(dx>0?1:-1):0);

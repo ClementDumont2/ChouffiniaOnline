@@ -280,6 +280,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
   #bagGrid{grid-template-columns:repeat(6,1fr)}
 }
 /* Au-dessus du canvas, sous les cadres du HUD : le liseré ne doit pas teinter l'interface. */
+#deadbar{bottom:150px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;padding:6px 12px}
 #vig{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(200,0,0,.55) 100%)}
 #vig.low{opacity:1;animation:vig 1.6s ease-in-out infinite}
 #vig.crit{opacity:1;background:radial-gradient(ellipse at center,transparent 38%,rgba(220,0,0,.8) 100%);animation:vig .7s ease-in-out infinite}
@@ -339,6 +340,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
       <form id="chatf" autocomplete="off"><div id="cmdlist" class="frame" hidden></div><input id="chatin" maxlength="140" placeholder="Entrée pour parler · /aide"></form>
     </div>
 
+    <div id="deadbar" class="hud frame" hidden><span>Vous attendez un Joker MJ…</span><button class="btn" id="deadbtn" type="button">Réapparaître</button></div>
     <div id="err" class="hud"></div>
     <div id="toasts" class="hud"></div>
     <div id="banner" class="hud"><b></b><span></span></div>

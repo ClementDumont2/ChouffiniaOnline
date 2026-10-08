@@ -1,5 +1,6 @@
 import {DEATH,DIFFS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
-import {cmpInfo,dist,npcById,stats,statsWith} from '../shared/rules.js';
+import {cmpInfo,classOf,dist,npcById,stats,statsWith} from '../shared/rules.js';
+import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
 import {buildBar,itemLink,tipEl,tipOn} from './hud.js';
@@ -51,7 +52,7 @@ function itemHTML(id,n){const it=ITEMS[id];const sl=statLine(it);
   return`<div class="nm q-${it.r}">${esc(it.n)}${n>1?` ×${n}`:''}</div><div class="ty">${ty} · ${RN[it.r]}${it.rl>1?` · <span style="color:${S.lvl<it.rl?'var(--bad)':'inherit'}">Niveau ${it.rl} requis</span>`:''}</div>${sl?`<div class="stt">${sl}</div>`:''}${it.t==='eq'?compareHTML(id):''}<div class="fl">« ${esc(it.d)} »</div><div class="pr">Revente : ${it.price} po${n>1?` (×${n} = ${fmt(it.price*n)} po)`:''}</div>`}
 export function renderChar(){
   if($('#char').hidden)return;
-  $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · Chouffin · <Sous-Sol Éternel>`;
+  $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · <Sous-Sol Éternel>`;
   const l=$('#eqlist');l.innerHTML='';
   for(const k in SLOTS){const id=S.eq[k];const b=document.createElement('button');b.type='button';b.className='eqrow';
     if(id){b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]} · ${statLine(ITEMS[id])} · toucher pour retirer</span><span class="q-${ITEMS[id].r}">${esc(ITEMS[id].n)}</span></span>`);b.onclick=()=>send({a:'unequip',slot:k});tipOn(b,()=>itemHTML(id,1))}
@@ -96,6 +97,7 @@ function showNpc(n){
   }
   if(n.id==='bernard'){btns.unshift(["Voir l'armurerie",()=>openShop(n)])}
   if(n.id==='gardien'){btns.unshift(['Descendre dans les Archives',()=>openDungeonMenu(n)])}
+  if(n.id==='conseiller'){btns.unshift(['Changer de classe',()=>openClassMenu(n)])}
   btns.push(['Au revoir',()=>closePanel('dlg'),true]);
   dialog(n.n,n.ti,html,btns,false,n);
   dlgRedo=()=>showNpc(n);
@@ -126,6 +128,21 @@ function openShop(n){
   $('#dlg').classList.add('wide');$('#dlg').scrollTop=sc;
   $('#shopUp').onchange=e=>{shopUp=e.target.checked;openShop(n)};
 }
+function openClassMenu(n){
+  const cost=CLASS_COST*S.lvl,wrap=document.createElement('div');
+  wrap.innerHTML=`<p class="rw">Reconversion : ${fmt(cost)} po (${CLASS_COST} po × niveau ${S.lvl}). Niveau, équipement et quêtes conservés. Vous avez ${fmt(S.gold)} po.</p>`;
+  const box=document.createElement('div');box.className='diff';
+  for(const [id,c] of Object.entries(CLASSES)){
+    const b=document.createElement('button');b.type='button';b.className='dbtn';b.disabled=id===S.cls||S.gold<cost;
+    b.innerHTML=`<b>${esc(c.nom)}${id===S.cls?' (actuelle)':''}</b><span>${esc(c.desc)}</span>`;b.onclick=()=>confirmClass(n,id);box.appendChild(b);
+  }
+  wrap.appendChild(box);
+  dialog("Le Conseiller d'Orientation",'Changement de classe',wrap,[['Retour',()=>showNpc(n),true]],false,n);
+}
+function confirmClass(n,id){
+  const c=CLASSES[id],cost=CLASS_COST*S.lvl;
+  dialog('Confirmer la reconversion',c.nom,`<p>Devenir <b>${esc(c.nom)}</b> pour ${fmt(cost)} po ? Vos compétences changent, pas votre niveau. Aucun remboursement : le Conseiller a déjà tout dépensé.</p><p class="rw">${esc(c.desc)}</p>`,[['Confirmer',()=>{closePanel('dlg');send({a:'changeClass',cls:id})}],['Retour',()=>openClassMenu(n),true]],false,n);
+}
 function openDungeonMenu(n){
   const wrap=document.createElement('div');
   wrap.innerHTML=`<p>Les Archives se réorganisent à chaque descente. Au fond attend <b>le Grand Archiviste</b> et son coffre d'artéfacts. Plus la difficulté est haute, plus les artéfacts sont rares et chers.</p><p class="rw">Astuce : quand il prépare un Mur de Texte, sortez de la zone rouge. Les ennemis des Archives attaquent en groupe.</p>`;
@@ -151,7 +168,7 @@ export function showChest(e){
 }
 export function showDeath(){
   const inDg=WD.id!=='over';
-  dialog('Vous êtes mort',inDg?'Esprit errant · Archives Oubliées':'Esprit errant · Sous-sol le plus proche : 1',`<p>${esc(pick(DEATH))}</p><p class="rw">Morts au total : ${S.deaths}. Aucune perte d'objet. La perte de dignité, elle, est permanente.</p>`,inDg?[["Réapparaître à l'entrée des Archives",()=>send({a:'respawn'})],['Abandonner et remonter au Bourg',()=>{send({a:'respawn'});send({a:'leaveDungeon'})},true]]:[['Réapparaître au Sous-Sol',()=>send({a:'respawn'})]],true);
+  dialog('Vous êtes mort',inDg?'Esprit errant · Archives Oubliées':'Esprit errant · Sous-sol le plus proche : 1',`<p>${esc(pick(DEATH))}</p><p class="rw">Un Rôliste à proximité peut vous ressusciter avec un Joker MJ. Morts au total : ${S.deaths}. Aucune perte d'objet. La perte de dignité, elle, est permanente.</p>`,inDg?[["Réapparaître à l'entrée des Archives",()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true],['Abandonner et remonter au Bourg',()=>{send({a:'respawn'});send({a:'leaveDungeon'})},true]]:[['Réapparaître au Sous-Sol',()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true]],true);
 }
 export function showEnd(){
   dialog('Chouffinia est sauvée','Fin de la campagne · Le farm continue',`<p>Vous avez terminé Chouffinia Online.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Il reste la difficulté Sans Douche des Archives, au niveau 13. Par pitié le khey, vas-y.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
@@ -194,4 +211,5 @@ addEventListener('keydown',e=>{
   if(e.code!=='Escape'){rebind(waiting,e.code);refreshKeyLabels()}
   waiting=null;renderOpts();
 },true);
+$('#deadbtn').onclick=()=>send({a:'respawn'});
 $('#optsReset').onclick=()=>{resetKeys();waiting=null;renderOpts();refreshKeyLabels()};
