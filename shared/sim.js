@@ -2,7 +2,7 @@
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
+import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
@@ -555,6 +555,19 @@ function mamanKill(w,pl){
   msg(w,pl.id,'loot',`Maman, vaincue ${MAMAN_KILLS} fois, accepte enfin de vous déposer : monture **${MOUNTS.maman.n}** obtenue.`);
 }
 
+// Le serveur recalcule la fusion avec la même fonction que l'aperçu du client, puis débite et remplace les deux objets du sac par le résultat.
+function fusion(w,pl,ua,ub){
+  const {S}=pl,a=S.inv.find(s=>s.uid===ua),b=S.inv.find(s=>s.uid===ub);
+  if(!nearNpc(pl,'fanfiqueuse')||ua===ub||!a||!b)return;
+  const r=fuse(a,b);
+  if(!r){err(w,pl.id,'Il faut deux objets du même emplacement.');return}
+  const cost=fuseCost(r);
+  if(S.gold<cost){err(w,pl.id,`Pas assez d'or : cette fusion coûte ${fmt(cost)} po. La Fanfiqueuse vit de commandes.`);return}
+  S.gold-=cost;S.inv=S.inv.filter(s=>s.uid!==ua&&s.uid!==ub);
+  S.inv.push(withUid(S,r));
+  msg(w,pl.id,'loot',`Fusion réussie pour ${fmt(cost)} po : ${link(S.inv[S.inv.length-1])}. Les deux originaux sont partis dans un fanzine.`);
+}
+
 function changeClass(w,pl,cls){
   const {S,P}=pl,cost=CLASS_COST*S.lvl;
   if(!nearNpc(pl,'conseiller')||!CLASSES[cls])return;
@@ -831,6 +844,7 @@ export function handleAction(w,id,a){
     case 'mount':mountToggle(w,pl);break;
     case 'selectMount':if(S.mounts.includes(a.id))S.mount=a.id;break;
     case 'buyMount':buyMount(w,pl,a.id);break;
+    case 'fuse':fusion(w,pl,a.x,a.y);break;
     case 'changeClass':changeClass(w,pl,a.cls);break;
     case 'respawn':if(P.dead)respawn(w,pl);break;
     default:return;

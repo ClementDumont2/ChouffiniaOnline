@@ -103,6 +103,8 @@ export const NPCS=[
     greet:"Salut le khey. Chaise de Gamer, Trottinette Électrique : tout roule, littéralement. Je prends les paiements en or, en Chouffe, ou en compliments. Surtout en or."},
   {id:'arene',kind:'npc',n:"Panneau de l'Arène",tag:"Règlement du débat",ti:"Arène du Débat Stérile · Duels",x:36.6,y:14.9,hgt:1.1,
     greet:"RÈGLEMENT : on se défie avec /duel <pseudo>, à l'intérieur de l'enclos. Dégâts réduits de moitié, personne ne meurt, tout le monde repart énervé. Le perdant doit écrire « tu as raison ». C'est la loi du Général."},
+  {id:'fanfiqueuse',kind:'npc',n:"La Fanfiqueuse",tag:"Fusion d'équipement",ti:"Écrivaine · Fusionne deux objets du même emplacement",x:23.4,y:20.2,hgt:1.2,
+    greet:"Chut, j'écris. Tiens, j'ai un crossover à te proposer : tes deux objets, dans le même univers, avec une tension qu'on ne voit pas à l'écran. Rassure-toi, ça ne choque que les objets."},
   {id:'conseiller',kind:'npc',n:"Le Conseiller d'Orientation",tag:"Reconversion",ti:"Orientation · Changement de classe",x:16.9,y:19.8,hgt:1.2,
     greet:"Bonjour. Vous voulez être soigneur, tank ou en vitesse ? Dans la vraie vie on n'a pas ce choix, profitez. Je ne juge pas votre parcours. Enfin si, mais ça se règle avec de l'or."}
 

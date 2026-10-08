@@ -28,6 +28,19 @@ export const withUid=(S,x)=>({uid:'i'+(S.nextUid=(S.nextUid||0)+1),...x});
 const scaleOf=q=>{const it=ITEMS[q.id];return(1+q.nObj/10)*RARITY_MULT[q.rarete]/((1+(it.rl||1)/10)*RARITY_MULT[it.r])};
 export const itemStats=q=>{const it=ITEMS[q.id],f=scaleOf(q);return{atk:Math.round((it.atk||0)*f),hp:Math.round((it.hp||0)*f),arm:Math.round((it.arm||0)*f)}};
 export const itemValue=q=>Math.max(1,Math.round(ITEMS[q.id].price*scaleOf(q)));
+export const RARITY_ORDER=['common','unc','rare','epic','leg'];
+// Fusion de deux équipements du même emplacement (fonction pure : le client s'en sert pour l'aperçu, le serveur pour trancher).
+//  - même objet et même rareté : rareté +1 (plafond Légendaire), nObj = max + 2 ;
+//  - sinon : base du meilleur des deux, nObj = max + 3, rareté la plus haute.
+export function fuse(a,b){
+  if(!a||!b||ITEMS[a.id].s!==ITEMS[b.id].s)return null;
+  const ra=RARITY_ORDER.indexOf(a.rarete),rb=RARITY_ORDER.indexOf(b.rarete),n=Math.max(a.nObj,b.nObj);
+  if(a.id===b.id&&a.rarete===b.rarete)return newItem(a.id,n+2,RARITY_ORDER[Math.min(RARITY_ORDER.length-1,ra+1)]);
+  return newItem((score(a)>=score(b)?a:b).id,n+3,RARITY_ORDER[Math.max(ra,rb)]);
+}
+// 15 po par niveau d'objet du résultat : une dizaine de monstres d'or au niveau de l'objet.
+export const FUSE_PER_LEVEL=15;
+export const fuseCost=q=>FUSE_PER_LEVEL*q.nObj;
 export function score(q){if(!q)return -1;const i=itemStats(q);return i.atk*3+i.hp+i.arm*3}
 
 // Vitesse de déplacement relative : classe × monture (P.mount : id de la monture en selle, ou null).

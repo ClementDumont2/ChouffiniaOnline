@@ -5,8 +5,8 @@
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
 //                                  acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn,
-//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, changeClass {cls},
-//                                  tradeOffer {items:[{id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
+//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
+//                                  tradeOffer {items:[{uid} | {id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
 //   {t:'chat', text}
 //
 // Serveur → client

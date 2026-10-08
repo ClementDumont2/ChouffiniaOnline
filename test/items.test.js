@@ -65,3 +65,36 @@ test('échange : un équipement s\'offre par uid et garde son niveau d\'objet et
   assert.deepEqual([got.nObj, got.rarete], [9, 'epic']);
   assert.ok(got.uid && got.uid !== 'i50', 'nouvel uid chez le destinataire');
 });
+
+test('fuse : même objet et même rareté → rareté +1 et nObj +2 ; sinon meilleure base, rareté la plus haute et nObj +3', async () => {
+  const {fuse, fuseCost} = await import('../shared/rules.js');
+  const q = (id, n, r) => newItem(id, n, r);
+  assert.deepEqual(fuse(q('katana', 3, 'rare'), q('katana', 8, 'rare')), q('katana', 10, 'epic'));
+  assert.deepEqual(fuse(q('katana', 3, 'epic'), q('katana', 3, 'epic')), q('katana', 5, 'leg'));
+  assert.deepEqual(fuse(q('katana', 5, 'leg'), q('katana', 9, 'leg')), q('katana', 11, 'leg'), 'plafond Légendaire');
+  // Même objet mais raretés différentes : c'est la règle « sinon ».
+  assert.deepEqual(fuse(q('katana', 4, 'rare'), q('katana', 4, 'unc')), q('katana', 7, 'rare'));
+  // Deux objets différents : on garde la base du meilleur, jugé sur ses stats à l'échelle (ici le Sabre épique niv. 5 bat le Katana niv. 3), nObj max + 3, rareté la plus haute.
+  assert.deepEqual(fuse(q('katana', 3, 'rare'), q('sabre', 5, 'epic')), q('sabre', 8, 'epic'));
+  assert.deepEqual(fuse(q('katana', 12, 'rare'), q('sabre', 5, 'epic')), q('katana', 15, 'epic'), 'un Katana haut niveau bat un Sabre bas niveau');
+  assert.deepEqual(fuse(q('sabre', 2, 'rare'), q('katana', 2, 'leg')), q('katana', 5, 'leg'));
+  assert.equal(fuse(q('katana'), q('fedora')), null, 'emplacements différents');
+  assert.equal(fuseCost(q('katana', 10)), 150);
+});
+
+test('Fanfiqueuse : fusion côté serveur (portée, or, deux objets du même emplacement, résultat dans le sac)', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), f = NPCS.find(n => n.id === 'fanfiqueuse');
+  p.S.inv = [{uid: 'i1', ...newItem('katana', 3, 'rare')}, {uid: 'i2', ...newItem('katana', 3, 'rare')}, {uid: 'i3', ...newItem('fedora')}];
+  p.S.gold = 1000;
+  handleAction(w, 'p1', {a: 'fuse', x: 'i1', y: 'i2'});
+  assert.equal(p.S.inv.length, 3, 'trop loin de la Fanfiqueuse');
+  p.P.x = f.x + 1; p.P.y = f.y + .3;
+  const fusion = (x, y) => handleAction(w, 'p1', {a: 'fuse', x, y});
+  fusion('i1', 'i1'); fusion('i1', 'i3'); fusion('i1', 'nope');
+  assert.equal(p.S.inv.length, 3, 'même objet deux fois, emplacements différents, uid inconnu : refusés');
+  p.S.gold = 10; fusion('i1', 'i2');
+  assert.equal(p.S.inv.length, 3, 'pas assez d\'or');
+  p.S.gold = 1000; fusion('i1', 'i2');
+  const r = p.S.inv.find(s => s.id === 'katana');
+  assert.deepEqual([p.S.inv.length, r.nObj, r.rarete, p.S.gold], [2, 5, 'epic', 1000 - 15 * 5]);
+});

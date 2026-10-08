@@ -1,5 +1,5 @@
 import {DEATH,DIFFS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
-import {cmpInfo,classOf,dist,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
+import {FUSE_PER_LEVEL,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
@@ -130,6 +130,7 @@ function showNpc(n){
       btns.push([own?`${m.n} (possédée)`:`Acheter : ${m.n} (${fmt(m.price)} po)`,()=>send({a:'buyMount',id}),false,own||S.lvl<m.rl||S.gold<m.price]);
     }
   }
+  if(n.id==='fanfiqueuse'){btns.unshift(['Fusionner deux objets',()=>{fusSel=[];openFusion(n)}])}
   if(n.id==='conseiller'){btns.unshift(['Changer de classe',()=>openClassMenu(n)])}
   btns.push(['Au revoir',()=>closePanel('dlg'),true]);
   dialog(n.n,n.ti,html,btns,false,n);
@@ -160,6 +161,32 @@ function openShop(n){
   dlgRedo=()=>openShop(n);
   $('#dlg').classList.add('wide');$('#dlg').scrollTop=sc;
   $('#shopUp').onchange=e=>{shopUp=e.target.checked;openShop(n)};
+}
+// Fusion : deux objets du sac, même emplacement. L'aperçu vient de fuse() (la même fonction que le serveur) et se compare à l'équipement porté ; le bouton final est la confirmation.
+let fusSel=[];
+function openFusion(n){
+  fusSel=fusSel.filter(u=>S.inv.some(s=>s.uid===u));
+  const pick=u=>S.inv.find(s=>s.uid===u),slot=fusSel.length?ITEMS[pick(fusSel[0]).id].s:null;
+  const wrap=document.createElement('div');
+  wrap.innerHTML=`<p class="rw">Deux objets du même emplacement dans votre sac. Même objet et même rareté : rareté +1 et niveau d'objet +2. Sinon : la meilleure base, la meilleure rareté et niveau d'objet +3. Les deux originaux sont détruits. Coût : ${FUSE_PER_LEVEL} po × niveau d'objet du résultat.</p>`;
+  const box=document.createElement('div');box.className='trbag';
+  for(const q of S.inv.filter(s=>s.uid)){
+    const on=fusSel.includes(q.uid),b=document.createElement('button');b.type='button';b.className='trl'+(on?' sel':'');
+    b.disabled=!on&&(fusSel.length>=2||(slot&&ITEMS[q.id].s!==slot));
+    b.innerHTML=`${itemLink(q.id,q.rarete,q.nObj)} <small>${SLOTS[ITEMS[q.id].s]} · ${statLine(q)}</small>`;
+    b.onclick=()=>{fusSel=on?fusSel.filter(u=>u!==q.uid):[...fusSel,q.uid];openFusion(n)};
+    box.appendChild(b);
+  }
+  wrap.appendChild(box);
+  const btns=[['Retour',()=>{fusSel=[];showNpc(n)},true]];
+  if(fusSel.length===2){
+    const r=fuse(pick(fusSel[0]),pick(fusSel[1])),cost=fuseCost(r);
+    wrap.insertAdjacentHTML('beforeend',`<h4>Résultat de la fusion</h4>${itemHTML(r)}<p class="rw">Coût : ${fmt(cost)} po (vous avez ${fmt(S.gold)} po).</p>`);
+    btns.unshift([`Confirmer la fusion (${fmt(cost)} po)`,()=>{send({a:'fuse',x:fusSel[0],y:fusSel[1]});fusSel=[]},false,S.gold<cost]);
+  }
+  dialog('La Fanfiqueuse','Fusion d\'équipement',wrap,btns,false,n);
+  dlgRedo=()=>openFusion(n);
+  $('#dlg').classList.add('wide');
 }
 function openClassMenu(n){
   const cost=CLASS_COST*S.lvl,wrap=document.createElement('div');
