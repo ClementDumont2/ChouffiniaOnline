@@ -1,6 +1,7 @@
 import {LIGNES_PNJ,NOUVELLES_BOT_LINES} from './data/dialogues.js';
 export const ZONES={
   base:{n:"Le Sous-Sol de Maman",s:"Sanctuaire · Les monstres n'y entrent pas (l'odeur)"},
+  arene:{n:"L'Arène du Débat Stérile",s:"Sanctuaire · Duels sur invitation (/duel) · Personne n'y a jamais convaincu personne"},
   bourg:{n:"Bourg-Forum",s:"Sanctuaire · Marchands, Taverne du 18-25 et entrée des Archives"},
   plaine:{n:"Plaines de l'Herbe Jamais Touchée",s:"Niveaux 1–2"},
   steppe:{n:"Steppes des Normies",s:"Niveaux 2–3 · Risque élevé de small talk"},
@@ -142,6 +143,8 @@ export const NPCS=[
     greet:"Sous ce bourg dorment les Archives Oubliées du Forum : quinze ans de topics morts, de pavés et de flame wars. Des trésors y attendent. Des nécroposteurs aussi."},
   {id:'kevin',kind:'npc',n:"Kévin, Concessionnaire",tag:"Montures",ti:"Concessionnaire · Chaises et trottinettes",x:22.4,y:15.3,hgt:1.2,
     greet:"Salut le khey. Chaise de Gamer, Trottinette Électrique : tout roule, littéralement. Je prends les paiements en or, en Chouffe, ou en compliments. Surtout en or."},
+  {id:'arene',kind:'npc',n:"Panneau de l'Arène",tag:"Règlement du débat",ti:"Arène du Débat Stérile · Duels",x:36.6,y:14.9,hgt:1.1,
+    greet:"RÈGLEMENT : on se défie avec /duel <pseudo>, à l'intérieur de l'enclos. Dégâts réduits de moitié, personne ne meurt, tout le monde repart énervé. Le perdant doit écrire « tu as raison ». C'est la loi du Général."},
   {id:'conseiller',kind:'npc',n:"Le Conseiller d'Orientation",tag:"Reconversion",ti:"Orientation · Changement de classe",x:16.9,y:19.8,hgt:1.2,
     greet:"Bonjour. Vous voulez être soigneur, tank ou en vitesse ? Dans la vraie vie on n'a pas ce choix, profitez. Je ne juge pas votre parcours. Enfin si, mais ça se règle avec de l'or."}
 

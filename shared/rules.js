@@ -45,7 +45,7 @@ export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
-export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null});
+export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null});
 // Les sauvegardes viennent d'un fichier ou du localStorage : on les remet d'aplomb si le contenu d'objets a changé entre deux versions.
 export function normalizeSave(sv){
   sv=JSON.parse(JSON.stringify(sv));

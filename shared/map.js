@@ -48,6 +48,8 @@ export function genOverworld(seed){
   // Bourg-Forum
   rect(11,13,25,22,T.FENCE);rect(12,14,24,21,T.STONE);rect(23,13,24,13,T.STONE);rect(11,20,11,21,T.STONE);rect(25,20,25,21,T.STONE);
   rect(13,15,15,15,T.STALLR);rect(18,15,20,15,T.STALLB);setT(12,19,T.BAR);setT(13,19,T.BAR);setT(20,18,T.STAIRS);setT(21,18,T.STAIRS);
+  // L'Arène du Débat Stérile : petit enclos à l'est du Bourg, ouvert sur la route par deux cases au sud.
+  rect(29,13,38,19,T.FENCE);rect(30,14,37,18,T.STONE);rect(33,19,34,19,T.STONE);
   return map;
 }
 
@@ -61,6 +63,7 @@ export function zoneAt(map,x,y){
   if(map.id!=='over')return'dungeon';
   if(x<14&&y<12)return'base';
   if(x>=11&&x<26&&y>=13&&y<23)return'bourg';
+  if(x>=29&&x<39&&y>=13&&y<20)return'arene';
   if(x<16&&y>=26&&y<38)return'cuisine';
   if(x>=51&&y<33)return'marais';
   if(x>=51)return'datacenter';
@@ -70,7 +73,7 @@ export function zoneAt(map,x,y){
   if(y<14)return'plaine';
   return'steppe';
 }
-export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'};
+export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='arene'};
 
 // Les monstres ne sont pas créés ici (ils portent de l'état d'exécution) : la carte rend seulement où et quoi faire apparaître.
 export function genDungeon(seed,ti){

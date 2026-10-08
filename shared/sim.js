@@ -9,7 +9,7 @@ import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zone
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
-const GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
+const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
 const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});
@@ -37,7 +37,7 @@ function mkMob(w,type,x,y,L,id){
 
 function spawnOver(w){
   const map=w.maps.over,{rr,pick}=w.r,spot=(...a)=>randSpot(map,w.rnd,...a);
-  const avoid=(x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='cuisine'||(x>9&&x<28&&y>11&&y<25)};
+  const avoid=(x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='cuisine'||z==='arene'||(x>9&&x<28&&y>11&&y<25)};
   for(const [type,n,x0,x1,y0,y1] of SPAWNS)for(let i=0;i<n;i++){const p=spot(x0,x1,y0,y1,avoid);map.mobs.push(mkMob(w,type,p.x,p.y))}
   map.mobs.push(mkMob(w,'maman',8.5,31));
   if(!w.bots)return;
@@ -52,8 +52,8 @@ const announceOnline=w=>toAll(w,{t:'online',names:Object.values(w.players).map(p
 export function addPlayer(w,id,{save,name,hat,cls}={}){
   const S=save?normalizeSave(save):newSave(name,hat,cls),st=stats(S);
   S.hp=clamp(S.hp||st.maxhp,1,st.maxhp);S.caf=clamp(S.caf,0,st.maxcaf);
-  const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},mount:null,mountSayT:0,nextCrit:false,hotAmt:0,hotAcc:0};
-  const pl=w.players[id]={id,S,P,mapId:'over',group:null};
+  const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},dots:[],mount:null,mountSayT:0,nextCrit:false,hotAmt:0,hotAcc:0};
+  const pl=w.players[id]={id,S,P,mapId:'over',group:null,duel:null};
   msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${fmt(1247)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`);
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
   msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
@@ -65,11 +65,12 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
 
 export function removePlayer(w,id){
   const pl=w.players[id];if(!pl)return;
-  endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);dropAggro(w,pl);leaveGroup(w,pl,true);
+  endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);abandonDuel(w,pl);dropAggro(w,pl);leaveGroup(w,pl,true);
   for(const k in w.invites)if(k===id||w.invites[k].from===id)delete w.invites[k];
   delete w.players[id];
   announceOnline(w);
   destroyIfEmpty(w,pl.mapId);
+  return pl.S;
 }
 
 export function findEnt(w,mapId,id){
@@ -119,6 +120,8 @@ function tickPlayer(w,pl,dt){
   if(P.drunk>0)P.drunk-=dt;
   if(P.mv>0){P.mv-=dt;if(P.mv<=0)P.moving=false}
   S.played+=dt;
+  if(pl.duel)checkDuel(w,pl);
+  if(P.mount&&inArena(w,pl))dismount(w,pl,'Les montures sont interdites dans l\'Arène.');
   if(P.dead)return;
   S.caf=Math.min(st.maxcaf,S.caf+dt*2.6);
   P.combat+=dt;if(P.combat>5)S.hp=Math.min(st.maxhp,S.hp+st.maxhp*.06*dt);
@@ -127,14 +130,16 @@ function tickPlayer(w,pl,dt){
   const haste=P.buffs.anypct>0?1.4:1;
   for(const k in P.buffs)if((P.buffs[k]-=dt)<=0)delete P.buffs[k];
   if(P.cast){P.cast.t-=dt;if(P.cast.t<=0){const c=P.cast;P.cast=null;finishCast(w,pl,c)}}
+  for(const o of P.dots){o.t-=dt;o.acc+=dt;if(o.acc>=1){o.acc-=1;const by=w.players[o.by];if(by&&by.duel&&by.duel.foe===pl.id&&by.duel.phase==='fight')pvpHit(w,by,pl,o.dmg,false,'Copypasta')}}
+  P.dots=P.dots.filter(o=>o.t>0);
   const tg=findEnt(w,pl.mapId,P.target),sk0=SKILL_DEFS[classOf(S).skills[0]];
-  if(tg&&tg.kind==='mob'&&tg.alive&&P.auto&&!P.cast&&dist(P,tg)<=sk0.rg&&(P.cd[classOf(S).skills[0]]||0)<=0)useSkill(w,pl,0,true);
+  if(tg&&attackable(w,pl,tg)&&P.auto&&!P.cast&&dist(P,tg)<=sk0.rg&&(P.cd[classOf(S).skills[0]]||0)<=0)useSkill(w,pl,0,true);
   for(const k in P.cd)if(P.cd[k]>0)P.cd[k]-=k==='pot'?dt:dt*haste;
 }
 
 function finishCast(w,pl,c){
   const {P}=pl;
-  if(c.id==='mount'){if(pl.mapId==='over'){P.mount=pl.S.mount;P.mountSayT=w.r.rr(3,6)}return}
+  if(c.id==='mount'){if(pl.mapId==='over'&&!inArena(w,pl)){P.mount=pl.S.mount;P.mountSayT=w.r.rr(3,6)}return}
   if(c.id!=='ragequit')return;
   respawnAt(w,pl);P.target=null;P.auto=false;dropAggro(w,pl);
   msg(w,pl.id,'sys','Alt+F4. Vous êtes en sécurité. Personne n\'a rien vu.');burst(w,pl.mapId,P.x,P.y-.6,'#ec5a4c',14);ach(w,pl,'rq');
@@ -380,24 +385,27 @@ const ALLY={
 // Compétences sur un ennemi : même cible, même portée, même critique ; seule la formule de dégâts change.
 function strike(w,pl,t,sk,st,crit,mul){
   const {P}=pl,map=w.maps[pl.mapId],{pick,rr}=w.r,id=pl.id,roll=base=>Math.max(1,Math.round(base*rr(.85,1.15)));
+  // Une cible joueur n'existe qu'en duel : mêmes formules, mais les dégâts passent par pvpHit (réduits de moitié, jamais mortels).
+  const hit=(dmg,crit,src)=>t.kind==='player'?pvpHit(w,pl,w.players[t.id],dmg,crit,src):hitMob(w,map,t,dmg,crit,src,pl);
   switch(sk.id){
     case 'tip':
-      {const {S}=pl;P.tipT=.45;S.tips++;if(S.tips%4===1)float(w,pl.mapId,P.x,P.y-1.9,'M\'lady.','#ede1c5');if(S.tips>=50)ach(w,pl,'mlady');hitMob(w,map,t,roll(st.atk*mul),crit,sk.n,pl)}
+      {const {S}=pl;P.tipT=.45;S.tips++;if(S.tips%4===1)float(w,pl.mapId,P.x,P.y-1.9,'M\'lady.','#ede1c5');if(S.tips>=50)ach(w,pl,'mlady');hit(roll(st.atk*mul),crit,sk.n)}
       break;
     case 'enfait':
-      say(P,pick(ENFAIT),2.4);if(!t.d.boss)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,t.d.boss?'Insensible':'Étourdi','#ffd84a');hitMob(w,map,t,roll(st.atk*1.5*mul),crit,sk.n,pl);
+      say(P,pick(ENFAIT),2.4);if(t.kind==='mob'){if(!t.d.boss)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,t.d.boss?'Insensible':'Étourdi','#ffd84a')}hit(roll(st.atk*1.5*mul),crit,sk.n);
       break;
     case 'copypasta':
       say(P,'*colle 4 000 caractères*',1.8);
-      for(const m of map.mobs){if(m.alive&&dist(m,t)<=2.2){m.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});aggro(w,map,m,pl);toMap(w,map.id,{t:'puff',x:m.x,y:m.y-m.hgt*.6})}}
+      if(t.kind==='player')t.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});
+      else for(const m of map.mobs){if(m.alive&&dist(m,t)<=2.2){m.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});aggro(w,map,m,pl);toMap(w,map.id,{t:'puff',x:m.x,y:m.y-m.hgt*.6})}}
       break;
     case 'd20':{
       const nat=w.rnd()<.05,dmg=Math.max(1,Math.round(st.atk*rr(.6,1.4)*(nat?2:1)));
       if(nat){float(w,pl.mapId,P.x,P.y-1.9,'20 NATUREL !','#ffd84a',true);msg(w,id,'sys','20 NATUREL ! Le MJ n\'a rien vu venir.');say(P,'20 NATUREL !',2)}
-      hitMob(w,map,t,dmg,nat,sk.n,pl);break}
-    case 'frame':hitMob(w,map,t,roll(st.atk*.7*mul),crit,sk.n,pl);break;
+      hit(dmg,nat,sk.n);break}
+    case 'frame':hit(roll(st.atk*.7*mul),crit,sk.n);break;
     case 'avertissement':{
-      const dmg=roll(st.atk*mul);hitMob(w,map,t,dmg,crit,sk.n,pl);
+      const dmg=roll(st.atk*mul);hit(dmg,crit,sk.n);
       if(t.alive)t.threat[id]=(t.threat[id]||0)+dmg*2;
       break}
   }
@@ -414,7 +422,9 @@ function useSkill(w,pl,i,auto){
   if(sk.self)return SELF[sk.id](w,pl,sk,st);
   if(sk.ally)return ALLY[sk.id](w,pl,sk,st);
   let t=findEnt(w,pl.mapId,P.target);
-  if(!t||t.kind!=='mob'||!t.alive){t=nearestMob(map,P,sk.rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
+  const foe=duelFoe(w,pl),pvp=!!(foe&&t&&t.kind==='player'&&t.id===foe.id);
+  if(pvp&&pl.duel.phase!=='fight'){if(!auto)err(w,id,'Le duel n\'a pas encore commencé.');return}
+  if(!pvp&&(!t||t.kind!=='mob'||!t.alive)){t=nearestMob(map,P,sk.rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
   if(dist(P,t)>sk.rg){
     // Les attaques de base s'approchent toutes seules ; les autres demandent de se rapprocher à la main.
     if(!auto){if(i===0){P.auto=true;ev(w,id,{t:'approach',id:t.id})}else err(w,id,'Hors de portée. Rapprochez-vous (physiquement, ce n\'est pas social).')}
@@ -435,6 +445,82 @@ function useSkill(w,pl,i,auto){
   strike(w,pl,t,sk,st,crit,mul);
 }
 
+// Duels : état symétrique dans pl.duel = {foe, phase:'count'|'fight'}. Le serveur seul décide des touches (pvpHit) ; personne ne meurt, un duel s'arrête à 1 PV.
+const inArena=(w,pl)=>pl.mapId==='over'&&zoneAt(w.maps.over,pl.P.x,pl.P.y)==='arene';
+const duelFoe=(w,pl)=>pl.duel?w.players[pl.duel.foe]:null;
+const attackable=(w,pl,t)=>(t.kind==='mob'&&t.alive)||(t.kind==='player'&&!!duelFoe(w,pl)&&duelFoe(w,pl).id===t.id&&pl.duel.phase==='fight');
+
+function requestDuel(w,pl,name){
+  if(!name){msg(w,pl.id,'sys','Usage : /duel <pseudo>');return}
+  const dest=byName(w,name);
+  if(!dest){msg(w,pl.id,'sys',`Personne ne s'appelle ${name} en ligne.`);return}
+  if(dest===pl){msg(w,pl.id,'sys','Vous vous défiez vous-même. Vous gagnez, et vous perdez. Comme d\'habitude.');return}
+  if(pl.duel||dest.duel){msg(w,pl.id,'sys','Un duel est déjà en cours.');return}
+  if(!inArena(w,pl)||!inArena(w,dest)){msg(w,pl.id,'sys','Les deux joueurs doivent être dans l\'Arène du Débat Stérile (à l\'est du Bourg-Forum).');return}
+  w.invites[dest.id]={from:pl.id,exp:w.time+DUEL_TTL,kind:'duel'};
+  msg(w,dest.id,'sys',`[${pl.S.name}] vous défie en duel. Acceptez ou refusez dans la fenêtre (ou /accepter) : l'invitation expire dans ${DUEL_TTL} s.`);
+  ev(w,dest.id,{t:'duelInvite',from:pl.S.name,ttl:DUEL_TTL});
+  msg(w,pl.id,'sys',`Défi envoyé à [${dest.S.name}]. Il a ${DUEL_TTL} s pour avoir peur.`);
+}
+
+function duelReply(w,pl,ok){
+  const inv=w.invites[pl.id];
+  if(!inv||inv.kind!=='duel')return;
+  if(ok){acceptInvite(w,pl);return}
+  delete w.invites[pl.id];
+  const from=w.players[inv.from];if(from)msg(w,from.id,'sys',`[${pl.S.name}] refuse le duel. Il préfère garder sa dignité.`);
+}
+
+function startDuel(w,a,b){
+  if(a.duel||b.duel||a.P.dead||b.P.dead||!inArena(w,a)||!inArena(w,b)){msg(w,b.id,'sys','Duel impossible : les deux joueurs doivent être libres et dans l\'Arène.');return}
+  for(const [p,o] of [[a,b],[b,a]]){
+    dismount(w,p);p.duel={foe:o.id,phase:'count'};p.P.target=o.id;p.P.auto=false;p.P.cast=null;
+    msg(w,p.id,'sys',`Duel contre [${o.S.name}] : préparez-vous.`);
+  }
+  const alive=()=>a.duel&&b.duel&&a.duel.foe===b.id&&b.duel.foe===a.id&&w.players[a.id]===a&&w.players[b.id]===b;
+  const say3=text=>{if(alive())for(const p of [a,b])ev(w,p.id,{t:'count',text})};
+  say3('3');later(w,1,()=>say3('2'));later(w,2,()=>say3('1'));
+  later(w,DUEL_COUNT,()=>{if(alive()){a.duel.phase=b.duel.phase='fight';say3('DÉBATTEZ !')}});
+}
+
+// Coup d'un joueur sur l'autre : −50 % pour éviter les one-shots, et la barre ne descend jamais sous 1 PV.
+function pvpHit(w,from,to,dmg,crit,src){
+  const {S,P}=to;if(P.dead||!from.duel||from.duel.foe!==to.id||from.duel.phase!=='fight')return;
+  if(P.buffs.glitch>0){float(w,to.mapId,P.x,P.y-1.3,'Glitch','#7fb6ff');return}
+  const st=stats(S,P.drunk),d=Math.max(1,Math.round(dmg*PVP_MULT*(1-st.red)*(P.buffs.reglement>0?.5:1)));
+  S.hp-=d;P.combat=0;from.P.combat=0;
+  float(w,to.mapId,P.x,P.y-1.3,String(d),crit?'#ffd84a':'#ffffff',crit);burst(w,to.mapId,P.x,P.y-.8,'#ffcf8a',crit?8:4);
+  msg(w,from.id,'cb',`Votre ${src} inflige ${d} dégâts${crit?' (critique)':''} à ${S.name}.`);
+  msg(w,to.id,'cb in',`${from.S.name} vous inflige ${d} dégâts (${src}).`);
+  if(S.hp<=1){S.hp=1;endDuel(w,from,to)}
+}
+
+function endDuel(w,winner,loser){
+  for(const p of [winner,loser]){
+    const st=stats(p.S,p.P.drunk);
+    p.duel=null;p.S.hp=st.maxhp;p.S.caf=st.maxcaf;p.P.dots=[];p.P.auto=false;p.P.buffs={};p.P.cast=null;
+  }
+  winner.S.duelWins=(winner.S.duelWins||0)+1;loser.S.duelLosses=(loser.S.duelLosses||0)+1;
+  loser.S.concede=winner.S.name;
+  ev(w,winner.id,{t:'banner',title:'Victoire',sub:`Débat remporté contre ${loser.S.name}`,cls:'lvl'});
+  ev(w,loser.id,{t:'banner',title:'Défaite',sub:'Écrivez « tu as raison ».'});
+  msg(w,winner.id,'sys',`Vous avez gagné le duel contre [${loser.S.name}]. Il va devoir reconnaître que vous avez raison.`);
+  msg(w,loser.id,'sys','Vous avez perdu un débat. Écrivez « tu as raison ».');
+  ev(w,winner.id,{t:'self'});ev(w,loser.id,{t:'self'});
+}
+
+// Sortir de l'arène, mourir ou se déconnecter = abandon : l'adversaire gagne.
+function abandonDuel(w,pl){
+  if(!pl.duel)return;
+  const foe=duelFoe(w,pl);
+  if(foe)endDuel(w,foe,pl);else pl.duel=null
+}
+function checkDuel(w,pl){
+  if(!pl.duel)return;
+  const foe=duelFoe(w,pl);
+  if(!foe||!inArena(w,pl)||!inArena(w,foe)||pl.P.dead||foe.P.dead)abandonDuel(w,pl);
+}
+
 function dismount(w,pl,why){
   if(!pl.P.mount)return;
   pl.P.mount=null;if(why)msg(w,pl.id,'sys',why);
@@ -444,8 +530,8 @@ function mountToggle(w,pl){
   if(P.mount){dismount(w,pl,'Vous descendez de votre monture.');return}
   if(P.cast)return;
   if(!m||!S.mounts.includes(S.mount)){err(w,pl.id,'Aucune monture. Kévin, au Bourg-Forum, en vend.');return}
-  // Pas de monture en donjon (ni en arène : à brancher sur la zone quand elle existera).
-  if(pl.mapId!=='over'){err(w,pl.id,'Les montures sont interdites ici.');return}
+  // Pas de monture en donjon ni en arène.
+  if(pl.mapId!=='over'||inArena(w,pl)){err(w,pl.id,'Les montures sont interdites ici.');return}
   P.cast={id:'mount',n:m.n,t:1,max:1};ev(w,pl.id,{t:'stop'});
 }
 function buyMount(w,pl,id){
@@ -500,6 +586,7 @@ function acceptInvite(w,pl){
   delete w.invites[pl.id];
   if(!inv||inv.exp<w.time||!from){msg(w,pl.id,'sys','Personne ne vous a invité récemment. Ça arrive.');return}
   if(inv.kind==='trade'){openTrade(w,from,pl);return}
+  if(inv.kind==='duel'){startDuel(w,from,pl);return}
   if(pl.group){msg(w,pl.id,'sys','Vous êtes déjà dans un groupe : /quitter d\'abord.');return}
   let g=groupOf(w,from);
   if(g&&(g.leader!==from.id||g.members.length>=GROUP_MAX)){msg(w,pl.id,'sys','Ce groupe est complet ou son chef a changé.');return}
@@ -716,7 +803,7 @@ export function handleAction(w,id,a){
   switch(a.a){
     case 'target':
       if(a.id==null){P.target=null;P.auto=false;break}
-      {const e=findEnt(w,pl.mapId,a.id);if(!e||(e.kind==='mob'&&!e.alive))break;P.target=e.id;if(a.auto&&e.kind==='mob')P.auto=true}
+      {const e=findEnt(w,pl.mapId,a.id);if(!e||(e.kind==='mob'&&!e.alive))break;P.target=e.id;if(a.auto&&(e.kind==='mob'||(e.kind==='player'&&duelFoe(w,pl)&&duelFoe(w,pl).id===e.id)))P.auto=true}
       break;
     case 'talk':if(nearNpc(pl,a.id)){P.target=a.id;if(a.id==='tavernier')ach(w,pl,'khey')}break;
     case 'skill':useSkill(w,pl,a.i,false);break;
@@ -735,6 +822,7 @@ export function handleAction(w,id,a){
     case 'tradeOffer':tradeOffer(w,pl,a);break;
     case 'tradeOk':tradeOk(w,pl);break;
     case 'tradeCancel':endTrade(w,pl,'Échange annulé.');break;
+    case 'duelReply':duelReply(w,pl,!!a.ok);break;
     case 'mount':mountToggle(w,pl);break;
     case 'selectMount':if(S.mounts.includes(a.id))S.mount=a.id;break;
     case 'buyMount':buyMount(w,pl,a.id);break;
@@ -745,6 +833,8 @@ export function handleAction(w,id,a){
   ev(w,id,{t:'self'});
 }
 
+// Insensible à la casse et aux accents.
+const plain=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const emote=(w,pl,txt)=>toAll(w,{t:'emote',who:pl.S.name,text:txt});
 // Un handler par entrée de shared/data/commands.js ; le dispatch (alias, droit requis) est fait une seule fois dans runCommand.
 const RUN={
@@ -755,6 +845,7 @@ const RUN={
   accepter:(w,pl)=>acceptInvite(w,pl),
   quitter:(w,pl)=>leaveGroup(w,pl),
   echanger:(w,pl,v)=>requestTrade(w,pl,v.split(/\s+/)[1]),
+  duel:(w,pl,v)=>requestDuel(w,pl,v.split(/\s+/)[1]),
   top:(w,pl)=>top(w,pl),
   danse:(w,pl)=>{say(pl.P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote(w,pl,'danse maladroitement. Personne ne regarde. Heureusement.')},
   mlady:(w,pl)=>{const {S,P}=pl;P.tipT=.45;S.tips++;say(P,"M'lady.",2);emote(w,pl,'soulève son fedora en direction de personne en particulier.');if(S.tips>=50)ach(w,pl,'mlady')},
@@ -782,8 +873,12 @@ export function handleChat(w,id,text){
   const pl=w.players[id];if(!pl)return;
   const {S,P}=pl,{pick}=w.r,v=String(text||'').trim().slice(0,140);if(!v)return;
   if(v.startsWith('/')){runCommand(w,pl,v);ev(w,id,{t:'self'});return}
+  // Le perdant d'un duel ne peut plus rien écrire dans le Général tant qu'il n'a pas reconnu son tort.
+  const conceded=S.concede&&plain(v)==='tu as raison';
+  if(S.concede&&!conceded){msg(w,id,'sys','Vous avez perdu un débat. Écrivez « tu as raison ».');return}
   for(const o of Object.values(w.players))ev(w,o.id,{t:'chat',who:S.name,text:v,me:o.id===id});
   say(P,v,4);
+  if(conceded){toAll(w,{t:'msg',cls:'sys',text:`[Serveur] ${S.name} a perdu le débat contre ${S.concede} et reconnaît : « tu as raison ». Victoire de ${S.concede}.`});S.concede=null}
   if(/en fait/i.test(v))ach(w,pl,'chat');
   if(w.bots&&w.rnd()<.75)later(w,w.r.rr(.9,2.6),()=>botTalk(w,pick(BOT_REPLIES),3.5));
   ev(w,id,{t:'self'});
@@ -792,12 +887,12 @@ export function handleChat(w,id,text){
 const zoneName=(map,P)=>{const z=zoneAt(map,P.x,P.y);return z==='dungeon'?`Archives Oubliées, ${DIFFS[map.ti].n}`:ZONES[z].n};
 
 // w.saves() est fourni par le serveur (toutes les sauvegardes, hors-ligne compris) ; la sim seule ne connaît que les connectés.
-const TOPS=[['Niveau',S=>S.lvl,(a,b)=>b.xp-a.xp],['Archives terminées',S=>S.dg||0],['Chouffes bues',S=>S.chouffes||0]];
+const TOPS=[['Niveau',S=>S.lvl,(a,b)=>b.xp-a.xp],['Archives terminées',S=>S.dg||0],['Chouffes bues',S=>S.chouffes||0],['Duels',S=>S.duelWins||0,null,S=>`${S.duelWins||0}V/${S.duelLosses||0}D`]];
 function top(w,pl){
   const rows=w.saves?w.saves():Object.values(w.players).map(p=>p.S);
-  for(const [label,val,tie] of TOPS){
+  for(const [label,val,tie,show] of TOPS){
     const best=[...rows].sort((a,b)=>val(b)-val(a)||(tie?tie(a,b):0)).slice(0,5);
-    msg(w,pl.id,'sys',`Top ${label} : ${best.map((S,i)=>`${i+1}. ${S.name} (${fmt(val(S))})`).join(' · ')}`);
+    msg(w,pl.id,'sys',`Top ${label} : ${best.map((S,i)=>`${i+1}. ${S.name} (${show?show(S):fmt(val(S))})`).join(' · ')}`);
   }
 }
 

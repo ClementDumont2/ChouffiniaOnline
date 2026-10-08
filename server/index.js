@@ -37,16 +37,15 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
 
   const saveFile = name => join(savesDir, name.toLowerCase() + '.json');
   const loadSave = name => { try { return JSON.parse(readFileSync(saveFile(name), 'utf8')); } catch { return null; } };
-  function saveAll() {
-    for (const c of conns.values()) {
-      const tmp = saveFile(c.name) + '.tmp';
-      // Les droits s'éditent à la main dans le fichier : on garde ceux du disque, la mémoire ne fait que les avoir lus à la connexion.
-      const S = {...world.players[c.id].S}, disk = loadSave(c.name);
-      if (disk && Array.isArray(disk.droits)) S.droits = disk.droits; else delete S.droits;
-      writeFileSync(tmp, JSON.stringify(S));
-      renameSync(tmp, saveFile(c.name));
-    }
+  // Les droits s'éditent à la main dans le fichier : on garde ceux du disque, la mémoire ne fait que les avoir lus à la connexion.
+  function savePlayer(name, state) {
+    const tmp = saveFile(name) + '.tmp';
+    const S = {...state}, disk = loadSave(name);
+    if (disk && Array.isArray(disk.droits)) S.droits = disk.droits; else delete S.droits;
+    writeFileSync(tmp, JSON.stringify(S));
+    renameSync(tmp, saveFile(name));
   }
+  const saveAll = () => { for (const c of conns.values()) savePlayer(c.name, world.players[c.id].S); };
   // ponytail: relit tous les fichiers à chaque /top ; un cache si la liste dépasse quelques centaines de joueurs.
   world.saves = () => {
     const all = new Map();
@@ -102,9 +101,10 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
     });
     ws.on('close', () => {
       if (!c.id) return;
-      saveAll();
+      // removePlayer règle un éventuel duel abandonné : on sauvegarde l'état d'après (défaite, « tu as raison » à écrire).
+      const S = removePlayer(world, c.id);
+      if (S) savePlayer(c.name, S);
       conns.delete(c.id);
-      removePlayer(world, c.id);
       takeEvents(world, c.id);
     });
   });
