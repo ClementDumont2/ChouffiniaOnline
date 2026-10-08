@@ -51,7 +51,7 @@ export const moveSpeed=(S,P)=>stats(S).spd*(1+(P.mount&&MOUNTS[P.mount]?MOUNTS[P
 export function bossUpcoming(m){
   const B=m.b,out=[];
   for(const a of BOSSES[m.type].abilities){
-    if(m.diff<a.diffMin||!a.n)continue;
+    if(m.diff<a.diffMin||!a.n||a.type==='gauge')continue;
     if(a.recharge)out.push({n:a.n,t:Math.max(0,Math.ceil(B.cd[a.id]??a.ouverture)),k:a.type});
     else if(a.apres!=null){if(!B.done[a.id])out.push({n:a.n,t:Math.max(0,Math.ceil(a.apres-B.t)),k:a.type})}
     else for(const th of a.seuilsPV||[a.seuilPV])if(!B.done[a.id+th])out.push({n:a.n,pct:Math.round(th*100),k:a.type});

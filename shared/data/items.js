@@ -101,3 +101,54 @@ export const ART_POOLS={
   reserve:{common:['art_ticket','art_sac'],unc:['art_etiquette','art_sac'],rare:['art_pate','art_jouet'],epic:['art_caddie','art_fidelite'],leg:['art_dlc']},
   labyrinthe:{common:['art_ticketpe','art_stylo'],unc:['art_cerfa_vide','art_stylo'],rare:['art_tampon','art_justif'],epic:['art_attestation','art_dossier'],leg:['art_rdv']},
 };
+
+// ---- Lot 9 : Convention Manga/Anime (rl 56–70) et DIIAGE (rl 76–100) ----
+// Les stats viennent du niveau requis, de l'emplacement et de la rareté (même échelle que les objets du Lot 8) : ça évite 15 lignes de chiffres à tenir à jour à la main.
+const RM9={rare:1,epic:1.25,leg:1.5};
+const BUDGET9={arme:{atk:1.9,hp:1.4},tete:{atk:.26,arm:.95,hp:2.7},torse:{arm:1.15,hp:2.85},mains:{atk:.45,arm:.95},jambes:{arm:1.2,hp:3.1}};
+const eq9=(n,s,r,rl,d)=>{const it={n,t:'eq',s,r,rl,price:Math.round(rl*rl*.35*RM9[r]+rl*30),d};for(const k in BUDGET9[s])it[k]=Math.round(BUDGET9[s][k]*rl*RM9[r]);return it};
+Object.assign(ITEMS,{
+  wakizashi:eq9("Wakizashi de Convention",'arme','rare',56,"Acheté au stand n° 47, entre un poster et une peluche. Il n'a jamais coupé que du carton, mais il y met du cœur."),
+  perruque:eq9("Perruque Bleue Électrique",'tete','epic',58,"Quarante centimètres de nylon et trois litres de laque. Elle résiste aux coups, à la pluie et au regard des autres."),
+  armure_cosplay:eq9("Armure de Cosplay Intégrale",'torse','epic',60,"Trois cents heures de couture, deux brûlures de pistolet à colle, zéro sortie de chez vous. Elle protège mieux que votre vie sociale."),
+  gants_manga:eq9("Gants de Dédicace Anti-Crampes",'mains','rare',62,"Pour signer 800 dédicaces sans pleurer. Le pouce a des opinions."),
+  hakama:eq9("Hakama du Maître de la Convention",'jambes','epic',65,"Un pli par saison d'anime. Le tissu a vu des épisodes que personne ne devrait voir."),
+  tablette_graphique:eq9("Tablette Graphique à Stylet Tranchant",'arme','epic',66,"Elle dessine des lignes parfaites. Elles coupent aussi, dans les cas extrêmes."),
+  plume_or:eq9("Plume d'Or du Mangaka",'arme','leg',70,"Elle n'a jamais séché. Elle n'a jamais dormi non plus. Il en sort des chapitres entiers, et des ennemis en moins."),
+  sweat_diiage:eq9("Sweat DIIAGE Taché de Café",'torse','rare',76,"Le logo est à moitié parti au lavage. Le café, lui, ne part jamais. Il fait partie de la formation."),
+  clavier_ergo:eq9("Clavier Ergonomique Mal Réglé",'arme','rare',78,"Trois pieds, deux axes, une douleur au poignet. Le dernier coup de pied de la journée, en prime."),
+  hoodie_dev:eq9("Hoodie de Développeur Nocturne",'torse','epic',85,"Capuche permanente, poche kangourou à snacks. Il protège de la lumière, du soleil et des collègues."),
+  badge_diiage:eq9("Badge DIIAGE « Étudiant »",'tete','epic',86,"Il ouvre toutes les portes sauf celle de la salle serveur. Elle est « en maintenance » depuis la rentrée."),
+  gants_ssh:eq9("Gants de Terminal",'mains','epic',92,"Aucun clavier ne leur résiste. Ils tapent « sudo » toutes les trois secondes, par réflexe."),
+  jean_rendu:eq9("Jean de Veille de Rendu",'jambes','epic',95,"Porté trois jours d'affilée, comme le projet. Il a lâché deux fois, le projet une seule."),
+  diplome_epee:eq9("Parchemin du Diplôme",'arme','leg',97,"Roulé comme une lame, signé comme une promesse. Il tranche les doutes. Et un peu tout le reste."),
+  toque_diplome:eq9("Toque de Diplômé (Enfin)",'tete','leg',100,"Lancée en l'air, elle n'est jamais retombée. Elle est revenue, d'elle-même, en 2031. Pas de mention."),
+  // Artéfacts de La Salle des Dédicaces
+  art_dedicace:{n:"Dédicace sur Serviette en Papier",t:'art',r:'common',price:200,d:"« Pour Kévin, avec toute mon… signature. » Le stylo a bavé. Le papier aussi."},
+  art_pins:{n:"Pin's d'Édition Limitée (Pas Si Limitée)",t:'art',r:'common',price:220,d:"Tirage limité à 4 000 000 exemplaires. Vous en avez trois. Un par stand."},
+  art_tome:{n:"Tome 1 Dédicacé (Sans Tomes 2 à 87)",t:'art',r:'unc',price:420,d:"Le seul qu'on ait réussi à trouver. La suite est en rupture. Depuis 1998."},
+  art_cell:{n:"Cellulo Original d'un Épisode Inconnu",t:'art',r:'rare',price:1100,d:"Une scène de combat qui n'a jamais été diffusée. Heureusement pour les spectateurs."},
+  art_poster_manga:{n:"Poster Dédicacé Roulé depuis 2009",t:'art',r:'rare',price:1200,d:"Il a gardé la forme du tube. Il garde aussi quelques secrets, dont une page entière de dédicaces à l'ennemi."},
+  art_edition:{n:"Édition Collector Jamais Ouverte",t:'art',r:'epic',price:2600,d:"Sous blister depuis la sortie. Le blister a pris de la valeur. L'édition, non."},
+  art_manuscrit:{n:"Manuscrit Raturé du Mangaka",t:'art',r:'epic',price:2900,d:"Sept versions du dernier chapitre, toutes barrées de rouge. La huitième est restée dans sa tête."},
+  art_planche:{n:"Planche Originale du Chapitre 1 000",t:'art',r:'leg',price:9000,d:"Un arc de fin d'œuvre, en grand format. Il sera publié dans deux mille ans, la deadline est négociable."},
+  // Artéfacts de La Soutenance
+  art_slide:{n:"Diapositive à Trop de Texte",t:'art',r:'common',price:320,d:"Quatre-vingt-dix lignes en police 8. Le jury a bien lu la première. Il a dit « intéressant »."},
+  art_cafe:{n:"Gobelet de Café du Jury",t:'art',r:'common',price:340,d:"Vide depuis la première question. Il a gardé la chaleur de l'angoisse."},
+  art_rapport:{n:"Rapport de 87 Pages (Page de Garde Seule)",t:'art',r:'unc',price:650,d:"La page de garde est magnifique. Les 86 autres sont « en cours ». Elles sont en cours depuis septembre."},
+  art_maquette:{n:"Maquette Jamais Branchée",t:'art',r:'rare',price:1700,d:"Elle marche parfaitement, tant qu'on ne la branche pas. L'état de l'art est un état d'esprit."},
+  art_commit:{n:"Historique de Commits « fix »",t:'art',r:'rare',price:1800,d:"Quatre cent douze commits, tous nommés « fix ». Aucun ne répare quoi que ce soit."},
+  art_cahier:{n:"Cahier des Charges Signé (et Ignoré)",t:'art',r:'epic',price:4000,d:"Trente pages de spécifications, quatre signatures. Plus personne ne s'en souvient, mais tout le monde l'a signé."},
+  art_note:{n:"Grille de Notation Annotée",t:'art',r:'epic',price:4400,d:"Une colonne « Remarques » remplie d'encre rouge. La note finale est au verso, le verso est vide."},
+  art_diplome_dev:{n:"Diplôme DIIAGE (Original, Signé, Soulagé)",t:'art',r:'leg',price:14000,d:"Il est là. Il est signé. Personne n'y croyait, surtout pas vous. On le plastifie ? On l'encadre ? On pleure."},
+  // Figurines-artéfacts vendues par l'Otaku Ancestral (prix d'achat : buy ; elles se revendent bien moins cher chez Gérard)
+  fig_chibi:{n:"Figurine Chibi d'un Personnage Secondaire",t:'art',r:'rare',price:300,buy:900,d:"Un héros de troisième plan, en version miniature et très mignonne. Il a eu quatre répliques, toutes sur du pain."},
+  fig_robot:{n:"Maquette de Robot Géant (Montée en 40 h)",t:'art',r:'rare',price:800,buy:2400,d:"Quarante heures, trois doigts collés, une jambe à l'envers. Le robot est fier de sa pose, c'est l'essentiel."},
+  fig_waifu:{n:"Figurine Taille Réelle (Très Gênante)",t:'art',r:'epic',price:2000,buy:6000,d:"Elle regarde les visiteurs sans jamais ciller. Votre mère a demandé qu'on la mette dans la cave. Elle y est restée un jour."},
+  fig_numero:{n:"Figurine Édition Limitée N° 1/1",t:'art',r:'leg',price:5000,buy:15000,d:"Une édition limitée à un exemplaire. Il en reste un. L'Otaku Ancestral l'a gardé jusqu'à vous."},
+});
+STOCK.otaku=['fig_chibi','fig_robot','fig_waifu','fig_numero'];
+Object.assign(ART_POOLS,{
+  dedicaces:{common:['art_dedicace','art_pins'],unc:['art_tome','art_pins'],rare:['art_cell','art_poster_manga'],epic:['art_edition','art_manuscrit'],leg:['art_planche']},
+  soutenance:{common:['art_slide','art_cafe'],unc:['art_rapport','art_cafe'],rare:['art_maquette','art_commit'],epic:['art_cahier','art_note'],leg:['art_diplome_dev']},
+});

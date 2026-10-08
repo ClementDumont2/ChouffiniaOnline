@@ -38,7 +38,7 @@ export function createWorld({seed=20111,rng,bots=false}={}){
 const newBoss=()=>({t:0,cd:{},done:{},summons:[]});
 function mkMob(w,type,x,y,L,id,diff=0){
   const d=MOBS[type];L=L||d.l;const{hp,atk,xp,g}=statsDeMob(type,L),{rr}=w.r;
-  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
+  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,gauge:0,gaugeN:'',spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
 }
 
 function spawnOver(w){
@@ -207,6 +207,8 @@ function killMob(w,map,m){
   m.alive=false;m.hp=0;m.dieT=.7;m.rt=inDg||m.summoned?Infinity:(m.d.boss?75:14);m.dots=[];m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.threat={};
   // Les invocations n'ont ni butin ni XP ; elles disparaissent avec leur invocateur.
   if(m.b)for(const o of map.mobs)if(m.b.summons.includes(o.id)){o.alive=false;o.hp=0;o.dieT=.3;o.rt=Infinity}
+  // Plusieurs boss : quand l'un tombe, les autres durcissent (+25 % de dégâts, cumulable).
+  if(m.d.boss)for(const o of map.mobs)if(o!==m&&o.d.boss&&o.alive){o.enrMult=(o.enr?o.enrMult:1)*1.25;o.enr=1}
   if(m.summoned){m.hitters=[];m.tag=null;for(const o of onMap(w,map.id))if(o.P.target===m.id){o.P.target=null;o.P.auto=false}return}
   // Participants : ceux qui ont frappé et sont encore assez près. Butin et or : au premier frappeur (s'il est parti, au premier participant).
   const group=m.hitters.map(id=>w.players[id]).filter(p=>p&&p.mapId===map.id&&dist(p.P,m)<=SHARE_RANGE);
@@ -216,7 +218,7 @@ function killMob(w,map,m){
   for(const o of onMap(w,map.id))if(o.P.target===m.id){o.P.target=null;o.P.auto=false}
   if(!group.length)return;
   rewardKill(w,map,m,group,tagger);
-  if(inDg&&m.d.boss)dungeonDone(w,map,group);
+  if(inDg&&m.d.boss&&!map.mobs.some(o=>o.d.boss&&o.alive))dungeonDone(w,map,group);
   for(const p of new Set([...group,tagger]))ev(w,p.id,{t:'self'});
 }
 
@@ -248,10 +250,12 @@ function dungeonDone(w,map,group){
   const dg=DUNGEONS[map.dg],df=dgDiff(map.dg,map.ti),boss=map.mobs.find(x=>x.d.boss);map.done=true;
   map.objs.push({id:nid(w,'o'),kind:'obj',type:'chest',n:dg.coffre,x:boss.x,y:boss.y,hgt:.9,openedBy:[]});
   toMap(w,map.id,{t:'banner',title:dg.fini,sub:`Difficulté ${df.n} · Ouvrez le ${dg.coffre.replace(/^Coffre (de la |de l'|du |des |de )/,'coffre ')}.`,cls:'dg'});
-  toMap(w,map.id,{t:'msg',cls:'sys',text:`${boss.d.n} est vaincu. ${dg.fini} (${df.n}).`});
+  toMap(w,map.id,{t:'msg',cls:'sys',text:`${dg.vaincu||`${boss.d.n} est vaincu.`} ${dg.fini} (${df.n}).`});
   for(const pl of group){
     const {S}=pl;
     gainXP(w,pl,df.bonus,null);S.dg=(S.dg||0)+1;ach(w,pl,'dungeon');if(map.ti===3)ach(w,pl,'mythic');
+    // Le Jury vaincu en Sans Douche : titre affiché sous le nom.
+    if(map.dg==='soutenance'&&map.ti===3){ach(w,pl,'diplome');S.titre='Diplômé (enfin)'}
     const q=QUESTS[S.q.i];if(q&&S.q.st==='active'&&q.dg!=null&&map.ti>=q.dg&&(q.dgn||'archives')===map.dg){S.q.n=1;S.q.st='ready';ev(w,pl.id,{t:'toast',kicker:'Objectif terminé',title:q.n,sub:`Retournez voir ${npcById(q.g).n}.`})}
   }
 }
@@ -776,7 +780,7 @@ function completeQuest(w,pl){
   gainXP(w,pl,q.xp);ev(w,pl.id,{t:'toast',kicker:'Quête terminée',title:q.n,sub:''});
   if(S.gold>=100)ach(w,pl,'rich');
   // La fin de campagne marque la dernière quête d'origine (fin:true) : d'autres quêtes lui font suite.
-  if(q.fin)ev(w,pl.id,{t:'campaignEnd'});
+  if(q.fin)ev(w,pl.id,{t:'campaignEnd',final:!!q.final});
 }
 
 // Monstre de donjon : mise à l'échelle du groupe, Héroïque et plus (PV ×1,3, dégâts ×1,2), élite (PV ×1,5, dégâts ×1,2) avec son affixe.
@@ -808,7 +812,7 @@ function enterDungeon(w,pl,ti,dgId='archives'){
     D.id='dg'+(++w.instN);D.seed=seed;D.dg=dgId;D.gid=g?g.id:null;D.done=false;D.npcs=[];D.bots=[];
     D.scale=scale;
     D.mobs=D.spawns.map(s=>{
-      const elite=ti>=2&&s.type!==dg.boss&&w.rnd()<(ti===2?.15:.25);
+      const elite=ti>=2&&![].concat(dg.boss).includes(s.type)&&w.rnd()<(ti===2?.15:.25);
       return mkDgMob(w,D,s.type,s.x,s.y,s.l,{elite,affix:elite?w.r.pick(Object.keys(AFFIXES)):null,patrol:s.patrol});
     });
     D.objs=[{id:nid(w,'o'),kind:'obj',type:'portal',n:dg.sortie,x:D.portal.x,y:D.portal.y,hgt:.9}];
@@ -1039,6 +1043,10 @@ const FINISH={
       else if(m.threat[p.id]||m.target===p.id){msg(w,p.id,'sys',a.dodge);float(w,map.id,p.P.x,p.P.y-1.9,a.dodgeF,'#7fb6ff')}
     }
   },
+  // Toute l'équipe est touchée, sauf si l'incantation a été interrompue.
+  raid(w,map,m,a,here){
+    for(const p of here)if(!p.P.dead){hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,hitText(w,a),'#ec5a4c',true)}
+  },
   spots(w,map,m,a,here){
     for(const p of here){
       if(p.P.dead||!m.spots.some(q=>Math.hypot(p.P.x-q.x,p.P.y-q.y)<a.r))continue;
@@ -1086,6 +1094,15 @@ function bossTick(w,map,m,dt,here){
   }
   const ratio=m.hp/m.mhp;
   for(const a of abs){
+    if(a.type==='gauge'){
+      // Les assistants vivants accélèrent la jauge ; une fois pleine, le boss est enragé pour de bon.
+      if(B.done[a.id])continue;
+      const vivants=map.mobs.filter(o=>o.alive&&B.summons.includes(o.id)).length;
+      m.gaugeN=a.n;m.gauge=Math.min(1,m.gauge+dt*(1+a.perAdd*vivants)/a.duree[Math.min(m.diff,a.duree.length-1)]);
+      if(m.gauge>=1){B.done[a.id]=1;PHASE.enrage(w,map,m,a)}
+    }
+  }
+  for(const a of abs){
     if(a.apres!=null){if(!B.done[a.id]&&B.t>=a.apres){B.done[a.id]=1;PHASE[a.type](w,map,m,a)}continue}
     for(const th of a.seuilsPV||(a.seuilPV!=null?[a.seuilPV]:[])){
       const k=a.id+th;
@@ -1100,13 +1117,19 @@ function bossTick(w,map,m,dt,here){
   for(const a of abs){
     if(!a.recharge)continue;
     B.cd[a.id]=(B.cd[a.id]??a.ouverture)-dt;
-    if(B.cd[a.id]<=0&&startCast(w,map,m,a,here))return true;
+    if(B.cd[a.id]>0)continue;
+    if(a.type==='adds'){
+      // Invocation périodique, sans incantation, plafonnée.
+      const vivants=map.mobs.filter(o=>o.alive&&B.summons.includes(o.id)).length;
+      B.cd[a.id]=rr(a.recharge[0],a.recharge[1]);
+      if(vivants<a.max)PHASE.summon(w,map,m,{...a,count:Math.min(a.count,a.max-vivants)});
+    }else if(startCast(w,map,m,a,here))return true;
   }
   return false;
 }
 function resetBoss(map,m){
   for(const o of map.mobs)if(m.b.summons.includes(o.id))o.gone=true;
-  m.b=newBoss();m.enr=0;m.hard=0;m.zone=null;m.mark=null;
+  m.b=newBoss();m.enr=0;m.hard=0;m.gauge=0;m.zone=null;m.mark=null;
 }
 
 function tickMob(w,map,m,dt,here){

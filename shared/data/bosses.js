@@ -83,5 +83,44 @@ BOSSES.guichet={abilities:[
     {n:'Pause Déjeuner',say:'C\'EST L\'HEURE DE LA PAUSE DÉJEUNER. DE MA PAUSE DÉJEUNER.'}),
 ]};
 
+// ---- Lot 9 : Mangaka Épuisé (jauge Deadline) et Jury de la Soutenance (3 boss, une mécanique chacun) ----
+//   adds    comme `summon`, mais toutes les `recharge` s (sans incantation) ; au plus `max` invocations vivantes
+//   gauge   jauge « Deadline » : se remplit en duree[difficulté] s (+perAdd par invocation vivante) ; pleine, le boss frappe mult fois plus fort
+//   raid    incantation qui touche tous les joueurs ; interruptible comme `recall`
+BOSSES.mangaka={abilities:[
+  {id:'pinceau',diffMin:0,type:'aoe',n:'Coup de Pinceau',r:4.4,cast:2.6,ouverture:6,recharge:[9,11],dmg:2.2,
+    warn:'Coup de Pinceau ! Sortez de la zone !',hit:'vous dessine en super-déformé.',hitF:'ENCRÉ',dodge:'Vous esquivez le coup de pinceau en sortant du cadre.',dodgeF:'Hors cadre',
+    shout:['ENCORE UNE PLANCHE !','LE CHAPITRE EST POUR CE SOIR !','PAS DE PAUSE !']},
+  {id:'assistants',diffMin:0,type:'adds',n:'Assistants',summon:'assistant',count:2,max:6,ouverture:8,recharge:[20,24],say:'ASSISTANTS ! AU TRAVAIL !'},
+  {id:'deadline',diffMin:0,type:'gauge',n:'Deadline',duree:[240,200,170,140],perAdd:.15,mult:2.5,say:'DEADLINE ! LE CHAPITRE EST POUR HIER !'},
+  {id:'colere',diffMin:0,type:'rage',seuilPV:.5,mult:1.3,say:"JE N'AI PAS FINI MON CHAPITRE !"},
+  {id:'taches',diffMin:1,type:'spots',n:"Taches d'Encre",count:3,r:2.2,cast:2.6,ouverture:12,recharge:[11,14],dmg:1.6,
+    warn:"Des taches d'encre tombent au sol ! Ne restez pas dessus !",hit:"vous tache d'encre.",hitF:'TACHÉ'},
+  {id:'esquisse',diffMin:2,type:'chain',n:'Esquisse en Chaîne',cast:2.2,ouverture:11,recharge:[12,15],jump:3.2,jumps:4,dmg:1.3,
+    warn:'Esquisse en Chaîne ! Écartez-vous les uns des autres !',hit:'vous esquisse au crayon.',hitF:'ESQUISSÉ'},
+  {id:'pleine_page',diffMin:3,type:'shrink',n:'Planche Pleine Page',seuilPV:.3,r0:7,rMin:2.6,duree:25,dmg:.8,say:'PLEINE PAGE ! TOUT LE MONDE DANS LE CADRE !',hit:'vous rature hors cadre'},
+]};
+// Chaque juré : une question signature, un coup de zone, et la progression habituelle (diffMin 1 à 3). Quand l'un tombe, les autres durcissent (voir killMob).
+const juré=(sig,extra)=>[
+  {id:'rage',diffMin:0,type:'rage',seuilPV:.5,mult:1.3,say:"JE NE SUIS PAS CONVAINCU."},
+  ...sig,...extra,
+  {id:'delai',diffMin:3,type:'enrage',n:'Temps de Parole',apres:240,mult:2.5,say:'VOTRE TEMPS DE PAROLE EST ÉCOULÉ.'},
+];
+const zone=(id,n,hit,hitF,shout)=>({id,diffMin:0,type:'aoe',n,r:4,cast:2.6,ouverture:6,recharge:[9,11],dmg:2,warn:`${n} ! Sortez de la zone !`,hit,hitF,dodge:`Vous esquivez ${n}.`,dodgeF:'Esquivé',shout});
+BOSSES.jury_secu={abilities:juré(
+  [zone('audit','Audit de Sécurité','vous trouve une faille.','FAILLE',['ET LA SÉCURITÉ ?','VOS MOTS DE PASSE SONT EN CLAIR !','C\'EST EN HTTP ? EN 2031 ?'])],
+  [{id:'xss',diffMin:1,type:'spots',n:'Failles XSS',count:2,r:2.2,cast:2.6,ouverture:12,recharge:[12,15],dmg:1.6,warn:'Des failles XSS apparaissent ! Ne restez pas dessus !',hit:'injecte un script.',hitF:'INJECTÉ'},
+   {id:'escalade',diffMin:2,type:'chain',n:'Escalade de Privilèges',cast:2.2,ouverture:11,recharge:[12,15],jump:3.2,jumps:4,dmg:1.3,warn:'Escalade de Privilèges ! Écartez-vous les uns des autres !',hit:'vous passe root.',hitF:'ROOT'}])};
+BOSSES.jury_tests={abilities:juré(
+  [{id:'regression',diffMin:0,type:'raid',n:'Régression Générale',cast:4,interrupt:.04,ouverture:10,recharge:[18,22],dmg:2.4,
+    warn:'« VOUS AVEZ DES TESTS ? » Régression générale : interrompez-le (étourdissement ou gros dégâts) !',shout:['VOUS AVEZ DES TESTS ?','COUVERTURE : 3 %. ET 100 % DU CŒUR.'],hit:'casse tout ce qui marchait.',hitF:'RÉGRESSION'},
+   zone('unitaire','Test Unitaire Échoué','vous met au rouge.','ROUGE',['LA CI EST ROUGE !','ÇA NE PASSE PAS EN LOCAL ?'])],
+  [{id:'bugs',diffMin:1,type:'adds',n:'Bugs de Régression',summon:'bug',count:1,max:3,ouverture:12,recharge:[24,28],say:'UN BUG DE RÉGRESSION !'},
+   {id:'cascade',diffMin:2,type:'chain',n:'Cascade de Tests Rouges',cast:2.2,ouverture:11,recharge:[12,15],jump:3.2,jumps:4,dmg:1.3,warn:'Cascade de Tests Rouges ! Écartez-vous les uns des autres !',hit:'vous fait échouer en cascade.',hitF:'ÉCHEC'}])};
+BOSSES.jury_archi={abilities:juré(
+  [zone('uml','Diagramme UML','vous dessine un diagramme.','UML',['POURQUOI PAS UNE CLEAN ARCHITECTURE ?','CE CONTRÔLEUR FAIT TROIS CHOSES !','JE VOIS DIX COUCHES. IL EN FAUT DOUZE.'])],
+  [{id:'couches',diffMin:1,type:'adds',n:'Couches Supplémentaires',summon:'bug',count:2,max:4,ouverture:12,recharge:[24,28],say:'AJOUTEZ DES COUCHES !'},
+   {id:'circulaires',diffMin:2,type:'spots',n:'Dépendances Circulaires',count:3,r:2.2,cast:2.6,ouverture:12,recharge:[12,15],dmg:1.6,warn:'Des dépendances circulaires se forment ! Ne restez pas dessus !',hit:'vous renvoie à votre point de départ.',hitF:'CYCLE'}])};
+
 // Affixes des monstres d'élite (Mythique et Sans Douche), affichés sous leur nom.
 export const AFFIXES={modere:'Modéré',epingle:'Épinglé',necroposte:'Nécroposté'};

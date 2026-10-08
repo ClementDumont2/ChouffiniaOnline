@@ -26,3 +26,30 @@ export const NEW_MOBS={
   guichet:{n:"Le Guichet Fermé",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:1.9,ag:6,cd:2,hgt:2.1,scale:1.6,yn:'Le Guichet Fermé',v:"vous tamponne « refusé »",
     lines:["Le guichet ferme dans cinq minutes.","Il vous manque une pièce.","Prochain !","Ce n'est pas le bon guichet."]},
 };
+
+// ---- Lot 9 : Convention Manga/Anime (55–75) et DIIAGE (75–100) ----
+Object.assign(NEW_MOBS,{
+  otaku:{n:"Otaku Collectionneur",l:58,hpM:1.2,atkM:1,sp:1.9,ag:4.5,cd:1.8,hgt:1.25,v:"vous explique le lore pendant 40 minutes",
+    lines:["En fait, dans le manga c'était différent.","Tu n'as pas vu l'épisode 312 ? Impossible.","Ne touche pas à mes figurines. Ne regarde pas mes figurines."],loot:[['chips',.35],['poignee',.3],['gants_manga',.04],['chouffe',.1]]},
+  cosplayeur:{n:"Cosplayeur Possédé",l:65,hpM:1,atkM:1.3,sp:2.3,ag:5,cd:1.5,hgt:1.3,v:"vous frappe avec une épée en mousse enchantée",
+    lines:["JE SUIS LE PERSONNAGE !","Ne m'appelle pas par mon vrai prénom.","Cette perruque a trois âmes dedans."],loot:[['chips',.35],['poignee',.3],['perruque',.04]]},
+  isekai:{n:"Fan d'Isekai",l:72,hpM:1.1,atkM:1.2,sp:2,ag:5,cd:1.6,hgt:1.25,v:"vous renverse avec un camion invisible",
+    lines:["Je me suis réincarné ! Ça se voit pas ?","Statut : niveau 1. Compétence : plainte.","Le camion m'a dit que j'étais élu."],loot:[['chips',.35],['poignee',.3],['hakama',.04]]},
+  assistant:{n:"Assistant du Mangaka",l:60,hpM:.7,atkM:.9,sp:2.4,ag:5,cd:1.4,hgt:1.1,v:"vous tend une planche à retoucher",
+    lines:["Maître, j'ai fini la trame !","Je n'ai pas dormi depuis jeudi.","Encore une planche ? Bien sûr, Maître."],loot:[]},
+  bug:{n:"Bug en Prod",l:78,hpM:.9,atkM:1.4,sp:2.9,ag:5,cd:1.3,hgt:1,v:"plante votre serveur un vendredi à 17 h 59",
+    lines:["It works on my machine.","NullPointerException","Ça ne devrait pas arriver. Ça arrive."],loot:[['chips',.35],['poignee',.3],['sweat_diiage',.04],['chouffe',.1]]},
+  standup:{n:"Daily Standup de 45 Minutes",l:88,hpM:1.6,atkM:.9,sp:1,ag:4.5,cd:2,hgt:1.25,v:"vous demande où vous en êtes, en détail",
+    lines:["Hier, j'ai fait... en fait, tu veux que je détaille ?","Un point rapide. Quarante-cinq minutes.","Je n'ai pas de blocage. J'ai trois cents remarques."],loot:[['chips',.35],['poignee',.3],['badge_diiage',.04]]},
+  retard:{n:"Étudiant en Retard de Rendu",l:97,hpM:1,atkM:1.5,sp:2.8,ag:5,cd:1.4,hgt:1.2,v:"vous demande 5 minutes de plus",
+    lines:["Je n'ai pas eu le temps. Je n'ai jamais le temps.","C'est à rendre pour minuit ? C'était hier ?","J'ai tout fini, il manque juste... tout."],loot:[['chips',.35],['poignee',.3],['jean_rendu',.04]]},
+  // Boss de donjon
+  mangaka:{n:"Le Mangaka Épuisé",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:2,ag:6,cd:1.9,hgt:2.1,scale:1.6,yn:'Le Mangaka',v:"vous dessine en super-déformé",
+    lines:["Encore une planche… encore une…","Mon éditeur m'a promis du repos. En 2034.","Ça vous plaît le chapitre 1 000 ? Moi je le déteste.","Je dessine, donc je suis. Mais je ne dors pas."]},
+  jury_secu:{n:"Jury : Le Sécurité",dg:1,boss:1,hpM:2.4,atkM:1,sp:1.9,ag:6,cd:1.9,hgt:2,scale:1.45,yn:'Le Jury de Sécurité',v:"vous trouve une faille",
+    lines:["Et la sécurité ?","Vos mots de passe sont dans le code. Dans le code !","C'est en HTTP ? En 2031 ?"]},
+  jury_tests:{n:"Jury : Le Testeur",dg:1,boss:1,hpM:2.4,atkM:1,sp:1.9,ag:6,cd:1.9,hgt:2,scale:1.45,yn:'Le Jury de Tests',v:"vous demande la couverture",
+    lines:["Vous avez des tests ?","Couverture : 3 %. Et 100 % du cœur.","Je lance la CI. Ça va être long."]},
+  jury_archi:{n:"Jury : L'Architecte",dg:1,boss:1,hpM:2.4,atkM:1,sp:1.9,ag:6,cd:1.9,hgt:2,scale:1.45,yn:"Le Jury d'Architecture",v:"vous dessine un diagramme",
+    lines:["Pourquoi pas une Clean Architecture ?","Ce contrôleur fait trois choses. C'est deux de trop.","Je vois dix couches. Il en faudrait douze."]},
+});

@@ -2,9 +2,9 @@
 import {DIFFS} from './data.js';
 import {mulberry32,rngTools} from './rng.js';
 
-export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31,ASPHALT:32,LINE:33,CAR:34,LAMP:35,SFLOOR:36,AISLE:37,CASH:38,CART:39,CARPET:40,GUICHET:41,PLANT:42};
+export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31,ASPHALT:32,LINE:33,CAR:34,LAMP:35,SFLOOR:36,AISLE:37,CASH:38,CART:39,CARPET:40,GUICHET:41,PLANT:42,HALL:43,BOOTH:44,BANNER:45,LABFLOOR:46,PCDESK:47,BOARD:48};
 export const SOLID=new Uint8Array(64);
-for(const k of ['WALL','LAKE','TREE','ROCK','DESK','BED','FRIDGE','TABLE','SHELF','FENCE','STALLR','STALLB','BAR','STAIRS','MURK','DTREE','CRYSTAL','RACK','DWALL','DTORCH','PILLAR','CAR','LAMP','AISLE','CASH','CART','GUICHET','PLANT'])SOLID[T[k]]=1;
+for(const k of ['WALL','LAKE','TREE','ROCK','DESK','BED','FRIDGE','TABLE','SHELF','FENCE','STALLR','STALLB','BAR','STAIRS','MURK','DTREE','CRYSTAL','RACK','DWALL','DTORCH','PILLAR','CAR','LAMP','AISLE','CASH','CART','GUICHET','PLANT','BOOTH','BANNER','PCDESK','BOARD'])SOLID[T[k]]=1;
 
 export function tileAt(map,x,y){x=Math.floor(x);y=Math.floor(y);return(x<0||y<0||x>=map.w||y>=map.h)?map.oob:map.t[y*map.w+x]}
 export function setTile(map,x,y,v){if(x>=0&&y>=0&&x<map.w&&y<map.h)map.t[y*map.w+x]=v}
@@ -15,8 +15,8 @@ export function stepToward(map,e,tx,ty,sp,dt){const dx=tx-e.x,dy=ty-e.y,L=Math.h
 export function fillRect(map,x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)setTile(map,x,y,v)}
 
 export function genOverworld(seed){
-  // 80 colonnes d'origine + 40 de zones (Lot 8). Les 80 premières sont générées exactement comme avant ; l'extension a son propre générateur.
-  const map={id:'over',w:120,h:60,t:new Uint8Array(120*60),oob:T.TREE};
+  // 80 colonnes d'origine + 40 de zones (Lot 8) + 40 (Lot 9). Les 80 premières sont générées exactement comme avant ; l'extension a son propre générateur.
+  const map={id:'over',w:160,h:60,t:new Uint8Array(160*60),oob:T.TREE};
   const setT=(x,y,v)=>setTile(map,x,y,v),rect=(...a)=>fillRect(map,...a);
   const r=mulberry32(seed),RI=(a,b)=>a+Math.floor(r()*(b-a+1));
   for(let y=0;y<60;y++)for(let x=0;x<80;x++){const q=r();setT(x,y,q<.07?T.FLOWER:q<.083?T.ROCK:T.GRASS)}
@@ -51,7 +51,7 @@ export function genOverworld(seed){
   rect(13,15,15,15,T.STALLR);rect(18,15,20,15,T.STALLB);setT(12,19,T.BAR);setT(13,19,T.BAR);setT(20,18,T.STAIRS);setT(21,18,T.STAIRS);
   // L'Arène du Débat Stérile : petit enclos à l'est du Bourg, ouvert sur la route par deux cases au sud.
   rect(29,13,38,19,T.FENCE);rect(30,14,37,18,T.STONE);rect(33,19,34,19,T.STONE);
-  genEast(map,seed);
+  genEast(map,seed);genFar(map,seed);
   return map;
 }
 
@@ -86,6 +86,26 @@ function genEast(map,seed){
   for(const [x,y] of [[84,44],[115,44],[84,55],[115,55],[98,55],[101,55]])setT(x,y,T.PLANT);
 }
 
+// Lot 9, x 120–159 : Convention Manga/Anime (y 40–59, reliée à la porte est du Pôle Emploi) puis DIIAGE (y 0–39, par la porte nord de la Convention).
+function genFar(map,seed){
+  const r=mulberry32(seed^0x9e3779b1),rect=(...a)=>fillRect(map,...a),setT=(x,y,v)=>setTile(map,x,y,v);
+  for(let y=0;y<60;y++)for(let x=120;x<160;x++)setT(x,y,r()<.06?T.FLOWER:T.GRASS);
+  for(let x=120;x<160;x++){setT(x,0,T.TREE);setT(x,59,T.TREE)}
+  for(let y=0;y<60;y++)setT(159,y,T.TREE);
+  // Porte est du Pôle Emploi, puis route jusqu'à la Convention.
+  rect(117,50,117,51,T.CARPET);rect(118,50,122,51,T.DIRT);
+  // Convention : hall, stands (deux rangées, allée centrale libre), bannières aux angles.
+  rect(122,42,157,57,T.WALL);rect(123,43,156,56,T.HALL);rect(122,50,122,51,T.HALL);rect(139,42,140,42,T.HALL);
+  for(let x=125;x<=154;x+=4)for(const y of [46,53]){setT(x,y,T.BOOTH);setT(x+1,y,T.BOOTH)}
+  for(const [x,y] of [[124,44],[155,44],[124,55],[155,55]])setT(x,y,T.BANNER);
+  // Route vers le DIIAGE.
+  rect(139,35,140,41,T.DIRT);
+  // DIIAGE : campus, salle de cours (bureaux en rangées, tableaux au mur nord), porte sud.
+  rect(122,4,157,34,T.WALL);rect(123,5,156,33,T.LABFLOOR);rect(139,34,140,34,T.LABFLOOR);
+  for(let x=125;x<=154;x++)if(x<137||x>142)setT(x,5,T.BOARD);
+  for(const y of [10,16,22,28])for(let x=126;x<=153;x++)if((x-126)%4<3&&(x<136||x>143))setT(x,y,T.PCDESK);
+}
+
 export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
   const {ri}=rngTools(rnd),solid=(x,y)=>isSolid(map,x,y);
   for(let i=0;i<300;i++){const x=ri(x0,x1)+.5,y=ri(y0,y1)+.5;if(!solid(x,y)&&!solid(x+.35,y)&&!solid(x-.35,y)&&!solid(x,y-.4)&&(!avoid||!avoid(x,y)))return{x,y}}
@@ -94,6 +114,7 @@ export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
 
 export function zoneAt(map,x,y){
   if(map.id!=='over')return'dungeon';
+  if(x>=120)return y<40?'diiage':'convention';
   if(x>=80)return y<20?'parking':y<40?'supermarche':'pole';
   if(x<14&&y<12)return'base';
   if(x>=11&&x<26&&y>=13&&y<23)return'bourg';
@@ -140,7 +161,9 @@ export function genDungeon(seed,ti,opts={}){
         D.spawns.push(spawn);
       }
     }
-    const br=order[order.length-1];D.spawns.push({type:df.boss||'archiviste',x:Math.floor(br.cx)+.5,y:Math.floor(br.cy)+.5,l:df.L+1});
+    // Plusieurs boss (le Jury de la Soutenance) : côte à côte au centre de la dernière salle.
+    const br=order[order.length-1],bosses=[].concat(df.boss||'archiviste');
+    bosses.forEach((type,i)=>D.spawns.push({type,x:Math.floor(br.cx)+.5+(i-(bosses.length-1)/2)*2.2,y:Math.floor(br.cy)+.5,l:df.L+1}));
     return D;
   }
   return null;

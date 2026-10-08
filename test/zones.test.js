@@ -11,11 +11,11 @@ const place = (pl, x, y) => { pl.P.x = x; pl.P.y = y; };
 const run = (w, s) => { for (let i = 0; i < Math.round(s * 20); i++) tick(w, .05); };
 const NOUVELLES = {parking: ['delegue', 'scooter', 'souvenir'], supermarche: ['caddie', 'vigile', 'promo'], pole: ['cerfa', 'file', 'conseillerabs']};
 
-test('la carte fait 120 colonnes, la partie d\'origine est inchangée et les trois zones existent', () => {
+test('la carte fait 160 colonnes, la partie d\'origine est inchangée et les cinq zones existent', () => {
   const map = genOverworld(20111);
-  assert.equal(map.w, 120);
-  assert.deepEqual([zoneAt(map, 90, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50)], ['parking', 'supermarche', 'pole']);
-  for (const z of ['parking', 'supermarche', 'pole']) assert.ok(ZONES[z].n && ZONES[z].s);
+  assert.equal(map.w, 160);
+  assert.deepEqual([zoneAt(map, 90, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50), zoneAt(map, 130, 50), zoneAt(map, 130, 20)], ['parking', 'supermarche', 'pole', 'convention', 'diiage']);
+  for (const z of ['parking', 'supermarche', 'pole', 'convention', 'diiage']) assert.ok(ZONES[z].n && ZONES[z].s);
   // Empreinte des 64 premières colonnes, relevée avant le Lot 8 : seule la route vers le parking (x ≥ 64, y 12–13) a changé dans l'ancienne carte.
   let h = 0;
   for (let y = 0; y < 60; y++) for (let x = 0; x < 64; x++) h = (h * 31 + map.t[y * map.w + x]) >>> 0;
@@ -37,9 +37,9 @@ test('chaque zone est accessible à pied depuis le point d\'arrivée, jusqu\'à 
     }
   }
   const atteint = n => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen[Math.floor(n.y + dy) * W + Math.floor(n.x + dx)]);
-  for (const id of ['panneau_parking', 'cpe', 'porte_bac', 'panneau_supermarche', 'caissiere', 'porte_reserve', 'panneau_pole', 'mystique', 'porte_labyrinthe'])
+  for (const id of ['panneau_parking', 'cpe', 'porte_bac', 'panneau_supermarche', 'caissiere', 'porte_reserve', 'panneau_pole', 'mystique', 'porte_labyrinthe', 'panneau_convention', 'otaku', 'porte_dedicaces', 'panneau_diiage', 'responsable', 'porte_soutenance'])
     assert.ok(atteint(npc(id)), `PNJ ${id} inaccessible`);
-  for (const dg of ['bac', 'reserve', 'labyrinthe']) assert.ok(seen[Math.floor(DUNGEONS[dg].exit.y) * W + Math.floor(DUNGEONS[dg].exit.x)], `sortie de ${dg} inaccessible`);
+  for (const dg of ['bac', 'reserve', 'labyrinthe', 'dedicaces', 'soutenance']) assert.ok(seen[Math.floor(DUNGEONS[dg].exit.y) * W + Math.floor(DUNGEONS[dg].exit.x)], `sortie de ${dg} inaccessible`);
   assert.ok(!isSolid(map, 99.5, 21.5) && !isSolid(map, 99.5, 39.5), 'les portes entre zones sont ouvertes');
 });
 
@@ -92,7 +92,7 @@ test('quêtes en chaîne : tuer, rendre, la suivante s\'ouvre', () => {
 // ---- donjons à thème ----
 function donjon(dgId, ti = 0, seed = 7) {
   const w = createWorld({seed}), p = addPlayer(w, 'p1', {name: 'P1'}), dg = DUNGEONS[dgId];
-  p.S.lvl = 60; p.S.hp = 1e6; p.P.combat = -1e9;
+  p.S.lvl = 100; p.S.hp = 1e6; p.P.combat = -1e9;
   place(p, npc(dg.npc).x + 1, npc(dg.npc).y + .3);
   handleAction(w, 'p1', {a: 'enterDungeon', ti, dg: dgId});
   const D = w.maps[p.mapId], boss = D.mobs.find(m => m.d.boss);
@@ -142,7 +142,7 @@ test('boss vaincu : coffre de thème (artéfacts du donjon, objet unique), XP de
     assert.equal(p.mapId, 'over');
     assert.ok(Math.hypot(p.P.x - dg.exit.x, p.P.y - dg.exit.y) < .1, 'ressort devant la porte');
     assert.equal(zoneAt(w.maps.over, p.P.x, p.P.y), zoneAt(w.maps.over, npc(dg.npc).x, npc(dg.npc).y));
-    assert.ok(p.S.xp > xp || p.S.lvl > lvl);
+    assert.ok(p.S.xp > xp || p.S.lvl >= 100, 'XP de fin (sauf au niveau maximum)');
   }
 });
 
@@ -230,4 +230,136 @@ test('la fin de campagne suit la dernière quête d\'origine (fin), pas la derni
   handleAction(w, 'p1', {a: 'completeQuest'});
   assert.ok(takeEvents(w, 'p1').some(e => e.t === 'campaignEnd'));
   assert.equal(p.S.q.i, i + 1, 'la quête du Parking s\'ouvre ensuite');
+});
+
+// ================= Lot 9 : Convention Manga/Anime et DIIAGE =================
+test('6 monstres de plus (3 par zone) aux bons niveaux, dans leur zone, loin des PNJ', () => {
+  const w = createWorld({seed: 1}), map = w.maps.over;
+  const zones = {convention: [['otaku', 'cosplayeur', 'isekai'], [55, 75]], diiage: [['bug', 'standup', 'retard'], [75, 100]]};
+  for (const [z, [types, [a, b]]] of Object.entries(zones)) for (const t of types) {
+    assert.ok(MOBS[t].l >= a && MOBS[t].l <= b, `${t} niveau ${MOBS[t].l}`);
+    const ms = map.mobs.filter(m => m.type === t);
+    assert.ok(ms.length >= 6, t);
+    assert.ok(ms.every(m => zoneAt(map, m.x, m.y) === z), `${t} hors de sa zone`);
+    assert.ok(ms.every(m => NPCS.every(n => Math.hypot(n.x - m.x, n.y - m.y) >= 3.5)), `${t} trop près d'un PNJ`);
+  }
+});
+
+test('chaînes de quêtes de la Convention et du DIIAGE, puis la quête finale de niveau 100 qui boucle la boucle', () => {
+  for (const g of ['otaku', 'responsable']) {
+    const c = QUESTS.filter(q => q.g === g);
+    assert.equal(c.length, 3, g);
+    assert.ok(c.every(q => ITEMS[q.item].t === 'eq') && c.at(-1).dg === 0 && DUNGEONS[c.at(-1).dgn]);
+  }
+  assert.equal(QUESTS.filter(q => q.g === 'otaku').at(-1).dgn, 'dedicaces');
+  assert.equal(QUESTS.filter(q => q.g === 'responsable').at(-1).dgn, 'soutenance');
+  const f = QUESTS.at(-1);
+  assert.deepEqual([f.g, f.rl, f.dg, f.dgn, f.fin, f.final], ['sage', 100, 3, 'soutenance', true, true]);
+  for (const mot of ['sous-sol', 'Maman', 'Archives', 'Soutenance']) assert.match(f.t + f.done, new RegExp(mot, 'i'));
+  const rls = QUESTS.slice(QUESTS.findIndex(q => q.g === 'otaku')).map(q => q.rl);
+  assert.deepEqual(rls, [...rls].sort((a, b) => a - b), 'niveaux croissants jusqu\'au 100');
+});
+
+test('l\'Otaku Ancestral vend des figurines-artéfacts (or contre figurine, refus si trop pauvre ou trop loin)', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), o = npc('otaku');
+  p.S.gold = 1000;
+  handleAction(w, 'p1', {a: 'buy', id: 'fig_chibi', n: 1});
+  assert.ok(!p.S.inv.some(s => s.id === 'fig_chibi'), 'trop loin');
+  place(p, o.x + 1, o.y + .3);
+  handleAction(w, 'p1', {a: 'buy', id: 'fig_chibi', n: 1});
+  assert.equal(p.S.gold, 100); assert.ok(p.S.inv.some(s => s.id === 'fig_chibi'));
+  handleAction(w, 'p1', {a: 'buy', id: 'fig_numero', n: 1});
+  assert.ok(!p.S.inv.some(s => s.id === 'fig_numero'), 'trop cher');
+  assert.ok(ITEMS.fig_chibi.price < ITEMS.fig_chibi.buy, 'elles se revendent moins cher chez Gérard');
+});
+
+test('donjons de la fin : La Salle des Dédicaces et La Soutenance (niveaux, boss, monstres de la zone)', () => {
+  const attendu = {dedicaces: [['mangaka'], [55, 60, 67, 75]], soutenance: [['jury_secu', 'jury_tests', 'jury_archi'], [75, 83, 92, 100]]};
+  for (const [id, [boss, niveaux]] of Object.entries(attendu)) for (let ti = 0; ti < 4; ti++) {
+    const {D} = donjon(id, ti);
+    assert.deepEqual(D.mobs.filter(m => m.d.boss).map(m => m.type).sort(), [...boss].sort(), `${id}/${ti}`);
+    const triviaux = D.mobs.filter(m => !m.d.boss);
+    assert.ok(triviaux.every(m => DUNGEONS[id].kinds.includes(m.type) && m.l === niveaux[ti]), `${id}/${ti}`);
+  }
+});
+
+test('Mangaka Épuisé : assistants par vagues (plafonnés) et jauge Deadline qui enrage une fois pleine, plus vite avec des assistants', () => {
+  const {w, p, D, boss} = donjon('dedicaces', 0);
+  D.mobs = [boss]; boss.b.cd.pinceau = 999;
+  const vivants = () => D.mobs.filter(m => m.summoned && m.alive).length;
+  run(w, 9);
+  assert.equal(vivants(), 2, 'première vague à 8 s'); assert.equal(boss.type, 'mangaka');
+  // Plafond de 6 assistants vivants, même après plusieurs vagues.
+  for (let i = 0; i < 4; i++) { boss.b.cd.assistants = 0; run(w, .2); }
+  assert.equal(vivants(), 6);
+  // La jauge monte, plus vite avec des assistants vivants.
+  const g1 = boss.gauge; run(w, 5);
+  const avecAssistants = boss.gauge - g1;
+  for (const m of D.mobs.filter(x => x.summoned)) { m.alive = false; m.dieT = 0; }
+  const g2 = boss.gauge; run(w, 5);
+  const sans = boss.gauge - g2;
+  assert.ok(avecAssistants > sans * 1.5, `${avecAssistants} vs ${sans}`);
+  assert.equal(boss.hard, 0);
+  boss.gauge = .999; run(w, 1);
+  assert.equal(boss.hard, 1); assert.equal(boss.hardMult, 2.5); assert.equal(boss.gauge, 1);
+  // Plus la difficulté monte, plus la jauge se remplit vite.
+  const vitesse = ti => { const x = donjon('dedicaces', ti); x.D.mobs = [x.boss]; x.boss.b.cd.pinceau = x.boss.b.cd.assistants = 999; run(x.w, 10); return x.boss.gauge; };
+  assert.ok(vitesse(3) > vitesse(0));
+  assert.deepEqual(bossUpcoming(donjon('dedicaces', 0).boss).map(a => a.n).sort(), ['Assistants', 'Coup de Pinceau']);
+});
+
+test('Jury de la Soutenance : trois boss, donjon fini seulement quand les trois sont tombés, les survivants durcissent', () => {
+  const {w, p, D, dg} = donjon('soutenance', 0);
+  const jury = D.mobs.filter(m => m.d.boss);
+  assert.equal(jury.length, 3);
+  jury.forEach(m => { m.st = 'idle'; });
+  const tue = m => { m.hp = 1; place(p, m.x - 1, m.y); p.P.cd = {}; handleAction(w, 'p1', {a: 'target', id: m.id}); handleAction(w, 'p1', {a: 'skill', i: 0}); };
+  tue(jury[0]);
+  assert.equal(jury[0].alive, false); assert.equal(D.done, false, 'il en reste deux');
+  assert.ok(jury[1].enr && jury[2].enr && jury[1].enrMult === 1.25, 'les survivants durcissent');
+  tue(jury[1]);
+  assert.equal(D.done, false);
+  assert.equal(jury[2].enrMult, 1.25 * 1.25);
+  tue(jury[2]);
+  assert.equal(D.done, true);
+  assert.ok(dg.vaincu);
+  assert.equal(p.S.titre, undefined, 'pas de titre en Normal');
+});
+
+test('« Diplômé (enfin) » : titre et haut fait uniquement pour le Jury vaincu en Sans Douche', () => {
+  const {w, p, D} = donjon('soutenance', 3, 9);
+  for (const m of D.mobs.filter(x => x.d.boss)) { m.hp = 1; m.st = 'idle'; }
+  p.S.hp = 1e6; p.P.combat = -1e9;
+  for (const m of D.mobs.filter(x => x.d.boss)) { place(p, m.x - 1, m.y); p.P.cd = {}; handleAction(w, 'p1', {a: 'target', id: m.id}); handleAction(w, 'p1', {a: 'skill', i: 0}); }
+  assert.equal(D.done, true);
+  assert.equal(p.S.titre, 'Diplômé (enfin)'); assert.equal(p.S.ach.diplome, 1);
+});
+
+test('Jury de Tests : « Régression Générale » touche toute l\'équipe, sauf si elle est interrompue', () => {
+  const lance = () => {
+    const x = donjon('soutenance', 0); const t = x.D.mobs.find(m => m.type === 'jury_tests');
+    x.D.mobs = [t]; place(x.p, t.x - 1.5, t.y); t.st = 'chase'; t.target = 'p1'; t.threat = {p1: 1};
+    const b = addPlayer(x.w, 'p2', {name: 'P2'}); b.mapId = x.p.mapId; b.S.hp = 1e6; b.P.combat = -1e9; place(b, t.x + 6, t.y);
+    t.b.cd.unitaire = 999; t.b.cd.regression = 0; tick(x.w, .05);
+    assert.equal(t.castK, 'raid');
+    return {...x, t, b};
+  };
+  let x = lance(); const hp = [x.p.S.hp, x.b.S.hp];
+  run(x.w, 4.2);
+  assert.ok(x.p.S.hp < hp[0] && x.b.S.hp < hp[1], 'tout le monde est touché, même au fond de la salle');
+  x = lance(); const hp2 = [x.p.S.hp, x.b.S.hp];
+  x.t.castDmg = x.t.mhp * .04; x.p.P.cd = {}; x.w.rnd = () => .5;
+  handleAction(x.w, 'p1', {a: 'target', id: x.t.id}); handleAction(x.w, 'p1', {a: 'skill', i: 0});
+  assert.equal(x.t.cast, 0, 'interrompu');
+  run(x.w, 4.2);
+  assert.equal(x.b.S.hp, hp2[1], 'personne n\'est touché');
+});
+
+test('quête finale : la rendre déclenche la fin de campagne finale', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), i = QUESTS.length - 1;
+  p.S.q = {i, st: 'ready', n: 1}; place(p, npc('sage').x + 1, npc('sage').y + .3); takeEvents(w, 'p1');
+  handleAction(w, 'p1', {a: 'completeQuest'});
+  const fin = takeEvents(w, 'p1').find(e => e.t === 'campaignEnd');
+  assert.deepEqual([!!fin, fin && fin.final], [true, true]);
+  assert.ok(p.S.inv.some(s => s.id === 'toque_diplome') || Object.values(p.S.eq).some(q => q && q.id === 'toque_diplome'));
 });
