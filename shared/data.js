@@ -140,6 +140,8 @@ export const NPCS=[
     greet:"Bienvenue au 18-25, khey. Ici on a tous 18 ans depuis 2011. Une Chouffe ? Par pitié le khey, prends une Chouffe, t'as une tête de PNJ de zone de départ."},
   {id:'gardien',kind:'npc',n:"Le Gardien des Archives",tag:"Archives du Forum",ti:"Donjon · Les Archives Oubliées du Forum",x:22.6,y:18.7,hgt:1.25,
     greet:"Sous ce bourg dorment les Archives Oubliées du Forum : quinze ans de topics morts, de pavés et de flame wars. Des trésors y attendent. Des nécroposteurs aussi."},
+  {id:'kevin',kind:'npc',n:"Kévin, Concessionnaire",tag:"Montures",ti:"Concessionnaire · Chaises et trottinettes",x:22.4,y:15.3,hgt:1.2,
+    greet:"Salut le khey. Chaise de Gamer, Trottinette Électrique : tout roule, littéralement. Je prends les paiements en or, en Chouffe, ou en compliments. Surtout en or."},
   {id:'conseiller',kind:'npc',n:"Le Conseiller d'Orientation",tag:"Reconversion",ti:"Orientation · Changement de classe",x:16.9,y:19.8,hgt:1.2,
     greet:"Bonjour. Vous voulez être soigneur, tank ou en vitesse ? Dans la vraie vie on n'a pas ce choix, profitez. Je ne juge pas votre parcours. Enfin si, mais ça se règle avec de l'or."}
 

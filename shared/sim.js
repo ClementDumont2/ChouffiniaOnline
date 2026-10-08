@@ -2,8 +2,9 @@
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {clamp,classOf,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,score,skillsOf,stackable,stats,statsDeMob,xpNeed} from './rules.js';
+import {clamp,classOf,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
+import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
@@ -51,7 +52,7 @@ const announceOnline=w=>toAll(w,{t:'online',names:Object.values(w.players).map(p
 export function addPlayer(w,id,{save,name,hat,cls}={}){
   const S=save?normalizeSave(save):newSave(name,hat,cls),st=stats(S);
   S.hp=clamp(S.hp||st.maxhp,1,st.maxhp);S.caf=clamp(S.caf,0,st.maxcaf);
-  const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},nextCrit:false,hotAmt:0,hotAcc:0};
+  const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},mount:null,mountSayT:0,nextCrit:false,hotAmt:0,hotAcc:0};
   const pl=w.players[id]={id,S,P,mapId:'over',group:null};
   msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${fmt(1247)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`);
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
@@ -87,7 +88,7 @@ export function movePlayer(w,id,x,y,face){
   const {P}=pl,map=w.maps[pl.mapId],d=Math.hypot(x-P.x,y-P.y);
   if(P.cast){P.cast=null;err(w,id,'Incantation interrompue.')}
   // Exception volontaire : la position vient du client ; on ne refuse que murs et vitesse impossible, et on renvoie alors la vraie position.
-  if(!canStand(map,x,y)||d>MAX_SPEED*stats(pl.S).spd*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
+  if(!canStand(map,x,y)||d>MAX_SPEED*moveSpeed(pl.S,P)*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
   P.step+=d*2.7;P.x=x;P.y=y;P.mt=w.time;
   if(d>0){P.mv=.15;P.moving=true}
   if(face)P.face=face>0?1:-1;
@@ -122,6 +123,7 @@ function tickPlayer(w,pl,dt){
   S.caf=Math.min(st.maxcaf,S.caf+dt*2.6);
   P.combat+=dt;if(P.combat>5)S.hp=Math.min(st.maxhp,S.hp+st.maxhp*.06*dt);
   if(P.buffs.fiche>0){P.hotAcc+=dt;if(P.hotAcc>=1){P.hotAcc-=1;healBy(w,pl,pl,P.hotAmt)}}
+  if(P.mount==='maman'&&(P.mountSayT-=dt)<=0){P.mountSayT=w.r.rr(8,12);say(P,w.r.pick(MOUNTS.maman.lines),4)}
   const haste=P.buffs.anypct>0?1.4:1;
   for(const k in P.buffs)if((P.buffs[k]-=dt)<=0)delete P.buffs[k];
   if(P.cast){P.cast.t-=dt;if(P.cast.t<=0){const c=P.cast;P.cast=null;finishCast(w,pl,c)}}
@@ -131,8 +133,9 @@ function tickPlayer(w,pl,dt){
 }
 
 function finishCast(w,pl,c){
-  if(c.id!=='ragequit')return;
   const {P}=pl;
+  if(c.id==='mount'){if(pl.mapId==='over'){P.mount=pl.S.mount;P.mountSayT=w.r.rr(3,6)}return}
+  if(c.id!=='ragequit')return;
   respawnAt(w,pl);P.target=null;P.auto=false;dropAggro(w,pl);
   msg(w,pl.id,'sys','Alt+F4. Vous êtes en sécurité. Personne n\'a rien vu.');burst(w,pl.mapId,P.x,P.y-.6,'#ec5a4c',14);ach(w,pl,'rq');
 }
@@ -213,7 +216,7 @@ function rewardKill(w,map,m,group,T){
   for(const pl of group){
     const {S}=pl,id=pl.id,q=QUESTS[S.q.i];
     if(q&&S.q.st==='active'&&q.m===m.type){S.q.n=Math.min(q.k,S.q.n+1);msg(w,id,'sys',`${MOBS[q.m].n} : ${S.q.n}/${q.k}`);if(S.q.n>=q.k){S.q.st='ready';ev(w,id,{t:'toast',kicker:'Objectif terminé',title:q.n,sub:`Retournez voir ${npcById(q.g).n}.`})}}
-    if(m.type==='maman'){ach(w,pl,'boss');ev(w,id,{t:'banner',title:'Maman est vaincue',sub:'Le Wi-Fi restera allumé ce soir. Personne ne vous croira.'});msg(w,id,'yell','[Maman] crie : TU NE SORS PLUS DE TA CHAMBRE PENDANT UNE SEMAINE !');ev(w,id,{t:'chat',who:'Kévin_du_42',text:`GG ${S.name}, légende du sous-sol`})}
+    if(m.type==='maman'){ach(w,pl,'boss');mamanKill(w,pl);ev(w,id,{t:'banner',title:'Maman est vaincue',sub:'Le Wi-Fi restera allumé ce soir. Personne ne vous croira.'});msg(w,id,'yell','[Maman] crie : TU NE SORS PLUS DE TA CHAMBRE PENDANT UNE SEMAINE !');ev(w,id,{t:'chat',who:'Kévin_du_42',text:`GG ${S.name}, légende du sous-sol`})}
   }
 }
 
@@ -247,6 +250,7 @@ function gainXP(w,pl,n,src){
 function hurtPlayer(w,pl,d,m,verb){
   const {S,P}=pl;if(P.dead)return;
   if(P.buffs.glitch>0){float(w,pl.mapId,P.x,P.y-1.3,'Glitch','#7fb6ff');return}
+  dismount(w,pl,'Vous tombez de votre monture.');
   const st=stats(S,P.drunk);d=Math.max(1,Math.round(d*(1-st.red)*(P.buffs.reglement>0?.5:1)));
   S.hp-=d;P.combat=0;float(w,pl.mapId,P.x,P.y-1.3,'-'+d,'#ff5a4a');
   msg(w,pl.id,'cb in',`${m.d.n} ${verb||m.d.v} : ${d} dégâts.`);
@@ -255,7 +259,7 @@ function hurtPlayer(w,pl,d,m,verb){
 
 function die(w,pl){
   const {S,P}=pl;
-  P.dead=true;P.cast=null;P.auto=false;P.buffs={};S.deaths++;ach(w,pl,'death');endTrade(w,pl,'Échange annulé : un des joueurs est mort.');
+  P.dead=true;P.cast=null;P.auto=false;P.buffs={};P.mount=null;S.deaths++;ach(w,pl,'death');endTrade(w,pl,'Échange annulé : un des joueurs est mort.');
   dropAggro(w,pl);
   ev(w,pl.id,{t:'died'});ev(w,pl.id,{t:'self'});
 }
@@ -417,6 +421,7 @@ function useSkill(w,pl,i,auto){
     return;
   }
   if(Math.abs(t.x-P.x)>.05)P.face=t.x>P.x?1:-1;
+  dismount(w,pl,'Vous descendez de votre monture pour attaquer.');
   if(sk.id==='skipcine'){
     // « Derrière » = du côté opposé à l'orientation du monstre ; s'il y a un mur, on prend l'autre côté plutôt que d'échouer.
     const spot=[-t.face,t.face].map(d=>({x:t.x+d*1.1,y:t.y})).find(q=>canStand(map,q.x,q.y));
@@ -428,6 +433,37 @@ function useSkill(w,pl,i,auto){
   const crit=P.nextCrit||w.rnd()<.12,mul=crit?1.8:1;
   P.nextCrit=false;
   strike(w,pl,t,sk,st,crit,mul);
+}
+
+function dismount(w,pl,why){
+  if(!pl.P.mount)return;
+  pl.P.mount=null;if(why)msg(w,pl.id,'sys',why);
+}
+function mountToggle(w,pl){
+  const {S,P}=pl,m=MOUNTS[S.mount];
+  if(P.mount){dismount(w,pl,'Vous descendez de votre monture.');return}
+  if(P.cast)return;
+  if(!m||!S.mounts.includes(S.mount)){err(w,pl.id,'Aucune monture. Kévin, au Bourg-Forum, en vend.');return}
+  // Pas de monture en donjon (ni en arène : à brancher sur la zone quand elle existera).
+  if(pl.mapId!=='over'){err(w,pl.id,'Les montures sont interdites ici.');return}
+  P.cast={id:'mount',n:m.n,t:1,max:1};ev(w,pl.id,{t:'stop'});
+}
+function buyMount(w,pl,id){
+  const {S}=pl,m=MOUNTS[id];
+  if(!m||m.seller!=='kevin'||!nearNpc(pl,m.seller)||S.mounts.includes(id))return;
+  if(S.lvl<m.rl){err(w,pl.id,`Niveau ${m.rl} requis pour cette monture.`);return}
+  if(S.gold<m.price){err(w,pl.id,'Pas assez d\'or. Kévin ne fait pas crédit, même à ses amis.');return}
+  S.gold-=m.price;S.mounts.push(id);if(!S.mount)S.mount=id;
+  msg(w,pl.id,'loot',`Vous achetez la monture **${m.n}** pour ${fmt(m.price)} po.`);
+}
+function mamanKill(w,pl){
+  const {S}=pl;
+  S.mamanKills=(S.mamanKills||0)+1;
+  if(S.mounts.includes('maman'))return;
+  if(S.mamanKills<MAMAN_KILLS){msg(w,pl.id,'sys',`Maman vaincue ${S.mamanKills}/${MAMAN_KILLS}. À ${MAMAN_KILLS}, elle propose de vous déposer en voiture.`);return}
+  S.mounts.push('maman');if(!S.mount)S.mount='maman';
+  ev(w,pl.id,{t:'banner',title:'Nouvelle monture',sub:MOUNTS.maman.n,cls:'lvl'});
+  msg(w,pl.id,'loot',`Maman, vaincue ${MAMAN_KILLS} fois, accepte enfin de vous déposer : monture **${MOUNTS.maman.n}** obtenue.`);
 }
 
 function changeClass(w,pl,cls){
@@ -639,7 +675,7 @@ function enterDungeon(w,pl,ti){
     w.maps[D.id]=D;
   }
   for(const p of ready){
-    p.mapId=D.id;p.P.target=null;p.P.auto=false;p.P.cast=null;dropAggro(w,p);
+    dismount(w,p);p.mapId=D.id;p.P.target=null;p.P.auto=false;p.P.cast=null;dropAggro(w,p);
     teleport(w,p,D.sx,D.sy);
     msg(w,p.id,'sys',`Vous descendez dans les Archives Oubliées (${DIFFS[D.ti].n}). L'air sent le vieux papier et le topic verrouillé.`);
   }
@@ -699,6 +735,9 @@ export function handleAction(w,id,a){
     case 'tradeOffer':tradeOffer(w,pl,a);break;
     case 'tradeOk':tradeOk(w,pl);break;
     case 'tradeCancel':endTrade(w,pl,'Échange annulé.');break;
+    case 'mount':mountToggle(w,pl);break;
+    case 'selectMount':if(S.mounts.includes(a.id))S.mount=a.id;break;
+    case 'buyMount':buyMount(w,pl,a.id);break;
     case 'changeClass':changeClass(w,pl,a.cls);break;
     case 'respawn':if(P.dead)respawn(w,pl);break;
     default:return;

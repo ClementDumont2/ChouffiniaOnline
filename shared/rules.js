@@ -1,6 +1,7 @@
 import {ITEMS,MOBS,DIFFS,ART_POOL,HATS,NPCS,QUESTS} from './data.js';
 import {rngTools} from './rng.js';
 import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
+import {MOUNTS} from './data/mounts.js';
 
 export const clamp=(v,a,b)=>v<a?a:v>b?b:v,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const xpNeed=l=>Math.round(40+45*(l-1)+15*(l-1)**2);
@@ -10,6 +11,9 @@ export function stats(S,drunk=0){let atk=4+2*(S.lvl-1),hp=60+15*(S.lvl-1),arm=0;
 
 export const stackable=id=>ITEMS[id].t!=='eq';
 export function score(id){const it=id&&ITEMS[id];return it?(it.atk||0)*3+(it.hp||0)+(it.arm||0)*3:-1}
+
+// Vitesse de déplacement relative : classe × monture (P.mount : id de la monture en selle, ou null).
+export const moveSpeed=(S,P)=>stats(S).spd*(1+(P.mount&&MOUNTS[P.mount]?MOUNTS[P.mount].speed:0));
 
 export function statsDeMob(type,L){
   const d=MOBS[type];L=L||d.l;
@@ -41,7 +45,7 @@ export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
-export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0});
+export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null});
 // Les sauvegardes viennent d'un fichier ou du localStorage : on les remet d'aplomb si le contenu d'objets a changé entre deux versions.
 export function normalizeSave(sv){
   sv=JSON.parse(JSON.stringify(sv));
@@ -49,6 +53,8 @@ export function normalizeSave(sv){
   for(const k in S.eq)if(S.eq[k]&&!ITEMS[S.eq[k]])S.eq[k]=null;
   if(S.q.i>QUESTS.length)S.q.i=QUESTS.length;
   if(!CLASSES[S.cls])S.cls=DEFAULT_CLASS;
+  S.mounts=(Array.isArray(sv.mounts)?sv.mounts:[]).filter(id=>MOUNTS[id]);
+  if(!S.mounts.includes(S.mount))S.mount=S.mounts[0]||null;
   S.droits=Array.isArray(sv.droits)?sv.droits.filter(d=>typeof d==='string'):[];
   return S;
 }
