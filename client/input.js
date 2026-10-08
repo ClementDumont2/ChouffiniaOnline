@@ -21,6 +21,8 @@ addEventListener('keydown',e=>{
   if(!running)return;
   if(document.activeElement===chatIn){if(e.key==='Escape')chatIn.blur();return}
   if(document.activeElement===$('#nm'))return;
+  // « / » ouvre le chat avec la barre déjà tapée ; l'événement input affiche l'autocomplétion des commandes.
+  if(e.key==='/'){e.preventDefault();chatIn.value='/';chatIn.focus();chatIn.dispatchEvent(new Event('input'));return}
   const act=actionFor(e.code);
   if(MOVES.includes(act)){keys[act]=true;e.preventDefault();return}
   const sk=act&&act.match(/^s([1-5])$/);if(sk){send({a:'skill',i:sk[1]-1});e.preventDefault();return}
