@@ -10,14 +10,14 @@ const raw=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))};
 
 export function buildMap(w){
   const map=w.id==='over'?genOverworld(w.seed):genDungeon(w.seed,w.ti);
-  return Object.assign(map,{id:w.id,seed:w.seed,ti:w.ti,done:!!w.done,mobs:[],objs:[],npcs:w.id==='over'?NPCS.map(n=>({...n})):[],bots:[],c:null,mini:null});
+  return Object.assign(map,{id:w.id,seed:w.seed,ti:w.ti,dg:w.dg,done:!!w.done,mobs:[],objs:[],npcs:w.id==='over'?NPCS.map(n=>({...n})):[],bots:[],c:null,mini:null});
 }
 
-export function connect(name,hat){ident={name,hat};joined=false;refusal=null;clearTimeout(retry);if(ws){const old=ws;ws=null;old.close()}open()}
+export function connect(name,hat,cls){ident={name,hat,cls};joined=false;refusal=null;clearTimeout(retry);if(ws){const old=ws;ws=null;old.close()}open()}
 function open(){
   clearTimeout(retry);
   const sock=ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}`);
-  sock.onopen=()=>raw({t:'join',name:ident.name,hat:ident.hat});
+  sock.onopen=()=>raw({t:'join',name:ident.name,hat:ident.hat,cls:ident.cls});
   sock.onmessage=e=>{try{onMsg(JSON.parse(e.data))}catch(err){console.error(err)}};
   // Refus au premier join : inutile de réessayer. Après une coupure, on réessaie : l'ancienne connexion finit par être purgée par le serveur.
   sock.onclose=()=>{
@@ -77,13 +77,13 @@ function applySnap(m){
   const ps=merge(old,others,now,()=>({}));
   const mine=world.players[me];
   world.players={[me]:mine};
-  for(const [i,r] of others.entries())world.players[r.id]={id:r.id,P:ps[i],mapId:w.id,S:{name:r.n,hat:r.look.hat,eq:r.look.eq,lvl:r.lvl}};
+  for(const [i,r] of others.entries())world.players[r.id]={id:r.id,P:ps[i],mapId:w.id,S:{name:r.n,hat:r.look.hat,eq:r.look.eq,lvl:r.lvl,cls:r.cls}};
 
   // Sa propre position vient du client ; le reste de son état de combat vient du serveur.
   const r=by.player.find(x=>x.id===me);
   if(r){
     const prev=P.target,{priv}=r;
-    Object.assign(P,{tipT:r.tipT,dead:r.dead,drunk:r.drunk,say:r.say,sayT:r.sayT,cd:priv.cd,cast:priv.cast,target:priv.target,auto:priv.auto,group:priv.group});
+    Object.assign(P,{tipT:r.tipT,dead:r.dead,drunk:r.drunk,say:r.say,sayT:r.sayT,cd:priv.cd,buffs:priv.buffs,mount:r.mount,cast:priv.cast,target:priv.target,auto:priv.auto,group:priv.group});
     mine.S.hp=priv.hp;mine.S.caf=priv.caf;
     if(prev!==P.target)hooks.target();
   }

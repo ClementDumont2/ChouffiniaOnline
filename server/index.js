@@ -1,12 +1,12 @@
 import http from 'node:http';
-import {mkdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
+import {copyFileSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {extname, join, normalize, sep} from 'node:path';
 import {networkInterfaces} from 'node:os';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {WebSocketServer} from 'ws';
 import {addPlayer, createWorld, handleAction, handleChat, movePlayer, removePlayer, takeEvents, tick} from '../shared/sim.js';
-import {cleanHat, cleanName, snapshotFor} from '../shared/protocol.js';
+import {cleanCls, cleanHat, cleanName, snapshotFor} from '../shared/protocol.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -36,14 +36,28 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
   let nextId = 1;
 
   const saveFile = name => join(savesDir, name.toLowerCase() + '.json');
-  const loadSave = name => { try { return JSON.parse(readFileSync(saveFile(name), 'utf8')); } catch { return null; } };
-  function saveAll() {
-    for (const c of conns.values()) {
-      const tmp = saveFile(c.name) + '.tmp';
-      writeFileSync(tmp, JSON.stringify(world.players[c.id].S));
-      renameSync(tmp, saveFile(c.name));
-    }
+  // Un fichier absent = nouveau joueur. Un fichier illisible aussi, mais on en garde une copie : la prochaine sauvegarde écraserait ce qui reste.
+  const loadSave = name => {
+    try { return JSON.parse(readFileSync(saveFile(name), 'utf8')); }
+    catch (e) { if (e.code !== 'ENOENT') try { copyFileSync(saveFile(name), saveFile(name) + '.corrupt'); } catch {} return null; }
+  };
+  // Les droits s'éditent à la main dans le fichier : on garde ceux du disque, la mémoire ne fait que les avoir lus à la connexion.
+  function savePlayer(name, state) {
+    const tmp = saveFile(name) + '.tmp';
+    const S = {...state}, disk = loadSave(name);
+    if (disk && Array.isArray(disk.droits)) S.droits = disk.droits; else delete S.droits;
+    writeFileSync(tmp, JSON.stringify(S));
+    renameSync(tmp, saveFile(name));
   }
+  const saveAll = () => { for (const c of conns.values()) savePlayer(c.name, world.players[c.id].S); };
+  // ponytail: relit tous les fichiers à chaque /top ; un cache si la liste dépasse quelques centaines de joueurs.
+  world.saves = () => {
+    const all = new Map();
+    for (const f of readdirSync(savesDir)) if (f.endsWith('.json')) { const S = loadSave(f.slice(0, -5)); if (S && S.name) all.set(f.toLowerCase(), S); }
+    // L'état en mémoire est plus récent que le disque (sauvegarde toutes les 10 s).
+    for (const c of conns.values()) all.set(c.name.toLowerCase() + '.json', world.players[c.id].S);
+    return [...all.values()];
+  };
   const send = (ws, msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
 
   const server = http.createServer(async (req, res) => {
@@ -71,7 +85,7 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
       }
       const save = loadSave(name);
       c.id = 'p' + nextId++; c.name = name;
-      addPlayer(world, c.id, {save, name, hat: cleanHat(m.hat)});
+      addPlayer(world, c.id, {save, name, hat: cleanHat(m.hat), cls: cleanCls(m.cls)});
       conns.set(c.id, c);
       send(c.ws, {t: 'welcome', id: c.id, seed: world.seed, save: world.players[c.id].S});
       return;
@@ -91,9 +105,10 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
     });
     ws.on('close', () => {
       if (!c.id) return;
-      saveAll();
+      // removePlayer règle un éventuel duel abandonné : on sauvegarde l'état d'après (défaite, « tu as raison » à écrire).
+      const S = removePlayer(world, c.id);
+      if (S) savePlayer(c.name, S);
       conns.delete(c.id);
-      removePlayer(world, c.id);
       takeEvents(world, c.id);
     });
   });

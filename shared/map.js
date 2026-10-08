@@ -2,9 +2,9 @@
 import {DIFFS} from './data.js';
 import {mulberry32,rngTools} from './rng.js';
 
-export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31};
-export const SOLID=new Uint8Array(40);
-for(const k of ['WALL','LAKE','TREE','ROCK','DESK','BED','FRIDGE','TABLE','SHELF','FENCE','STALLR','STALLB','BAR','STAIRS','MURK','DTREE','CRYSTAL','RACK','DWALL','DTORCH','PILLAR'])SOLID[T[k]]=1;
+export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31,ASPHALT:32,LINE:33,CAR:34,LAMP:35,SFLOOR:36,AISLE:37,CASH:38,CART:39,CARPET:40,GUICHET:41,PLANT:42,HALL:43,BOOTH:44,BANNER:45,LABFLOOR:46,PCDESK:47,BOARD:48};
+export const SOLID=new Uint8Array(64);
+for(const k of ['WALL','LAKE','TREE','ROCK','DESK','BED','FRIDGE','TABLE','SHELF','FENCE','STALLR','STALLB','BAR','STAIRS','MURK','DTREE','CRYSTAL','RACK','DWALL','DTORCH','PILLAR','CAR','LAMP','AISLE','CASH','CART','GUICHET','PLANT','BOOTH','BANNER','PCDESK','BOARD'])SOLID[T[k]]=1;
 
 export function tileAt(map,x,y){x=Math.floor(x);y=Math.floor(y);return(x<0||y<0||x>=map.w||y>=map.h)?map.oob:map.t[y*map.w+x]}
 export function setTile(map,x,y,v){if(x>=0&&y>=0&&x<map.w&&y<map.h)map.t[y*map.w+x]=v}
@@ -15,7 +15,8 @@ export function stepToward(map,e,tx,ty,sp,dt){const dx=tx-e.x,dy=ty-e.y,L=Math.h
 export function fillRect(map,x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)setTile(map,x,y,v)}
 
 export function genOverworld(seed){
-  const map={id:'over',w:80,h:60,t:new Uint8Array(80*60),oob:T.TREE};
+  // 80 colonnes d'origine + 40 de zones (Lot 8) + 40 (Lot 9). Les 80 premières sont générées exactement comme avant ; l'extension a son propre générateur.
+  const map={id:'over',w:160,h:60,t:new Uint8Array(160*60),oob:T.TREE};
   const setT=(x,y,v)=>setTile(map,x,y,v),rect=(...a)=>fillRect(map,...a);
   const r=mulberry32(seed),RI=(a,b)=>a+Math.floor(r()*(b-a+1));
   for(let y=0;y<60;y++)for(let x=0;x<80;x++){const q=r();setT(x,y,q<.07?T.FLOWER:q<.083?T.ROCK:T.GRASS)}
@@ -48,7 +49,61 @@ export function genOverworld(seed){
   // Bourg-Forum
   rect(11,13,25,22,T.FENCE);rect(12,14,24,21,T.STONE);rect(23,13,24,13,T.STONE);rect(11,20,11,21,T.STONE);rect(25,20,25,21,T.STONE);
   rect(13,15,15,15,T.STALLR);rect(18,15,20,15,T.STALLB);setT(12,19,T.BAR);setT(13,19,T.BAR);setT(20,18,T.STAIRS);setT(21,18,T.STAIRS);
+  // L'Arène du Débat Stérile : petit enclos à l'est du Bourg, ouvert sur la route par deux cases au sud.
+  rect(29,13,38,19,T.FENCE);rect(30,14,37,18,T.STONE);rect(33,19,34,19,T.STONE);
+  genEast(map,seed);genFar(map,seed);
   return map;
+}
+
+// Parking du Lycée (y 0–19), Supermarché (y 20–39), Pôle Emploi (y 40–59), x 80–119. Une route part du Marais du Lag, une porte au sud relie les zones entre elles.
+function genEast(map,seed){
+  const r=mulberry32(seed^0x5a17c0de),rect=(...a)=>fillRect(map,...a),setT=(x,y,v)=>setTile(map,x,y,v);
+  for(let y=0;y<60;y++)for(let x=80;x<120;x++)setT(x,y,r()<.06?T.FLOWER:T.GRASS);
+  for(let x=80;x<120;x++){setT(x,0,T.TREE);setT(x,59,T.TREE)}
+  for(let y=0;y<60;y++)setT(119,y,T.TREE);
+  // Route depuis le Marais : la haie de x = 79 s'ouvre sur le parking.
+  rect(64,12,80,13,T.DIRT);
+  // Parking : bitume, places tracées, voitures (aléatoires) et lampadaires ; l'allée centrale (y 8–11) reste libre.
+  rect(80,1,118,18,T.ASPHALT);
+  for(const y0 of [2,14])for(let x=84;x<=116;x+=3){
+    rect(x,y0,x,y0+3,T.LINE);
+    for(const y of [y0,y0+1,y0+2])if(x+1<=116&&r()<.5)setT(x+1,y,T.CAR);
+  }
+  for(const x of [88,100,112])setT(x,7,T.LAMP);
+  for(let x=80;x<=118;x++)setT(x,19,T.TREE);
+  rect(99,19,100,21,T.DIRT);
+  // Supermarché : bâtiment, deux portes (nord et sud), rayons, caisses et caddies.
+  rect(82,22,117,37,T.WALL);rect(83,23,116,36,T.SFLOOR);rect(99,22,100,22,T.SFLOOR);rect(99,37,100,37,T.SFLOOR);
+  rect(99,20,100,21,T.DIRT);rect(99,38,100,39,T.DIRT);
+  for(const y of [26,31])for(let x=85;x<=114;x++)if(x<98||x>101)setT(x,y,T.AISLE);
+  rect(86,34,93,34,T.CASH);
+  for(let i=0;i<10;i++){const x=84+Math.floor(r()*32),y=24+Math.floor(r()*12);if(tileAt(map,x,y)===T.SFLOOR&&y!==29&&y!==28)setT(x,y,T.CART)}
+  for(let x=80;x<=118;x++)setT(x,39,T.TREE);
+  rect(99,39,100,39,T.DIRT);
+  // Pôle Emploi : bâtiment, porte nord, guichets et plantes.
+  rect(82,42,117,57,T.WALL);rect(83,43,116,56,T.CARPET);rect(99,42,100,42,T.CARPET);rect(99,40,100,41,T.DIRT);
+  for(const [x0,x1] of [[86,96],[103,113]])rect(x0,47,x1,47,T.GUICHET);
+  for(const [x,y] of [[84,44],[115,44],[84,55],[115,55],[98,55],[101,55]])setT(x,y,T.PLANT);
+}
+
+// Lot 9, x 120–159 : Convention Manga/Anime (y 40–59, reliée à la porte est du Pôle Emploi) puis DIIAGE (y 0–39, par la porte nord de la Convention).
+function genFar(map,seed){
+  const r=mulberry32(seed^0x9e3779b1),rect=(...a)=>fillRect(map,...a),setT=(x,y,v)=>setTile(map,x,y,v);
+  for(let y=0;y<60;y++)for(let x=120;x<160;x++)setT(x,y,r()<.06?T.FLOWER:T.GRASS);
+  for(let x=120;x<160;x++){setT(x,0,T.TREE);setT(x,59,T.TREE)}
+  for(let y=0;y<60;y++)setT(159,y,T.TREE);
+  // Porte est du Pôle Emploi, puis route jusqu'à la Convention.
+  rect(117,50,117,51,T.CARPET);rect(118,50,122,51,T.DIRT);
+  // Convention : hall, stands (deux rangées, allée centrale libre), bannières aux angles.
+  rect(122,42,157,57,T.WALL);rect(123,43,156,56,T.HALL);rect(122,50,122,51,T.HALL);rect(139,42,140,42,T.HALL);
+  for(let x=125;x<=154;x+=4)for(const y of [46,53]){setT(x,y,T.BOOTH);setT(x+1,y,T.BOOTH)}
+  for(const [x,y] of [[124,44],[155,44],[124,55],[155,55]])setT(x,y,T.BANNER);
+  // Route vers le DIIAGE.
+  rect(139,35,140,41,T.DIRT);
+  // DIIAGE : campus, salle de cours (bureaux en rangées, tableaux au mur nord), porte sud.
+  rect(122,4,157,34,T.WALL);rect(123,5,156,33,T.LABFLOOR);rect(139,34,140,34,T.LABFLOOR);
+  for(let x=125;x<=154;x++)if(x<137||x>142)setT(x,5,T.BOARD);
+  for(const y of [10,16,22,28])for(let x=126;x<=153;x++)if((x-126)%4<3&&(x<136||x>143))setT(x,y,T.PCDESK);
 }
 
 export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
@@ -59,8 +114,11 @@ export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
 
 export function zoneAt(map,x,y){
   if(map.id!=='over')return'dungeon';
+  if(x>=120)return y<40?'diiage':'convention';
+  if(x>=80)return y<20?'parking':y<40?'supermarche':'pole';
   if(x<14&&y<12)return'base';
   if(x>=11&&x<26&&y>=13&&y<23)return'bourg';
+  if(x>=29&&x<39&&y>=13&&y<20)return'arene';
   if(x<16&&y>=26&&y<38)return'cuisine';
   if(x>=51&&y<33)return'marais';
   if(x>=51)return'datacenter';
@@ -70,11 +128,12 @@ export function zoneAt(map,x,y){
   if(y<14)return'plaine';
   return'steppe';
 }
-export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'};
+export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='arene'};
 
 // Les monstres ne sont pas créés ici (ils portent de l'état d'exécution) : la carte rend seulement où et quoi faire apparaître.
-export function genDungeon(seed,ti){
-  const df=DIFFS[ti],rnd=mulberry32(seed),{ri,pick}=rngTools(rnd);
+// opts : {L, packs, kinds, boss} d'un donjon à thème ; sans eux, les Archives. Les tuiles ne dépendent que de la graine : le client les régénère sans opts.
+export function genDungeon(seed,ti,opts={}){
+  const df={...DIFFS[ti],...opts},rnd=mulberry32(seed),{ri,pick}=rngTools(rnd);
   for(let attempt=0;attempt<20;attempt++){
     const w=48,h=38,D={id:'dg',w,h,t:new Uint8Array(w*h).fill(T.DWALL),oob:T.DWALL,ti,spawns:[]};
     const setT=(x,y,v)=>setTile(D,x,y,v),at=(x,y)=>tileAt(D,x,y),rect=(...a)=>fillRect(D,...a);
@@ -91,9 +150,20 @@ export function genDungeon(seed,ti){
     const st=order[0];D.sx=Math.floor(st.cx)+.5;D.sy=Math.floor(st.cy)+1.5;
     D.portal={x:Math.floor(st.cx)+.5,y:Math.floor(st.cy)-.2};
     D.rooms=rooms;
-    const kinds=['spam','necro','fantome','pave'];
-    for(let i=1;i<order.length-1;i++){const r=order[i],n=ri(df.packs[0],df.packs[1]);for(let k=0;k<n;k++){const p=randSpot(D,rnd,r.x+1,r.x+r.w-2,r.y+1,r.y+r.h-2);D.spawns.push({type:pick(kinds),x:p.x,y:p.y,l:df.L})}}
-    const br=order[order.length-1];D.spawns.push({type:'archiviste',x:Math.floor(br.cx)+.5,y:Math.floor(br.cy)+.5,l:df.L+1});
+    const kinds=df.kinds||['spam','necro','fantome','pave'];
+    for(let i=1;i<order.length-1;i++){
+      const r=order[i],n=ri(df.packs[0],df.packs[1]);
+      // Patrouille : le monstre suit le couloir en L qui relie sa salle à la suivante (mêmes points que le creusement ci-dessus). Héroïque et plus, environ un monstre sur huit.
+      const a=order[i],b=order[i+1],ax=Math.floor(a.cx),ay=Math.floor(a.cy),bx=Math.floor(b.cx),by=Math.floor(b.cy);
+      for(let k=0;k<n;k++){
+        const p=randSpot(D,rnd,r.x+1,r.x+r.w-2,r.y+1,r.y+r.h-2),spawn={type:pick(kinds),x:p.x,y:p.y,l:df.L};
+        if(ti>=1&&rnd()<.12)spawn.patrol=[{x:ax+.5,y:ay+.5},{x:bx+.5,y:ay+.5},{x:bx+.5,y:by+.5}];
+        D.spawns.push(spawn);
+      }
+    }
+    // Plusieurs boss (le Jury de la Soutenance) : côte à côte au centre de la dernière salle.
+    const br=order[order.length-1],bosses=[].concat(df.boss||'archiviste');
+    bosses.forEach((type,i)=>D.spawns.push({type,x:Math.floor(br.cx)+.5+(i-(bosses.length-1)/2)*2.2,y:Math.floor(br.cy)+.5,l:df.L+1}));
     return D;
   }
   return null;

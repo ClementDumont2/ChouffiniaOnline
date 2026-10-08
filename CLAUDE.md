@@ -66,3 +66,11 @@ Serveur → client : `{t:'welcome', id, seed, save}` · `{t:'snap', world, tick,
 ## Ce qu'on ne fait PAS (pour l'instant)
 
 Prédiction côté client, rollback, delta compression, comptes avec mot de passe, base de données, scaling, mobile natif.
+
+## Saison 2 : règles en plus
+- Contenu piloté par les données : classes, zones, monstres, boss, montures, objets et dialogues vivent dans shared/data/*.js (un fichier par domaine : classes.js, zones.js, mobs.js, bosses.js, items.js, mounts.js, dialogues.js, commands.js). Ajouter du contenu = ajouter des données, pas du code spécial.
+- Les objets du sac sont des INSTANCES { uid, id, nObj, rarete } et plus de simples identifiants. Les stats se calculent avec shared/rules.js depuis la base + le niveau d'objet + la rareté.
+- Droits : un joueur a un champ "droits" (tableau de chaînes) dans saves/<pseudo>.json. Le serveur vérifie toujours hasRight(joueur, droit) ; le client ne fait qu'afficher.
+- Niveau max : 100.
+- Les commandes de chat sont déclarées dans shared/data/commands.js { nom, alias, args, description, droit? } : le serveur et l'autocomplétion lisent la même table.
+- Pas de nouvelle dépendance npm. Le son, s'il y en a, est généré avec la Web Audio API (aucun fichier audio).

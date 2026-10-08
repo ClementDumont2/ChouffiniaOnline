@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {xpNeed, stats} from '../shared/rules.js';
+import {xpNeed, stats, newItem} from '../shared/rules.js';
 import {genOverworld, genDungeon, isSolid} from '../shared/map.js';
 import {DIFFS} from '../shared/data.js';
 
-const joueur = (lvl, eq = {}) => ({lvl, eq: {tete: null, torse: null, mains: null, jambes: null, arme: null, ...eq}});
+const equip = ids => Object.fromEntries(Object.entries(ids).map(([slot, id]) => [slot, newItem(id)]));
+const joueur = (lvl, eq = {}) => ({lvl, eq: {tete: null, torse: null, mains: null, jambes: null, arme: null, ...equip(eq)}});
 
 test('xpNeed suit la courbe du legacy', () => {
   assert.equal(xpNeed(1), 40);
@@ -13,7 +14,7 @@ test('xpNeed suit la courbe du legacy', () => {
 });
 
 test('stats() sans équipement', () => {
-  assert.deepEqual(stats(joueur(1)), {atk: 4, maxhp: 60, maxcaf: 50, arm: 0, red: 0});
+  assert.deepEqual(stats(joueur(1)), {atk: 4, maxhp: 60, maxcaf: 50, arm: 0, red: 0, spd: 1});
   assert.equal(stats(joueur(3)).atk, 8);
   assert.equal(stats(joueur(3)).maxhp, 90);
 });
@@ -64,4 +65,29 @@ test('genDungeon est jouable : 6 salles minimum, boss atteignable depuis l\'entr
 
 test('genDungeon est déterministe', () => {
   assert.deepEqual(genDungeon(5, 1), genDungeon(5, 1));
+});
+
+test('suggest : commandes par préfixe/alias, pseudos pour les arguments joueur', async () => {
+  const {suggest} = await import('../shared/commands.js');
+  const pl = {S: {droits: []}}, fills = (t, online) => suggest(t, pl, online).map(s => s.fill);
+  assert.deepEqual(fills('/q'), ['/qui', '/quitter']);
+  assert.deepEqual(fills('/wh'), ['/qui'], 'alias /who');
+  assert.deepEqual(fills('/mp a', ['Alice', 'Bob', 'Alain']), ['/mp Alice ', '/mp Alain ']);
+  assert.deepEqual(fills('/echanger B', ['Bob']), ['/echanger Bob']);
+  assert.deepEqual(fills('/mp bob sal', ['Bob']), [], 'le texte libre n\'est pas complété');
+  assert.deepEqual(fills('bonjour'), []);
+});
+
+test('xpNeed : identique à l\'ancienne courbe jusqu\'au niveau 15, strictement croissante et sans à-coup jusqu\'à 100', async () => {
+  const {MAXLVL} = await import('../shared/data.js');
+  const {baseStats} = await import('../shared/rules.js');
+  assert.equal(MAXLVL, 100);
+  assert.deepEqual([1, 5, 10, 15].map(xpNeed), [40, 460, 1660, 3610]);
+  for (let l = 1; l < MAXLVL - 1; l++) {
+    assert.ok(xpNeed(l + 1) > xpNeed(l), `niveau ${l}`);
+    if (l >= 15) assert.ok(xpNeed(l + 1) / xpNeed(l) < 1.14, `à-coup au niveau ${l}`);
+  }
+  // Les stats de base ne reculent jamais et gardent la courbe d'origine jusqu'au niveau 15.
+  assert.deepEqual(baseStats(15), {atk: 4 + 2 * 14, hp: 60 + 15 * 14, caf: 50 + 8 * 14});
+  for (let l = 1; l < MAXLVL; l++) for (const k of ['atk', 'hp', 'caf']) assert.ok(baseStats(l + 1)[k] > baseStats(l)[k], `${k} niveau ${l}`);
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync, existsSync, readFileSync} from 'node:fs';
+import {mkdtempSync, existsSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import WebSocket from 'ws';
@@ -229,4 +229,47 @@ test('heartbeat : une connexion qui ne répond plus aux pings est purgée et son
     await new Promise(r => setTimeout(r, 400));
     assert.equal(Object.keys(srv.world.players).length, 0, 'le zombie a été retiré');
   } finally { await srv.close(); }
+});
+
+test('/top lit aussi les sauvegardes des joueurs hors-ligne', async () => {
+  const {client, savesDir, stop} = await setup();
+  try {
+    writeFileSync(join(savesDir, 'fantome.json'), JSON.stringify({name: 'Fantome', lvl: 42, xp: 0, dg: 3, chouffes: 9}));
+    const a = await client('alice');
+    a.send({t: 'chat', text: '/top'});
+    const ev = await a.next(m => m.t === 'ev' && m.list.some(e => /Top Niveau/.test(e.text || '')));
+    assert.match(ev.list.find(e => /Top Niveau/.test(e.text || '')).text, /1\. Fantome \(42\) · 2\. alice \(1\)/i);
+  } finally { await stop(); }
+});
+
+test('les droits édités à la main survivent aux sauvegardes, et la mémoire ne les invente pas', async () => {
+  const {client, savesDir, stop} = await setup();
+  try {
+    const f = join(savesDir, 'alice.json');
+    writeFileSync(f, JSON.stringify({name: 'alice', lvl: 3, droits: ['annonce']}));
+    const a = await client('alice');
+    assert.deepEqual(a.welcome.save.droits, ['annonce']);
+    writeFileSync(f, JSON.stringify({name: 'alice', lvl: 3, droits: ['annonce', 'autre']}));
+    a.ws.close();
+    await new Promise(r => setTimeout(r, 200));
+    assert.deepEqual(JSON.parse(readFileSync(f, 'utf8')).droits, ['annonce', 'autre'], 'le disque fait foi');
+    const b = await client('bob');
+    assert.ok(!(b.welcome.save.droits || []).length);
+    b.ws.close();
+    await new Promise(r => setTimeout(r, 200));
+    assert.equal('droits' in JSON.parse(readFileSync(join(savesDir, 'bob.json'), 'utf8')), false, 'pas de champ droits écrit pour un joueur sans droit');
+  } finally { await stop(); }
+});
+
+test('une sauvegarde absurde ou illisible laisse le joueur se connecter ; l\'illisible est conservée en .corrupt', async () => {
+  const {client, savesDir, stop} = await setup();
+  try {
+    writeFileSync(join(savesDir, 'bizarre.json'), JSON.stringify({name: 'bizarre', lvl: 'x', gold: -4, inv: 'oups', eq: 3, q: {i: -9}}));
+    const a = await client('bizarre');
+    assert.equal(a.welcome.save.lvl, 1); assert.equal(a.welcome.save.gold, 0); assert.deepEqual(a.welcome.save.inv, [{id: 'chips', n: 3}, {id: 'chouffe', n: 1}], 'sac absurde = kit de départ');
+    writeFileSync(join(savesDir, 'casse.json'), '{pas du json');
+    const b = await client('casse');
+    assert.equal(b.welcome.save.lvl, 1);
+    assert.equal(readFileSync(join(savesDir, 'casse.json.corrupt'), 'utf8'), '{pas du json');
+  } finally { await stop(); }
 });

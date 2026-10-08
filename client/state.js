@@ -7,6 +7,8 @@ export let me=null,running=false,S=newSave();
 // Avant la connexion, la caméra et l'écran de création ont besoin d'un joueur fantôme.
 export let P={id:null,x:7.5,y:8.5,face:1,moving:false,step:0,tipT:0,target:null,auto:false,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,cd:{},mvT:0,group:null};
 export let WD=null;
+// Pseudos de tous les joueurs connectés (événement 'online'), pour l'autocomplétion.
+export const online=[];
 
 // Le transport est branché par net.js.
 export const net={act(){},move(){},chat(){}};
