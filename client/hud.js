@@ -8,13 +8,14 @@ import {openPortal,renderCharStats,togglePanel} from './panels.js';
 import {keyOf,label} from './keys.js';
 import {P,S,WD,me,send,targetEnt,world} from './state.js';
 
-const count=id=>{const s=S.inv.find(s=>s.id===id);return s?s.n:0};
+const count=id=>{const s=S.inv.find(s=>!s.uid&&s.id===id);return s?s.n:0};
 
 const logEl=$('#log');
 export function chat(cls,html){const stick=logEl.scrollTop+logEl.clientHeight>=logEl.scrollHeight-24;const d=document.createElement('div');d.className='m '+cls;d.innerHTML=html;logEl.appendChild(d);while(logEl.children.length>140)logEl.firstChild.remove();if(stick)logEl.scrollTop=logEl.scrollHeight}
-export const itemLink=id=>{const it=ITEMS[id];return`<span class="q-${it.r}">[${esc(it.n)}]</span>`};
+// rarete / nObj : seulement pour une instance d'équipement (la rareté peut différer de celle de l'objet de base).
+export const itemLink=(id,rarete,nObj)=>{const it=ITEMS[id];return`<span class="q-${rarete||it.r}">[${esc(it.n)}]</span>${nObj?` <small>niv. ${nObj}</small>`:''}`};
 // Balisage des textes de la sim : **gras**, [[id_objet]], [[up]] (voir shared/sim.js).
-export const fmtMsg=t=>esc(t).replace(/\[\[up\]\]/g,' <span class="up">▲ amélioration</span>').replace(/\[\[(\w+)\]\]/g,(m,id)=>itemLink(id)).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+export const fmtMsg=t=>esc(t).replace(/\[\[up\]\]/g,' <span class="up">▲ amélioration</span>').replace(/\[\[(\w+)(?::(\w+):(\d+))?\]\]/g,(m,id,r,n)=>itemLink(id,r,n&&+n)).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
 let errTO=0;
 export function err(msg){const e=$('#err');e.textContent=msg;e.classList.add('on');clearTimeout(errTO);errTO=setTimeout(()=>e.classList.remove('on'),2200)}
 export function toast(kicker,title,sub){const d=document.createElement('div');d.className='toast frame';d.innerHTML=`<small>${esc(kicker)}</small><b>${esc(title)}</b>${sub?`<span>${esc(sub)}</span>`:''}`;$('#toasts').appendChild(d);setTimeout(()=>d.remove(),5100)}

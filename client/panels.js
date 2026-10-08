@@ -1,5 +1,5 @@
 import {DEATH,DIFFS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
-import {cmpInfo,classOf,dist,npcById,stats,statsWith} from '../shared/rules.js';
+import {cmpInfo,classOf,dist,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
@@ -15,43 +15,47 @@ const PANELS={bag:()=>renderBag(),char:()=>renderChar(),opts:()=>renderOpts()};
 export function togglePanel(id){const p=$('#'+id);if(p.hidden){for(const o in PANELS)if(o!==id)$('#'+o).hidden=true;p.hidden=false;PANELS[id]()}else{p.hidden=true;waiting=null}tipEl.hidden=true}
 export function closePanel(id){if(id==='opts')waiting=null;if(id==='dlg'){if(dlgLocked)return;if(trade)send({a:'tradeCancel'});dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
 function nearMerchant(){return WD.id==='over'&&['gerard','bernard','tavernier'].some(id=>dist(P,npcById(id))<3.5)}
-function sellValue(s){return ITEMS[s.id].price*s.n}
+function sellValue(s){return s.uid?itemValue(s):ITEMS[s.id].price*s.n}
+const rar=q=>q.rarete||ITEMS[q.id].r;
+const keyOfItem=q=>q.uid||q.id;
 export function renderBag(){
   if($('#bag').hidden)return;
-  if(selItem>=0&&(!S.inv[selItem]||S.inv[selItem].id!==selId))selItem=-1;
+  if(selItem>=0&&(!S.inv[selItem]||keyOfItem(S.inv[selItem])!==selId))selItem=-1;
   $('#goldv').textContent=`${fmt(S.gold)} po`;
   const g=$('#bagGrid');g.innerHTML='';
-  for(let i=0;i<24;i++){const s=S.inv[i];const b=document.createElement('button');b.type='button';b.className='slot'+(s?' q-'+ITEMS[s.id].r:'')+(i===selItem?' sel':'');
-    if(s){b.appendChild(iconCanvas(s.id,64));if(ITEMS[s.id].t==='eq'&&cmpInfo(S,s.id).better)b.insertAdjacentHTML('beforeend','<span class="upb">▲</span>');if(s.n>1)b.insertAdjacentHTML('beforeend',`<span class="n">${s.n}</span>`);b.setAttribute('aria-label',ITEMS[s.id].n);b.addEventListener('click',()=>{selItem=i;selId=s.id;renderBag()});b.addEventListener('dblclick',()=>{const it=ITEMS[s.id];if(it.t==='eq')send({a:'equip',idx:i});else if(it.t==='use')send({a:'useItem',id:s.id})})}
+  for(let i=0;i<24;i++){const s=S.inv[i];const b=document.createElement('button');b.type='button';b.className='slot'+(s?' q-'+rar(s):'')+(i===selItem?' sel':'');
+    if(s){b.appendChild(iconCanvas(s.id,64));if(s.uid&&cmpInfo(S,s).better)b.insertAdjacentHTML('beforeend','<span class="upb">▲</span>');const cnt=s.uid?s.nObj:s.n>1?s.n:'';if(cnt)b.insertAdjacentHTML('beforeend',`<span class="n">${cnt}</span>`);b.setAttribute('aria-label',ITEMS[s.id].n);b.addEventListener('click',()=>{selItem=i;selId=keyOfItem(s);renderBag()});b.addEventListener('dblclick',()=>{const it=ITEMS[s.id];if(it.t==='eq')send({a:'equip',idx:i});else if(it.t==='use')send({a:'useItem',id:s.id})})}
     else b.disabled=true;
     g.appendChild(b)}
   const det=$('#bagDet');const s=S.inv[selItem];
   if(!s){det.innerHTML=`<span class="ty">Touchez un objet pour l'examiner. Double-clic pour l'utiliser ou l'équiper. Les artéfacts se revendent chez Gérard.</span>`;return}
   const it=ITEMS[s.id],nm=nearMerchant(),v=sellValue(s);
-  det.innerHTML=itemHTML(s.id,s.n)+`<div class="acts">${it.t==='eq'?'<button class="btn" id="a1">Équiper</button>':it.t==='use'?`<button class="btn" id="a1">${s.id==='chouffe'?'Boire':'Manger'}</button>`:''}<button class="btn alt" id="a3" ${nm?'':'disabled'}>${nm?`Vendre (${fmt(v)} po)`:'Vendre (près d\'un marchand)'}</button><button class="btn alt" id="a2">Jeter</button></div>`;
+  det.innerHTML=itemHTML(s)+`<div class="acts">${it.t==='eq'?'<button class="btn" id="a1">Équiper</button>':it.t==='use'?`<button class="btn" id="a1">${s.id==='chouffe'?'Boire':'Manger'}</button>`:''}<button class="btn alt" id="a3" ${nm?'':'disabled'}>${nm?`Vendre (${fmt(v)} po)`:'Vendre (près d\'un marchand)'}</button><button class="btn alt" id="a2">Jeter</button></div>`;
   const a1=$('#a1');if(a1)a1.onclick=()=>it.t==='eq'?send({a:'equip',idx:selItem}):send({a:'useItem',id:s.id});
   $('#a3').onclick=()=>{if(nearMerchant())send({a:'sell',idx:selItem})};
   $('#a2').onclick=()=>send({a:'drop',idx:selItem});
 }
-function statLine(it){const sts=[];if(it.atk)sts.push(`+${it.atk} Attaque`);if(it.arm)sts.push(`+${it.arm} Protection`);if(it.hp)sts.push(`+${it.hp} PV`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);return sts.join(' · ')}
-function deltaLine(id){
-  const c=cmpInfo(S,id);if(!c)return'';if(c.same)return'<span class="eqd">Équipé actuellement</span>';
+// q : instance d'équipement (stats mises à l'échelle) ou pile ; l'entrée de ITEMS seule (aperçu boutique) passe par newItem.
+function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);return sts.join(' · ')}
+function deltaLine(q){
+  const c=cmpInfo(S,q);if(!c)return'';if(c.same)return'<span class="eqd">Équipé actuellement</span>';
   const parts=c.rows.filter(r=>r.d).map(r=>r.d>0?`<span class="up">▲ +${r.d} ${r.sh}</span>`:`<span class="down">▼ −${-r.d} ${r.sh}</span>`);
-  return`<span class="vs">${c.cur?'vs '+esc(c.cur.n):'Emplacement vide'} :</span> ${parts.length?parts.join(' · '):'<span class="eqd">aucun changement</span>'}`;
+  return`<span class="vs">${c.cur?'vs '+esc(c.curIt.n):'Emplacement vide'} :</span> ${parts.length?parts.join(' · '):'<span class="eqd">aucun changement</span>'}`;
 }
-function compareHTML(id){
-  const c=cmpInfo(S,id);if(!c)return'';
-  const now=stats(S,P.drunk),after=statsWith(S,c.it.s,id,P.drunk);
+function compareHTML(q){
+  const c=cmpInfo(S,q);if(!c)return'';
+  const now=stats(S,P.drunk),after=statsWith(S,c.it.s,q,P.drunk);
   const ar=(a,b,suf)=>{suf=suf||'';return a===b?`${a}${suf}`:`${a}${suf} → <b class="${b>a?'up':'down'}">${b}${suf}</b>`};
   const red=s=>Math.round(s.red*100);
-  return`<div class="cmp"><div class="cmph"><span>Comparé à : ${c.cur?`<b class="q-${c.cur.r}">${esc(c.cur.n)}</b>`:'<i>emplacement vide</i>'}</span><span class="verdict ${c.cls}">${c.v}</span></div>`+
+  return`<div class="cmp"><div class="cmph"><span>Comparé à : ${c.cur?`<b class="q-${c.cur.rarete}">${esc(c.curIt.n)}</b> <small>niv. ${c.cur.nObj}</small>`:'<i>emplacement vide</i>'}</span><span class="verdict ${c.cls}">${c.v}</span></div>`+
     `<div class="tw"><table><thead><tr><th></th><th>Équipé</th><th>Celui-ci</th><th>Écart</th></tr></thead><tbody>${c.rows.map(r=>`<tr><th>${r.l}</th><td>${r.a}</td><td>${r.b}</td><td class="${r.d>0?'up':r.d<0?'down':'eqd'}">${r.d>0?'▲ +'+r.d:r.d<0?'▼ −'+(-r.d):'='}</td></tr>`).join('')}</tbody></table></div>`+
     (c.same?'':`<div class="cmpt">Si vous l'équipez : Attaque ${ar(now.atk,after.atk)} · Protection ${ar(now.arm,after.arm)} · Réduction des dégâts ${ar(red(now),red(after),' %')} · PV max ${ar(now.maxhp,after.maxhp)}</div>`)+
     (S.lvl<(c.it.rl||1)?`<div class="down">Niveau ${c.it.rl} requis pour l'équiper (vous êtes niveau ${S.lvl}).</div>`:'')+`</div>`;
 }
-function itemHTML(id,n){const it=ITEMS[id];const sl=statLine(it);
+function itemHTML(q){const it=ITEMS[q.id],n=q.uid?1:q.n||1,sl=statLine(q);
   const ty=it.t==='eq'?SLOTS[it.s]:it.t==='use'?'Consommable':it.t==='art'?'Artéfact · se revend chez Gérard':'Bric-à-brac';
-  return`<div class="nm q-${it.r}">${esc(it.n)}${n>1?` ×${n}`:''}</div><div class="ty">${ty} · ${RN[it.r]}${it.rl>1?` · <span style="color:${S.lvl<it.rl?'var(--bad)':'inherit'}">Niveau ${it.rl} requis</span>`:''}</div>${sl?`<div class="stt">${sl}</div>`:''}${it.t==='eq'?compareHTML(id):''}<div class="fl">« ${esc(it.d)} »</div><div class="pr">Revente : ${it.price} po${n>1?` (×${n} = ${fmt(it.price*n)} po)`:''}</div>`}
+  const price=it.t==='eq'?itemValue(q):it.price;
+  return`<div class="nm q-${rar(q)}">${esc(it.n)}${n>1?` ×${n}`:''}</div><div class="ty">${ty} · ${RN[rar(q)]}${it.t==='eq'?` · Niveau d'objet ${q.nObj}`:''}${it.rl>1?` · <span style="color:${S.lvl<it.rl?'var(--bad)':'inherit'}">Niveau ${it.rl} requis</span>`:''}</div>${sl?`<div class="stt">${sl}</div>`:''}${it.t==='eq'?compareHTML(q):''}<div class="fl">« ${esc(it.d)} »</div><div class="pr">Revente : ${fmt(price)} po${n>1?` (×${n} = ${fmt(price*n)} po)`:''}</div>`}
 let charTab='eq';
 document.querySelectorAll('#ctabs button').forEach(b=>b.onclick=()=>{charTab=b.dataset.tab;renderChar()});
 function renderMounts(){
@@ -75,8 +79,8 @@ export function renderChar(){
   if(charTab==='mnt'){$('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom}`;renderMounts();return}
   $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · <Sous-Sol Éternel>`;
   const l=$('#eqlist');l.innerHTML='';
-  for(const k in SLOTS){const id=S.eq[k];const b=document.createElement('button');b.type='button';b.className='eqrow';
-    if(id){b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]} · ${statLine(ITEMS[id])} · toucher pour retirer</span><span class="q-${ITEMS[id].r}">${esc(ITEMS[id].n)}</span></span>`);b.onclick=()=>send({a:'unequip',slot:k});tipOn(b,()=>itemHTML(id,1))}
+  for(const k in SLOTS){const q=S.eq[k];const b=document.createElement('button');b.type='button';b.className='eqrow';
+    if(q){const it=ITEMS[q.id];b.appendChild(iconCanvas(q.id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]} · niv. ${q.nObj} · ${statLine(q)} · toucher pour retirer</span><span class="q-${q.rarete}">${esc(it.n)}</span></span>`);b.onclick=()=>send({a:'unequip',slot:k});tipOn(b,()=>itemHTML(q))}
     else{const c=document.createElement('canvas');c.width=c.height=8;b.appendChild(c);b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]}</span><span style="color:var(--muted);font-weight:400;font-style:italic">Vide · Bernard en vend au Bourg-Forum</span></span>`);b.disabled=true}
     l.appendChild(b)}
   renderCharStats();
@@ -84,7 +88,7 @@ export function renderChar(){
 export function renderCharStats(){
   if(charTab!=='eq')return;
   const st=stats(S,P.drunk),dig=Math.max(0,100-S.tips),days=6+Math.floor(S.played/60);
-  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${S.eq.tete==='fedora'?2:3} <small>${S.eq.tete==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
+  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${(S.eq.tete&&S.eq.tete.id)==='fedora'?2:3} <small>${(S.eq.tete&&S.eq.tete.id)==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
   $('#cstats').innerHTML=rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
 let dlgLocked=false;
@@ -138,17 +142,17 @@ function openShop(n){
   wrap.innerHTML=`<p class="greet">« Tout est garanti 30 jours. Ou 30 minutes. Je ne me souviens plus. »</p><div class="shopbar"><span class="goldv">Votre or : ${fmt(S.gold)} po</span><label class="chk"><input type="checkbox" id="shopUp" ${shopUp?'checked':''}> Améliorations seulement</label></div><p class="ty">Chaque objet est comparé à ce que vous portez. Touchez une ligne pour le détail.</p>`;
   for(const [cat,ids] of [['Armes · augmentent l\'Attaque',SHOP.armes],['Armures · augmentent la Protection',SHOP.armures]]){
     const box=document.createElement('div');box.className='shop';box.innerHTML=`<h4>${cat}</h4>`;let shown=0;
-    for(const id of ids){const it=ITEMS[id],c=cmpInfo(S,id),own=S.eq[it.s]===id||S.inv.some(s=>s.id===id),lv=S.lvl<it.rl,short=it.buy-S.gold;
+    for(const id of ids){const it=ITEMS[id],pv=newItem(id),c=cmpInfo(S,pv),own=(S.eq[it.s]&&S.eq[it.s].id===id)||S.inv.some(s=>s.id===id),lv=S.lvl<it.rl,short=it.buy-S.gold;
       if(shopUp&&!(c.cls==='up'||(c.cls==='mix'&&c.net>0)))continue;shown++;
       const row=document.createElement('div');row.className='srow q-'+it.r+(own?' own':'')+(shopSel===id?' sel':'');row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-expanded',shopSel===id?'true':'false');
       const ic=document.createElement('span');ic.className='ic';ic.appendChild(iconCanvas(id,64));if(c.better)ic.insertAdjacentHTML('beforeend','<span class="upb" title="Amélioration">▲</span>');row.appendChild(ic);
-      row.insertAdjacentHTML('beforeend',`<div class="in"><b class="q-${it.r}">${esc(it.n)}</b><small>${SLOTS[it.s]} · niveau ${it.rl} · ${statLine(it)}${own?' · déjà possédé':''}</small><span class="dl">${deltaLine(id)}</span>${!lv&&short>0?`<small class="down">Il vous manque ${fmt(short)} po</small>`:''}</div>`);
+      row.insertAdjacentHTML('beforeend',`<div class="in"><b class="q-${it.r}">${esc(it.n)}</b><small>${SLOTS[it.s]} · niveau ${it.rl} · ${statLine(pv)}${own?' · déjà possédé':''}</small><span class="dl">${deltaLine(pv)}</span>${!lv&&short>0?`<small class="down">Il vous manque ${fmt(short)} po</small>`:''}</div>`);
       const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=lv?`Niv ${it.rl}`:`${fmt(it.buy)} po`;b.disabled=lv||S.gold<it.buy;
       b.onclick=e=>{e.stopPropagation();if(S.gold>=it.buy)send({a:'buy',id,n:1})};
       const toggle=()=>{shopSel=shopSel===id?null:id;openShop(n)};
       row.onclick=toggle;row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};
       row.appendChild(b);box.appendChild(row);
-      if(shopSel===id){const d=document.createElement('div');d.className='sdet';d.innerHTML=compareHTML(id)+`<div class="fl">« ${esc(it.d)} »</div>`;box.appendChild(d)}
+      if(shopSel===id){const d=document.createElement('div');d.className='sdet';d.innerHTML=compareHTML(pv)+`<div class="fl">« ${esc(it.d)} »</div>`;box.appendChild(d)}
     }
     if(!shown)box.insertAdjacentHTML('beforeend','<p class="ty">Rien de mieux ici pour vous. Bernard est vexé.</p>');
     wrap.appendChild(box)}
@@ -212,15 +216,26 @@ export function showDuelInvite(e){
 export function showTrade(e){
   if(e.end){if(trade){trade=null;if($('#dlgT').textContent==='Échange')unlockDlg()}return}
   const first=!trade;trade=e;
-  const sendOffer=(items,gold)=>send({a:'tradeOffer',items,gold});
-  const left=id=>S.inv.filter(s=>s.id===id).reduce((a,s)=>a+s.n,0)-(e.mine.items.find(x=>x.id===id)||{n:0}).n;
-  const list=(side,mine)=>side.items.map(x=>`<button type="button" class="trl" ${mine?`data-rm="${x.id}"`:'disabled'}>${itemLink(x.id)} ×${x.n}</button>`).join('')||'<span class="ty">Rien pour l\'instant.</span>';
+  // L'offre est renvoyée en entier à chaque clic : instances par uid, piles par {id,n}.
+  const wire=items=>items.map(x=>x.uid?{uid:x.uid}:{id:x.id,n:x.n});
+  const sendOffer=(items,gold)=>send({a:'tradeOffer',items:wire(items),gold});
+  const offered=new Set(e.mine.items.filter(x=>x.uid).map(x=>x.uid));
+  const stackLeft=id=>S.inv.filter(s=>!s.uid&&s.id===id).reduce((a,s)=>a+s.n,0)-((e.mine.items.find(x=>!x.uid&&x.id===id)||{}).n||0);
+  const label=x=>`${itemLink(x.id,x.rarete,x.nObj)}${x.uid?'':` ×${x.n}`}`;
+  const list=(side,mine)=>side.items.map((x,i)=>`<button type="button" class="trl" ${mine?`data-rm="${i}"`:'disabled'}>${label(x)}</button>`).join('')||'<span class="ty">Rien pour l\'instant.</span>';
+  const bag=[...S.inv.filter(s=>s.uid&&!offered.has(s.uid)).map(s=>`<button type="button" class="trl" data-adduid="${s.uid}">${label(s)}</button>`),
+    ...[...new Set(S.inv.filter(s=>!s.uid).map(s=>s.id))].filter(id=>stackLeft(id)>0).map(id=>`<button type="button" class="trl" data-add="${id}">${itemLink(id)} ×${stackLeft(id)}</button>`)];
   const wrap=document.createElement('div');
   wrap.innerHTML=`<div class="trade"><div><h4>Vous proposez</h4>${list(e.mine,true)}<label class="chk">Or : <input type="number" id="trGold" min="0" max="${S.gold}" value="${e.mine.gold}"> po</label><div class="${e.mine.ok?'up':'ty'}">${e.mine.ok?'✔ Validé':'Pas encore validé'}</div></div>`+
     `<div><h4>${esc(e.with)} propose</h4>${list(e.theirs,false)}<div class="goldv">${fmt(e.theirs.gold)} po</div><div class="${e.theirs.ok?'up':'ty'}">${e.theirs.ok?'✔ Validé':'Pas encore validé'}</div></div></div>`+
-    `<h4>Votre sac (toucher pour ajouter 1)</h4><div class="trbag">${[...new Set(S.inv.map(s=>s.id))].filter(id=>left(id)>0).map(id=>`<button type="button" class="trl" data-add="${id}">${itemLink(id)} ×${left(id)}</button>`).join('')||'<span class="ty">Sac vide.</span>'}</div>`;
-  wrap.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const id=b.dataset.add,it=e.mine.items.map(x=>({...x})),x=it.find(y=>y.id===id);x?x.n++:it.push({id,n:1});sendOffer(it,e.mine.gold)});
-  wrap.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const id=b.dataset.rm,it=e.mine.items.map(x=>({...x})).map(x=>x.id===id?{...x,n:x.n-1}:x).filter(x=>x.n>0);sendOffer(it,e.mine.gold)});
+    `<h4>Votre sac (toucher pour ajouter)</h4><div class="trbag">${bag.join('')||'<span class="ty">Sac vide.</span>'}</div>`;
+  wrap.querySelectorAll('[data-adduid]').forEach(b=>b.onclick=()=>sendOffer([...e.mine.items,{uid:b.dataset.adduid}],e.mine.gold));
+  wrap.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const id=b.dataset.add,it=e.mine.items.map(x=>({...x})),x=it.find(y=>!y.uid&&y.id===id);x?x.n++:it.push({id,n:1});sendOffer(it,e.mine.gold)});
+  wrap.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.rm,it=e.mine.items.map(x=>({...x})),x=it[i];
+    if(x.uid||x.n<=1)it.splice(i,1);else x.n--;
+    sendOffer(it,e.mine.gold);
+  });
   wrap.querySelector('#trGold').onchange=ev=>sendOffer(e.mine.items,Math.max(0,Math.min(S.gold,Math.floor(+ev.target.value)||0)));
   const sc=first||$('#dlg').hidden?0:$('#dlg').scrollTop;
   dialog('Échange',`Avec ${e.with} · Les deux doivent valider ; modifier une offre annule les validations`,wrap,[[e.mine.ok?'Validé ✔':'Valider',()=>send({a:'tradeOk'}),false,e.mine.ok],['Annuler',()=>closePanel('dlg'),true]]);

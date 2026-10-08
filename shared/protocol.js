@@ -39,7 +39,7 @@ function groupRec(w,pl){
 }
 function playerRec(w,pl,mine){
   const {S,P}=pl;
-  const rec={id:pl.id,kind:'player',n:P.n,lvl:S.lvl,cls:S.cls,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:S.eq},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
+  const rec={id:pl.id,kind:'player',n:P.n,lvl:S.lvl,cls:S.cls,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
   if(mine)rec.priv={hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,group:groupRec(w,pl)};
   return rec;
 }

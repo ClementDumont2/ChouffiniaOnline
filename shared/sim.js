@@ -2,7 +2,7 @@
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {clamp,classOf,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,xpNeed} from './rules.js';
+import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
@@ -19,6 +19,8 @@ const toAll=(w,e)=>{for(const id in w.players)ev(w,id,e)};
 const float=(w,mapId,x,y,txt,col,big)=>toMap(w,mapId,{t:'float',x,y,txt,col,big:!!big});
 const burst=(w,mapId,x,y,col,n,spd)=>toMap(w,mapId,{t:'burst',x,y,col,n,spd});
 const say=(e,txt,dur)=>{e.say=txt;e.sayT=dur||3.8};
+// Lien d'objet dans un message : [[id]] pour une pile, [[id:rareté:nObj]] pour une instance d'équipement.
+const link=x=>x.rarete?`[[${x.id}:${x.rarete}:${x.nObj}]]`:`[[${x.id}]]`;
 const nid=(w,p)=>p+(w.nextId++);
 const later=(w,delay,fn)=>w.later.push({at:w.time+delay,fn});
 
@@ -214,7 +216,8 @@ function rewardKill(w,map,m,group,T){
   }
   const g=ri(m.g[0],m.g[1]);T.S.gold+=g;
   msg(w,T.id,'loot',`Vous ramassez ${g} po.`);
-  const drop=lid=>{if(addItem(w,T,lid,1))msg(w,T.id,'loot',`Vous recevez le butin : [[${lid}]]${ITEMS[lid].t==='eq'&&cmpInfo(T.S,lid).better?'[[up]]':''}.`)};
+  // Le butin d'équipement prend le niveau du monstre comme niveau d'objet.
+  const drop=lid=>{if(!addItem(w,T,lid,1,m.l))return;const q=ITEMS[lid].t==='eq'?T.S.inv[T.S.inv.length-1]:null;msg(w,T.id,'loot',`Vous recevez le butin : ${q?link(q):`[[${lid}]]`}${q&&cmpInfo(T.S,q).better?'[[up]]':''}.`)};
   for(const [lid,p] of (m.d.loot||[]))if(w.rnd()<p)drop(lid);
   if(inDg&&!m.d.boss){if(w.rnd()<.14+.04*map.ti)drop(rollArt(map.ti,w.rnd));if(w.rnd()<.18)drop('chips')}
   if(T.S.gold>=100)ach(w,T,'rich');
@@ -278,25 +281,25 @@ function respawn(w,pl){
 
 function ach(w,pl,id){if(pl.S.ach[id])return;pl.S.ach[id]=1;ev(w,pl.id,{t:'ach',id})}
 
-function addItem(w,pl,id,n){
+function addItem(w,pl,id,n,nObj,rarete){
   const {S}=pl;
   if(stackable(id)){const st=S.inv.find(s=>s.id===id);if(st){st.n+=n;return true}}
   if(S.inv.length>=BAG){err(w,pl.id,'Sac plein. Comme votre historique de navigation.');return false}
-  S.inv.push({id,n:stackable(id)?n:1});return true;
+  S.inv.push(stackable(id)?{id,n}:withUid(S,newItem(id,nObj,rarete)));return true;
 }
 
 function equip(w,pl,idx){
-  const {S,P}=pl,s=S.inv[idx];if(!s)return;
-  const it=ITEMS[s.id];if(it.t!=='eq')return;
+  const {S,P}=pl,s=S.inv[idx];if(!s||!s.uid)return;
+  const it=ITEMS[s.id];
   if(S.lvl<(it.rl||1)){err(w,pl.id,`Niveau ${it.rl} requis pour équiper cet objet.`);return}
-  const prev=S.eq[it.s];S.eq[it.s]=s.id;S.inv.splice(idx,1);if(prev)S.inv.push({id:prev,n:1});
-  S.hp=Math.min(S.hp,stats(S,P.drunk).maxhp);msg(w,pl.id,'sys',`Vous équipez [[${s.id}]].`);
+  const prev=S.eq[it.s];S.eq[it.s]=s;S.inv.splice(idx,1);if(prev)S.inv.push(prev);
+  S.hp=Math.min(S.hp,stats(S,P.drunk).maxhp);msg(w,pl.id,'sys',`Vous équipez ${link(s)}.`);
 }
 
 function unequip(w,pl,slot){
-  const {S,P}=pl,id=S.eq[slot];if(!id)return;
+  const {S,P}=pl,q=S.eq[slot];if(!q)return;
   if(S.inv.length>=BAG){err(w,pl.id,'Sac plein.');return}
-  S.eq[slot]=null;S.inv.push({id,n:1});S.hp=Math.min(S.hp,stats(S,P.drunk).maxhp);
+  S.eq[slot]=null;S.inv.push(q);S.hp=Math.min(S.hp,stats(S,P.drunk).maxhp);
 }
 
 function useItem(w,pl,id){
@@ -609,10 +612,11 @@ function leaveGroup(w,pl,quiet){
 
 // Échange : l'offre de chaque joueur vit dans pl.trade. Toute modification d'une offre annule les deux validations,
 // sinon on pourrait changer l'objet après que l'autre a validé.
-const owned=(S,id)=>S.inv.reduce((a,s)=>a+(s.id===id?s.n:0),0);
+// Offre = instances d'équipement désignées par uid + piles {id,n}. Les piles se comptent par id, les instances une à une.
+const owned=(S,id)=>S.inv.reduce((a,s)=>a+(!s.uid&&s.id===id?s.n:0),0);
 function takeItem(S,id,n){
-  for(const s of S.inv){if(s.id!==id)continue;const k=Math.min(n,s.n);s.n-=k;n-=k;if(!n)break}
-  S.inv=S.inv.filter(s=>s.n>0);
+  for(const s of S.inv){if(s.uid||s.id!==id)continue;const k=Math.min(n,s.n);s.n-=k;n-=k;if(!n)break}
+  S.inv=S.inv.filter(s=>s.uid||s.n>0);
 }
 const tradeSide=T=>({items:T.items,gold:T.gold,ok:T.ok});
 function sendTrade(w,pl){
@@ -644,14 +648,15 @@ function openTrade(w,a,b){
 
 function tradeOffer(w,pl,a){
   const T=pl.trade;if(!T)return;
-  const items=new Map();
+  const stacks=new Map(),insts=[];
   for(const x of Array.isArray(a.items)?a.items.slice(0,BAG):[]){
-    if(!x||!ITEMS[x.id]||!Number.isInteger(x.n)||x.n<1)continue;
-    items.set(x.id,(items.get(x.id)||0)+x.n);
+    if(x&&typeof x.uid==='string'){const q=pl.S.inv.find(s=>s.uid===x.uid);if(q&&!insts.some(i=>i.uid===q.uid))insts.push({...q});continue}
+    if(!x||!ITEMS[x.id]||!stackable(x.id)||!Number.isInteger(x.n)||x.n<1)continue;
+    stacks.set(x.id,(stacks.get(x.id)||0)+x.n);
   }
   const gold=Number.isInteger(a.gold)?a.gold:0;
-  if(gold<0||gold>pl.S.gold||[...items].some(([id,n])=>n>owned(pl.S,id)))err(w,pl.id,'Offre refusée : vous ne possédez pas tout ça.');
-  else{T.items=[...items].map(([id,n])=>({id,n}));T.gold=gold;T.ok=false;w.players[T.with].trade.ok=false}
+  if(gold<0||gold>pl.S.gold||[...stacks].some(([id,n])=>n>owned(pl.S,id)))err(w,pl.id,'Offre refusée : vous ne possédez pas tout ça.');
+  else{T.items=[...insts,...[...stacks].map(([id,n])=>({id,n}))];T.gold=gold;T.ok=false;w.players[T.with].trade.ok=false}
   sendTrade(w,pl);sendTrade(w,w.players[T.with]);
 }
 
@@ -663,21 +668,21 @@ function tradeOk(w,pl){
 }
 
 function commitTrade(w,a,b){
-  const valid=p=>p.trade.gold<=p.S.gold&&p.trade.items.every(({id,n})=>owned(p.S,id)>=n);
+  const valid=p=>p.trade.gold<=p.S.gold&&p.trade.items.every(x=>x.uid?p.S.inv.some(s=>s.uid===x.uid):owned(p.S,x.id)>=x.n);
   if(!valid(a)||!valid(b)){endTrade(w,a,'Échange annulé : une offre n\'est plus valide.');return}
-  const bak=[a,b].map(p=>JSON.stringify([p.S.inv,p.S.gold]));
-  for(const p of [a,b])for(const {id,n} of p.trade.items)takeItem(p.S,id,n);
+  const bak=[a,b].map(p=>JSON.stringify([p.S.inv,p.S.gold,p.S.nextUid]));
+  for(const p of [a,b])for(const x of p.trade.items){if(x.uid)p.S.inv=p.S.inv.filter(s=>s.uid!==x.uid);else takeItem(p.S,x.id,x.n)}
   // Les emplacements libérés par l'un servent à l'autre : on ne teste la place qu'une fois les deux sacs vidés.
   const give=(from,to)=>{
     to.S.gold+=from.trade.gold;from.S.gold-=from.trade.gold;
-    return from.trade.items.every(({id,n})=>stackable(id)?addItem(w,to,id,n):Array.from({length:n},()=>addItem(w,to,id,1)).every(Boolean));
+    return from.trade.items.every(x=>x.uid?addItem(w,to,x.id,1,x.nObj,x.rarete):addItem(w,to,x.id,x.n));
   };
   if(!(give(a,b)&&give(b,a))){
-    [a,b].forEach((p,i)=>{[p.S.inv,p.S.gold]=JSON.parse(bak[i])});
+    [a,b].forEach((p,i)=>{[p.S.inv,p.S.gold,p.S.nextUid]=JSON.parse(bak[i])});
     endTrade(w,a,'Échange annulé : un des sacs est plein.');return;
   }
   for(const [p,o] of [[a,b],[b,a]]){
-    for(const {id} of o.trade.items)msg(w,p.id,'loot',`Vous recevez [[${id}]] de [${o.S.name}].`);
+    for(const x of o.trade.items)msg(w,p.id,'loot',`Vous recevez ${link(x)} de [${o.S.name}].`);
     if(o.trade.gold)msg(w,p.id,'loot',`Vous recevez ${fmt(o.trade.gold)} po de [${o.S.name}].`);
     if(p.S.gold>=100)ach(w,p,'rich');
   }
@@ -693,12 +698,12 @@ function buy(w,pl,id,n){
   const {S}=pl,seller=Object.keys(STOCK).find(k=>STOCK[k].includes(id));
   if(!seller||!nearNpc(pl,seller)||!Number.isInteger(n)||n<1||n>5)return;
   const it=ITEMS[id],cost=buyCost(id,n);
-  if(it.t==='eq'&&S.lvl<it.rl){err(w,pl.id,`Niveau ${it.rl} requis pour équiper cet objet.`);return}
+  if(it.t==='eq'&&(n!==1||S.lvl<it.rl)){if(n===1)err(w,pl.id,`Niveau ${it.rl} requis pour équiper cet objet.`);return}
   if(S.gold<cost){err(w,pl.id,'Pas assez d\'or. Personne ne fait crédit depuis l\'incident de 2014.');return}
-  const better=it.t==='eq'&&cmpInfo(S,id).better;
+  const better=it.t==='eq'&&cmpInfo(S,newItem(id)).better;
   if(!addItem(w,pl,id,n))return;
-  S.gold-=cost;msg(w,pl.id,'loot',`Vous achetez ${n>1?n+' × ':''}[[${id}]] pour ${cost} po.`);
-  if(seller==='bernard'){ach(w,pl,'shop');const idx=S.inv.findIndex(s=>s.id===id);if(better&&idx>=0)equip(w,pl,idx)}
+  S.gold-=cost;msg(w,pl.id,'loot',`Vous achetez ${n>1?n+' × ':''}${it.t==='eq'?link(S.inv[S.inv.length-1]):`[[${id}]]`} pour ${cost} po.`);
+  if(seller==='bernard'){ach(w,pl,'shop');if(better)equip(w,pl,S.inv.length-1)}
 }
 
 function gainGold(w,pl,v,art){
@@ -709,9 +714,9 @@ function gainGold(w,pl,v,art){
 
 function sell(w,pl,idx){
   const {S}=pl,s=S.inv[idx];if(!s||!nearMerchant(pl))return;
-  const it=ITEMS[s.id],v=it.price*s.n;
+  const it=ITEMS[s.id],v=s.uid?itemValue(s):it.price*s.n;
   S.inv.splice(idx,1);gainGold(w,pl,v,it.t==='art');
-  msg(w,pl.id,'loot',`Vous vendez [[${s.id}]]${s.n>1?' ×'+s.n:''} pour ${fmt(v)} po.`);
+  msg(w,pl.id,'loot',`Vous vendez ${link(s)}${s.n>1?' ×'+s.n:''} pour ${fmt(v)} po.`);
 }
 
 function sellAll(w,pl,kind){
@@ -732,9 +737,9 @@ function completeQuest(w,pl){
   if(!q||S.q.st!=='ready'||!nearNpc(pl,q.g))return;
   S.gold+=q.gold;msg(w,pl.id,'sys',`Quête terminée : **${q.n}**. Vous recevez ${q.gold} po.`);
   if(q.item&&addItem(w,pl,q.item,q.itemN||1)){
-    msg(w,pl.id,'loot',`Vous recevez ${q.itemN?q.itemN+' × ':''}[[${q.item}]].`);
-    const it=ITEMS[q.item];
-    if(it.t==='eq'&&score(q.item)>score(S.eq[it.s])&&S.lvl>=(it.rl||1))equip(w,pl,S.inv.findIndex(s=>s.id===q.item));
+    const it=ITEMS[q.item],got=it.t==='eq'?S.inv[S.inv.length-1]:null;
+    msg(w,pl.id,'loot',`Vous recevez ${q.itemN?q.itemN+' × ':''}${got?link(got):`[[${q.item}]]`}.`);
+    if(got&&score(got)>score(S.eq[it.s])&&S.lvl>=(it.rl||1))equip(w,pl,S.inv.length-1);
   }
   S.q.i++;S.q.st='avail';S.q.n=0;
   gainXP(w,pl,q.xp);ev(w,pl.id,{t:'toast',kicker:'Quête terminée',title:q.n,sub:''});
@@ -786,7 +791,7 @@ function openChest(w,pl,id){
   o.openedBy.push(pl.id);
   const df=DIFFS[map.ti],got=[];
   for(let i=0;i<df.arts;i++){const aid=rollArt(map.ti,w.rnd);if(addItem(w,pl,aid,1))got.push(aid)}
-  if(df.grim&&w.rnd()<df.grim&&addItem(w,pl,'grimoire',1))got.push('grimoire');
+  if(df.grim&&w.rnd()<df.grim&&addItem(w,pl,'grimoire',1,df.L))got.push('grimoire');
   const extra=w.rnd()<.6&&addItem(w,pl,'chouffe',2);
   S.gold+=df.gold;burst(w,pl.mapId,o.x,o.y-.5,'#f0d070',24,3);
   for(const g of got)msg(w,pl.id,'loot',`Vous recevez le butin : [[${g}]].`);
@@ -810,7 +815,7 @@ export function handleAction(w,id,a){
     case 'useItem':if(ITEMS[a.id]&&ITEMS[a.id].t==='use')useItem(w,pl,a.id);break;
     case 'equip':equip(w,pl,a.idx);break;
     case 'unequip':if(SLOTS[a.slot])unequip(w,pl,a.slot);break;
-    case 'drop':{const s=S.inv[a.idx];if(s){S.inv.splice(a.idx,1);msg(w,id,'sys',`Vous jetez [[${s.id}]]. Personne ne le ramassera.`)}break}
+    case 'drop':{const s=S.inv[a.idx];if(s){S.inv.splice(a.idx,1);msg(w,id,'sys',`Vous jetez ${link(s)}. Personne ne le ramassera.`)}break}
     case 'buy':buy(w,pl,a.id,a.n);break;
     case 'sell':sell(w,pl,a.idx);break;
     case 'sellAll':sellAll(w,pl,a.kind);break;

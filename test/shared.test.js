@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {xpNeed, stats} from '../shared/rules.js';
+import {xpNeed, stats, newItem} from '../shared/rules.js';
 import {genOverworld, genDungeon, isSolid} from '../shared/map.js';
 import {DIFFS} from '../shared/data.js';
 
-const joueur = (lvl, eq = {}) => ({lvl, eq: {tete: null, torse: null, mains: null, jambes: null, arme: null, ...eq}});
+const equip = ids => Object.fromEntries(Object.entries(ids).map(([slot, id]) => [slot, newItem(id)]));
+const joueur = (lvl, eq = {}) => ({lvl, eq: {tete: null, torse: null, mains: null, jambes: null, arme: null, ...equip(eq)}});
 
 test('xpNeed suit la courbe du legacy', () => {
   assert.equal(xpNeed(1), 40);

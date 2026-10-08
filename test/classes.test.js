@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createWorld, addPlayer, tick, handleAction, movePlayer, takeEvents} from '../shared/sim.js';
-import {stats, skillsOf} from '../shared/rules.js';
+import {stats, skillsOf, newItem} from '../shared/rules.js';
 import {CLASSES} from '../shared/data/classes.js';
 import {NPCS} from '../shared/data.js';
 
@@ -32,7 +32,7 @@ test('chaque classe a 5 compétences avec Canette Tiède en 4e, et les stats sui
   assert.equal(stats({...base, cls: 'modo'}).maxhp, Math.round(stats(base).maxhp * 1.3));
   assert.equal(stats({...base, cls: 'speedrunner'}).spd, 1.25);
   assert.equal(stats({...base, cls: 'inconnue'}).spd, 1, 'classe inconnue = Chouffin');
-  assert.equal(stats({lvl: 10, eq: {torse: 'carton'}, cls: 'modo'}).arm, Math.round(stats({lvl: 10, eq: {torse: 'carton'}}).arm * 1.2));
+  assert.equal(stats({lvl: 10, eq: {torse: newItem('carton')}, cls: 'modo'}).arm, Math.round(stats({lvl: 10, eq: {torse: newItem('carton')}}).arm * 1.2));
 });
 
 test('Rôliste — Lancer de d20 : 60 à 140 % de l\'Attaque, ×2 et message sur un 20 naturel', () => {
@@ -183,13 +183,13 @@ test('Modo — Règlement Épinglé : −50 % de dégâts subis pendant 5 s', ()
 
 test('Conseiller d\'Orientation : change de classe pour 50 po × niveau, en gardant niveau et équipement', () => {
   const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), c = NPCS.find(n => n.id === 'conseiller');
-  p.S.lvl = 4; p.S.eq.arme = 'katana'; p.S.gold = 250;
+  p.S.lvl = 4; p.S.eq.arme = {uid: 'i1', ...newItem('katana')}; p.S.gold = 250;
   handleAction(w, 'p1', {a: 'changeClass', cls: 'modo'});
   assert.equal(p.S.cls, 'chouffin', 'trop loin du Conseiller');
   place(p, c.x + 1, c.y + .3);
   handleAction(w, 'p1', {a: 'changeClass', cls: 'modo'});
   assert.equal(p.S.cls, 'modo'); assert.equal(p.S.gold, 50);
-  assert.equal(p.S.lvl, 4); assert.equal(p.S.eq.arme, 'katana');
+  assert.equal(p.S.lvl, 4); assert.equal(p.S.eq.arme.id, 'katana');
   assert.deepEqual(skillsOf(p.S).map(s => s.id), CLASSES.modo.skills);
   handleAction(w, 'p1', {a: 'changeClass', cls: 'roliste'});
   assert.equal(p.S.cls, 'modo', 'pas assez d\'or');

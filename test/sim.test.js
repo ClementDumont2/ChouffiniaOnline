@@ -192,7 +192,7 @@ test('quête 1 à deux en même temps : chacun progresse, sans conflit', () => {
   aupres(p1, 'sage'); aupres(p2, 'sage');
   handleAction(w, 'p1', {a: 'completeQuest'}); handleAction(w, 'p2', {a: 'completeQuest'});
   assert.equal(p1.S.q.i, 1); assert.equal(p2.S.q.i, 1);
-  assert.equal(p1.S.eq.tete, 'fedora'); assert.equal(p2.S.eq.tete, 'fedora');
+  assert.equal(p1.S.eq.tete.id, 'fedora'); assert.equal(p2.S.eq.tete.id, 'fedora');
 });
 
 test('l\'un achète chez Bernard pendant que l\'autre se fait taper dehors', () => {
@@ -207,7 +207,7 @@ test('l\'un achète chez Bernard pendant que l\'autre se fait taper dehors', () 
   assert.equal(p1.S.hp, 60, 'p1 est en zone sûre, rien ne le touche');
   handleAction(w, 'p1', {a: 'buy', id: 'regle', n: 1});
   assert.equal(p1.S.gold, 80);
-  assert.equal(p1.S.eq.arme, 'regle');
+  assert.equal(p1.S.eq.arme.id, 'regle');
   assert.equal(m.target, 'p2');
 });
 
@@ -446,7 +446,7 @@ test('échange : offre qu\'on ne possède pas refusée ; sac plein = rien ne bou
   handleAction(w, 'a', {a: 'tradeOffer', items: [{id: 'chips', n: 99}], gold: 0});
   assert.deepEqual(a.trade.items, []);
   assert.ok(takeEvents(w, 'a').some(e => e.t === 'err' && /ne possédez pas/.test(e.text)));
-  b.S.inv = Array.from({length: 24}, () => ({id: 'epee_rouillee', n: 1}));
+  b.S.inv = Array.from({length: 24}, () => ({id: 'poignee', n: 1}));
   handleAction(w, 'a', {a: 'tradeOffer', items: [{id: 'chips', n: 1}], gold: 0});
   handleAction(w, 'a', {a: 'tradeOk'}); handleAction(w, 'b', {a: 'tradeOk'});
   assert.equal(a.trade, null);

@@ -70,8 +70,9 @@ export function drawMount(g,cx,fy,s,id,o){
   }
 }
 export function playerLook(S){
-  const t=S.eq.torse,h=S.eq.tete;
-  return{cls:S.cls,hat:S.hat,coat:t==='trench'?'#1f1c23':t==='tshirt'?'#2d2a33':t==='sweat'?'#4a5a6a':'#4a4552',coatLong:t==='trench',armor:(t==='carton'||t==='eva')?t:null,shirt:t==='tshirt'?'#111':'#161419',logo:t==='tshirt'?'#e07a1f':'#d4ad60',band:h==='bandeau'?'#2b3a8a':'#7a2f2f',wpn:S.eq.arme,glasses:h!=='heaume',vr:h==='heaume',ears:h==='casque',pants:S.eq.jambes==='jambieres'?'#5f5e34':S.eq.jambes==='jogging'?'#2a2a3a':'#25232b'};
+  // Soi-même : instances ; autres joueurs : identifiants seuls (voir le snapshot).
+  const id=k=>{const q=S.eq[k];return q&&(q.id||q)},t=id('torse'),h=id('tete');
+  return{cls:S.cls,hat:S.hat,coat:t==='trench'?'#1f1c23':t==='tshirt'?'#2d2a33':t==='sweat'?'#4a5a6a':'#4a4552',coatLong:t==='trench',armor:(t==='carton'||t==='eva')?t:null,shirt:t==='tshirt'?'#111':'#161419',logo:t==='tshirt'?'#e07a1f':'#d4ad60',band:h==='bandeau'?'#2b3a8a':'#7a2f2f',wpn:id('arme'),glasses:h!=='heaume',vr:h==='heaume',ears:h==='casque',pants:id('jambes')==='jambieres'?'#5f5e34':id('jambes')==='jogging'?'#2a2a3a':'#25232b'};
 }
 export function drawMob(g,m,cx,fy,s,t){
   const u=s/16;
