@@ -1,4 +1,5 @@
 import {QUESTS} from '../shared/data.js';
+import {AFFIXES} from '../shared/data/bosses.js';
 import {clamp,dist} from '../shared/rules.js';
 import {T,tileAt} from '../shared/map.js';
 import {$,rnd,rr} from './util.js';
@@ -106,7 +107,21 @@ export function render(t){
     else if(tt===T.RACK){for(let i=0;i<5;i++){const on=hsh(x,y,i+Math.floor(t*3+hsh(x,y,9)*10))<.6;ctx.fillStyle=on?(i%2?'#ffb000':'#4aff7a'):'#1a2a1a';ctx.fillRect(sx(x+.72),sy(y+.16+i*.156),TS*.06,TS*.05)}}
     else if(tt===T.DTORCH)torches.push([x,y]);
     else if(tt===T.STAIRS&&x===20){ctx.fillStyle=`rgba(150,90,255,${.15+.08*Math.sin(t*2)})`;ctx.beginPath();ctx.ellipse(sx(x+1),sy(y+.5),TS*1.2,TS*.6,0,0,7);ctx.fill()}}
-  for(const m of WD.mobs)if(m.alive&&m.cast>0){const r=m.d.aoe.r,p=1-m.cast/m.castMax;ctx.fillStyle=`rgba(236,90,76,${.12+.12*p})`;ctx.strokeStyle='rgba(236,90,76,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(sx(m.x),sy(m.y),r*TS,r*TS*.62,0,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='rgba(236,90,76,.25)';ctx.beginPath();ctx.ellipse(sx(m.x),sy(m.y),r*TS*p,r*TS*.62*p,0,0,7);ctx.fill()}
+  // Zones au sol des boss : incantation de zone, rebond de la Citation en Chaîne autour du joueur marqué, zone de combat qui rétrécit.
+  const ring=(x,y,r,fill,stroke)=>{ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(sx(x),sy(y),r*TS,r*TS*.62,0,0,7);ctx.fill();ctx.stroke()};
+  for(const m of WD.mobs){
+    if(!m.alive)continue;
+    if(m.zone){
+      ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.ellipse(sx(m.zone.x),sy(m.zone.y),m.zone.r*TS,m.zone.r*TS*.62,0,0,7);
+      ctx.fillStyle='rgba(120,15,30,.34)';ctx.fill('evenodd');ctx.restore();
+      ctx.strokeStyle='rgba(255,210,120,.95)';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(sx(m.zone.x),sy(m.zone.y),m.zone.r*TS,m.zone.r*TS*.62,0,0,7);ctx.stroke();
+    }
+    if(m.cast>0&&m.castK==='chain'){
+      const mk=m.mark===me?P:world.players[m.mark]&&world.players[m.mark].P;
+      if(mk){ring(mk.x,mk.y,m.castR,`rgba(180,120,255,${.1+.1*Math.sin(t*10)})`,'rgba(201,168,255,.9)');ctx.strokeStyle='rgba(201,168,255,.7)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(m.x),sy(m.y)-m.hgt*TS*.5);ctx.lineTo(sx(mk.x),sy(mk.y)-TS*.6);ctx.stroke()}
+    }
+  }
+  for(const m of WD.mobs)if(m.alive&&m.cast>0&&m.castK==='aoe'){const r=m.castR,p=1-m.cast/m.castMax;ctx.fillStyle=`rgba(236,90,76,${.12+.12*p})`;ctx.strokeStyle='rgba(236,90,76,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(sx(m.x),sy(m.y),r*TS,r*TS*.62,0,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='rgba(236,90,76,.25)';ctx.beginPath();ctx.ellipse(sx(m.x),sy(m.y),r*TS*p,r*TS*.62*p,0,0,7);ctx.fill()}
   const tg=targetEnt();
   if(tg&&(tg.kind!=='mob'||tg.alive)){ctx.strokeStyle=tg.kind==='mob'?'#ff5a4a':tg.kind==='npc'?'#7be37b':tg.kind==='obj'?'#c9a8ff':'#7fb6ff';ctx.lineWidth=2;const rw=(tg.d&&tg.d.boss?.85:.48)*TS;ctx.beginPath();ctx.ellipse(sx(tg.x),sy(tg.y),rw,rw*.42,0,0,7);ctx.stroke()}
   if(marker){const a=1-marker.t/.6;ctx.strokeStyle=`rgba(212,173,96,${a})`;ctx.lineWidth=2;const rw=TS*(.15+marker.t*.5);ctx.beginPath();ctx.ellipse(sx(marker.x),sy(marker.y),rw,rw*.45,0,0,7);ctx.stroke()}
@@ -136,9 +151,12 @@ export function render(t){
   const fs=Math.max(11,Math.round(TS*.31));
   for(const e of ents){if(!vis(e))continue;if(e.kind==='mob'&&!e.alive)continue;const X=sx(e.x),top=sy(e.y)-lift(e)-e.hgt*TS*(e.kind==='mob'&&e.d.scale?Math.min(1.2,e.d.scale*.75):1)-4;
     if(e.kind==='mob'){const col=e.d.boss?'#ff8a3a':e.l>S.lvl+1?'#ff5a4a':e.l<S.lvl-1?'#9d9d9d':'#ffd84a';
-      const showBar=e.hp<e.mhp||P.target===e.id||e.st==='chase';let yy=top;
-      if(showBar){const bw=TS*(e.d.boss?1.6:.95),bh=Math.max(4,TS*.12);ctx.fillStyle='#000';ctx.fillRect(X-bw/2-1,yy-bh-1,bw+2,bh+2);ctx.fillStyle='#b9352c';ctx.fillRect(X-bw/2,yy-bh,bw*e.hp/e.mhp,bh);yy-=bh+4}
-      if(P.target===e.id||e.d.boss||dist(e,P)<5)label(e.d.n,X,yy,col,fs-1,700)}
+      const showBar=e.hp<e.mhp||P.target===e.id||e.st==='chase'||e.shield>0;let yy=top;
+      if(showBar){const bw=TS*(e.d.boss?1.6:.95),bh=Math.max(4,TS*.12);ctx.fillStyle='#000';ctx.fillRect(X-bw/2-1,yy-bh-1,bw+2,bh+2);ctx.fillStyle='#b9352c';ctx.fillRect(X-bw/2,yy-bh,bw*e.hp/e.mhp,bh);if(e.shield>0){ctx.fillStyle='#8ab4ff';ctx.fillRect(X-bw/2,yy-bh-3,bw*e.shield/e.mshield,3)}yy-=bh+4}
+      if(P.target===e.id||e.d.boss||e.elite||dist(e,P)<5){
+        // L'affixe d'un élite s'affiche juste sous son nom.
+        if(e.affix){label(AFFIXES[e.affix],X,yy,'#c9a8ff',fs-2,700);yy-=fs}
+        label((e.elite?'★ ':'')+e.d.n,X,yy,e.elite?'#ffd84a':col,fs-1,700)}}
     else if(e.kind==='npc'){label(e.n,X,top-fs*.9,'#7be37b',fs-1);label(`<${e.tag}>`,X,top,'rgba(190,230,190,.9)',fs-3,500);const q=QUESTS[S.q.i];if(q&&q.g===e.id&&S.q.st!=='active'){const bounce=Math.sin(t*4)*3;label(S.q.st==='avail'?'!':'?',X,top-fs*2-2+bounce,S.q.st==='avail'&&S.lvl<q.rl?'#9d9d9d':'#ffd84a',fs*1.9,800)}}
     else if(e.kind==='obj')label(e.n,X,top-TS*.2,e.type==='chest'?'#f0d070':'#c9a8ff',fs-1);
     else if(e.kind==='bot'){if(e.g){label(e.n,X,top-fs*.9,'#7fb6ff',fs-1);label(`<${e.g}>`,X,top,'rgba(180,200,230,.9)',fs-3,500)}else label(e.n,X,top,'#7fb6ff',fs-1)}

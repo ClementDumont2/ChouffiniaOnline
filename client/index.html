@@ -295,6 +295,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #countdown{top:30%;left:50%;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:900;font-size:clamp(60px,14vw,150px);color:#ffe9a8;text-shadow:0 4px 0 #000,0 0 30px rgba(212,173,96,.7);pointer-events:none;opacity:0;white-space:nowrap}
 #countdown.show{animation:count 1s ease-out forwards}
 @keyframes count{0%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}15%{opacity:1}80%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.9)}}
+.tup{display:flex;flex-wrap:wrap;gap:3px}
+#tup{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px}
+#tup span{font-size:10.5px;font-weight:700;padding:0 5px;border:1px solid var(--gold-dim);background:var(--well);color:var(--muted)}
+#tup span.soon{color:var(--bad);border-color:var(--bad)}
+#tframe{width:290px}
 #vig{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(200,0,0,.55) 100%)}
 #vig.low{opacity:1;animation:vig 1.6s ease-in-out infinite}
 #vig.crit{opacity:1;background:radial-gradient(ellipse at center,transparent 38%,rgba(220,0,0,.8) 100%);animation:vig .7s ease-in-out infinite}
@@ -326,6 +331,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
         <div id="tsub"></div>
         <div class="bar hp" id="thpw"><i id="thp"></i><span id="thpt"></span></div>
         <div class="bar cast" id="tcastw" hidden><i id="tcast"></i><span id="tcastt"></span></div>
+        <div id="tup" hidden></div>
       </div>
     </div>
 
