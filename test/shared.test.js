@@ -77,3 +77,17 @@ test('suggest : commandes par préfixe/alias, pseudos pour les arguments joueur'
   assert.deepEqual(fills('/mp bob sal', ['Bob']), [], 'le texte libre n\'est pas complété');
   assert.deepEqual(fills('bonjour'), []);
 });
+
+test('xpNeed : identique à l\'ancienne courbe jusqu\'au niveau 15, strictement croissante et sans à-coup jusqu\'à 100', async () => {
+  const {MAXLVL} = await import('../shared/data.js');
+  const {baseStats} = await import('../shared/rules.js');
+  assert.equal(MAXLVL, 100);
+  assert.deepEqual([1, 5, 10, 15].map(xpNeed), [40, 460, 1660, 3610]);
+  for (let l = 1; l < MAXLVL - 1; l++) {
+    assert.ok(xpNeed(l + 1) > xpNeed(l), `niveau ${l}`);
+    if (l >= 15) assert.ok(xpNeed(l + 1) / xpNeed(l) < 1.14, `à-coup au niveau ${l}`);
+  }
+  // Les stats de base ne reculent jamais et gardent la courbe d'origine jusqu'au niveau 15.
+  assert.deepEqual(baseStats(15), {atk: 4 + 2 * 14, hp: 60 + 15 * 14, caf: 50 + 8 * 14});
+  for (let l = 1; l < MAXLVL; l++) for (const k of ['atk', 'hp', 'caf']) assert.ok(baseStats(l + 1)[k] > baseStats(l)[k], `${k} niveau ${l}`);
+});

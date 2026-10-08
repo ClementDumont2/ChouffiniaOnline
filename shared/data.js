@@ -133,4 +133,4 @@ export const ACH={
   millio:["Brocanteur","Vendre pour 1 000 po d'artéfacts à Gérard."]
 };
 export const HATS=[['#1d1b22','Noir Éternel'],['#6b6870','Gris Feutré'],['#6d2230','Bordeaux Audacieux'],['#4d3a22','Brun Vintage'],['#2a3a5c','Bleu Convention']];
-export const MAXLVL=15;
+export const MAXLVL=100;

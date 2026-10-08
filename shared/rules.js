@@ -4,10 +4,20 @@ import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
 import {MOUNTS} from './data/mounts.js';
 
 export const clamp=(v,a,b)=>v<a?a:v>b?b:v,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-export const xpNeed=l=>Math.round(40+45*(l-1)+15*(l-1)**2);
+// Niveaux 1 à 15 : courbe d'origine (les parties existantes ne changent pas). Au-delà : XP d'un monstre du niveau × nombre de monstres à tuer pour monter,
+// interpolé entre des points de repère réglés avec `npm run balance -- --ideal` (≈ 17 min/niveau vers 50, ≈ 35 min vers 90).
+const OLD_XP=l=>40+45*(l-1)+15*(l-1)**2;
+const KILLS=[[15,OLD_XP(15)/(4+12*15)],[50,55],[90,112],[100,126]];
+export function xpNeed(l){
+  if(l<=15)return Math.round(OLD_XP(l));
+  const i=KILLS.findIndex(([lv])=>lv>=l),[l0,k0]=KILLS[i-1],[l1,k1]=KILLS[i];
+  return Math.round((4+12*l)*(k0+(k1-k0)*(l-l0)/(l1-l0)));
+}
+// Stats de base par niveau : courbe d'origine jusqu'au niveau 15, puis croissance plus lente (l'équipement, qui grossit avec nObj, prend le relais).
+export const baseStats=l=>{const e=Math.max(0,l-15),n=l-e;return{atk:4+2*(n-1)+Math.round(1.2*e),hp:60+15*(n-1)+11*e,caf:50+8*(n-1)+3*e}};
 export const classOf=S=>CLASSES[S.cls]||CLASSES[DEFAULT_CLASS];
 export const skillsOf=S=>classOf(S).skills.map(id=>({id,...SKILL_DEFS[id]}));
-export function stats(S,drunk=0){let atk=4+2*(S.lvl-1),hp=60+15*(S.lvl-1),arm=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:50+8*(S.lvl-1),arm,red:arm/(arm+45),spd:m.spd}}
+export function stats(S,drunk=0){const bs=baseStats(S.lvl);let atk=bs.atk,hp=bs.hp,arm=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:bs.caf,arm,red:arm/(arm+45),spd:m.spd}}
 
 export const stackable=id=>ITEMS[id].t!=='eq';
 
