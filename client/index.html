@@ -101,7 +101,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #log .me .who{color:#fff}
 #log[data-f="gen"] .cb{display:none}
 #log[data-f="combat"] .m:not(.cb):not(.loot):not(.xpm){display:none}
-#chatf{display:flex;border-top:1px solid var(--gold-dim)}
+#chatf{position:relative;display:flex;border-top:1px solid var(--gold-dim)}
+#cmdlist{position:absolute;left:0;bottom:100%;width:max-content;max-width:min(420px,calc(100vw - 24px));max-height:180px;overflow-y:auto;z-index:6;font-size:13px}
+#cmdlist .ci{padding:3px 8px;cursor:pointer}
+#cmdlist .ci.on{background:var(--well);box-shadow:inset 2px 0 var(--gold)}
+#cmdlist .ci b{color:var(--gold)} #cmdlist .ci span{color:var(--muted)}
 #chatin{flex:1;min-width:0;background:transparent;border:0;color:var(--parch);padding:5px 8px;font:inherit;font-size:13px}
 #chatin::placeholder{color:#7d7064}
 
@@ -327,7 +331,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
         <button data-f="gen" class="on">Général</button><button data-f="combat">Combat</button><button data-f="all">Tout</button>
       </div>
       <div id="log" data-f="gen" aria-live="polite"></div>
-      <form id="chatf" autocomplete="off"><input id="chatin" maxlength="140" placeholder="Entrée pour parler · /aide"></form>
+      <form id="chatf" autocomplete="off"><div id="cmdlist" class="frame" hidden></div><input id="chatin" maxlength="140" placeholder="Entrée pour parler · /aide"></form>
     </div>
 
     <div id="err" class="hud"></div>

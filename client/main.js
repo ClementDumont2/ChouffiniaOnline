@@ -9,7 +9,8 @@ import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,showTrade
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
 import {buildMap,connect,hooks,interp} from './net.js';
-import {P,S,WD,running,setMap} from './state.js';
+import {P,S,WD,online,running,setMap} from './state.js';
+import './chatcmd.js';
 
 const LAST='chouffinia-dernier-pseudo';
 const lastName=()=>{try{return localStorage.getItem(LAST)}catch(e){return null}};
@@ -49,6 +50,7 @@ hooks.event=e=>{
     case 'approach':nav.follow=e.id;nav.goal=null;break;
     case 'chest':showChest(e);break;
     case 'trade':showTrade(e);break;
+    case 'online':online.splice(0,online.length,...e.names);break;
     case 'campaignEnd':setTimeout(showEnd,900);break;
   }
 };

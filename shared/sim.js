@@ -5,6 +5,7 @@ import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUE
 import {clamp,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,score,stackable,stats,statsDeMob,xpNeed} from './rules.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
 import {mulberry32,rngTools} from './rng.js';
+import {findCommand,canUse,visibleCommands} from './commands.js';
 
 const GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
 const ev=(w,to,e)=>w.events.push({to,...e});
@@ -43,6 +44,9 @@ function spawnOver(w){
   map.bots=BOTS.map(([n,g],i)=>{const p=i<2?spot(3,11,4,9):i<5?spot(16,23,17,21):spot(14,48,2,36,(x,y)=>zoneAt(map,x,y)==='cuisine');return{id:nid(w,'b'),kind:'bot',n,g,x:p.x,y:p.y,goal:null,wt:rr(1,4),lvl:pick([12,27,34,48,60,60,71,3,15]),hat:hats[i],coat:coats[i],shirt:pick(['#141414','#2a2a2a','#5a1a1a','#1a2a4a']),face:1,step:0,moving:false,say:'',sayT:0,hgt:1.25,tip:0}});
 }
 
+// Les pseudos connectés, pour l'autocomplétion des commandes (le snapshot ne contient que la carte du joueur).
+const announceOnline=w=>toAll(w,{t:'online',names:Object.values(w.players).map(p=>p.S.name)});
+
 export function addPlayer(w,id,{save,name,hat}={}){
   const S=save?normalizeSave(save):newSave(name,hat),st=stats(S);
   S.hp=clamp(S.hp||st.maxhp,1,st.maxhp);S.caf=clamp(S.caf,0,st.maxcaf);
@@ -52,6 +56,7 @@ export function addPlayer(w,id,{save,name,hat}={}){
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
   msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
   if(!save)msg(w,id,'sys','[Aide] Le Vieux Sage du Forum vous attend dans le sous-sol. Il a un point d\'exclamation au-dessus de la tête. C\'est sa seule expression.');
+  announceOnline(w);
   later(w,1.2,()=>{if(w.players[id]&&S.q.i===0&&S.q.st==='avail')say(w.maps.over.npcs[0],'Psst. Jeune chouffin. Viens par ici.',4)});
   return pl;
 }
@@ -61,6 +66,7 @@ export function removePlayer(w,id){
   endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);dropAggro(w,pl);leaveGroup(w,pl,true);
   for(const k in w.invites)if(k===id||w.invites[k].from===id)delete w.invites[k];
   delete w.players[id];
+  announceOnline(w);
   destroyIfEmpty(w,pl.mapId);
 }
 
@@ -581,30 +587,37 @@ export function handleAction(w,id,a){
   ev(w,id,{t:'self'});
 }
 
+const emote=(w,pl,txt)=>toAll(w,{t:'emote',who:pl.S.name,text:txt});
+// Un handler par entrée de shared/data/commands.js ; le dispatch (alias, droit requis) est fait une seule fois dans runCommand.
+const RUN={
+  aide:(w,pl)=>msg(w,pl.id,'sys','Commandes : '+visibleCommands(pl).map(c=>'/'+c.nom).join(' · ')),
+  qui:(w,pl)=>{const all=Object.values(w.players);msg(w,pl.id,'sys',`Joueurs connectés (${all.length}) : ${all.map(p=>`${p.S.name} (niv. ${p.S.lvl}, ${zoneName(w.maps[p.mapId],p.P)})`).join(', ')}.`)},
+  mp:(w,pl,v)=>whisper(w,pl,v),
+  inviter:(w,pl,v)=>invite(w,pl,v.split(/\s+/)[1]),
+  accepter:(w,pl)=>acceptInvite(w,pl),
+  quitter:(w,pl)=>leaveGroup(w,pl),
+  echanger:(w,pl,v)=>requestTrade(w,pl,v.split(/\s+/)[1]),
+  top:(w,pl)=>top(w,pl),
+  danse:(w,pl)=>{say(pl.P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote(w,pl,'danse maladroitement. Personne ne regarde. Heureusement.')},
+  mlady:(w,pl)=>{const {S,P}=pl;P.tipT=.45;S.tips++;say(P,"M'lady.",2);emote(w,pl,'soulève son fedora en direction de personne en particulier.');if(S.tips>=50)ach(w,pl,'mlady')},
+  herbe:(w,pl)=>msg(w,pl.id,'sys','Vous tendez la main vers l\'herbe. Votre main refuse. Vous ne pouvez pas toucher l\'herbe pour le moment.'),
+  khey:(w,pl)=>{
+    say(pl.P,'PAR PITIÉ LE KHEY',2.5);toAll(w,{t:'chat',who:pl.S.name,text:'PAR PITIÉ LE KHEY'});
+    if(w.bots)later(w,1.2,()=>{const bots=w.maps.over.bots,b=bots.find(b=>b.g==='Par Pitié')||w.r.pick(bots);toAll(w,{t:'chat',who:b.n,text:'AYAAA un vrai du 18-25'});say(b,'AYAAA un vrai du 18-25',3)});
+  },
+  douche:(w,pl)=>msg(w,pl.id,'sys','Vous cherchez la douche. Erreur 404 : salle de bain introuvable.'),
+};
+function runCommand(w,pl,v){
+  const word=v.split(/\s+/)[0],cmd=findCommand(word.slice(1));
+  // Sans le droit, la commande doit être indiscernable d'une commande qui n'existe pas.
+  if(cmd&&canUse(pl,cmd))RUN[cmd.nom](w,pl,v);
+  else msg(w,pl.id,'sys',`Commande inconnue : ${word}.`);
+}
+
 export function handleChat(w,id,text){
   const pl=w.players[id];if(!pl)return;
   const {S,P}=pl,{pick}=w.r,v=String(text||'').trim().slice(0,140);if(!v)return;
-  const c=v.toLowerCase();
-  if(c.startsWith('/')){
-    const emote=(txt)=>toAll(w,{t:'emote',who:S.name,text:txt});
-    if(c==='/aide'||c==='/help')msg(w,id,'sys','Commandes : /qui · /mp · /inviter · /accepter · /quitter · /echanger · /top · /danse · /mlady · /herbe · /khey · /douche · /aide');
-    else if(c==='/qui'||c==='/who'){const all=Object.values(w.players);msg(w,id,'sys',`Joueurs connectés (${all.length}) : ${all.map(p=>`${p.S.name} (niv. ${p.S.lvl}, ${zoneName(w.maps[p.mapId],p.P)})`).join(', ')}.`)}
-    else if(/^\/(mp|w)(\s|$)/.test(c))whisper(w,pl,v);
-    else if(/^\/inviter?(\s|$)/.test(c))invite(w,pl,v.split(/\s+/)[1]);
-    else if(/^\/(echanger|trade)(\s|$)/.test(c))requestTrade(w,pl,v.split(/\s+/)[1]);
-    else if(c==='/top')top(w,pl);
-    else if(c==='/accepter'||c==='/accept')acceptInvite(w,pl);
-    else if(c==='/quitter'||c==='/leave')leaveGroup(w,pl);
-    else if(c==='/danse'||c==='/dance'){say(P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote('danse maladroitement. Personne ne regarde. Heureusement.')}
-    else if(c==='/mlady'||c==="/m'lady"){P.tipT=.45;S.tips++;say(P,"M'lady.",2);emote('soulève son fedora en direction de personne en particulier.');if(S.tips>=50)ach(w,pl,'mlady')}
-    else if(c==='/herbe')msg(w,id,'sys','Vous tendez la main vers l\'herbe. Votre main refuse. Vous ne pouvez pas toucher l\'herbe pour le moment.');
-    else if(c==='/khey'){
-      say(P,'PAR PITIÉ LE KHEY',2.5);toAll(w,{t:'chat',who:S.name,text:'PAR PITIÉ LE KHEY'});
-      if(w.bots)later(w,1.2,()=>{const bots=w.maps.over.bots,b=bots.find(b=>b.g==='Par Pitié')||pick(bots);toAll(w,{t:'chat',who:b.n,text:'AYAAA un vrai du 18-25'});say(b,'AYAAA un vrai du 18-25',3)});
-    }
-    else msg(w,id,'sys',`Commande inconnue : ${v.split(' ')[0]}.`);
-    ev(w,id,{t:'self'});return;
-  }
+  if(v.startsWith('/')){runCommand(w,pl,v);ev(w,id,{t:'self'});return}
   for(const o of Object.values(w.players))ev(w,o.id,{t:'chat',who:S.name,text:v,me:o.id===id});
   say(P,v,4);
   if(/en fait/i.test(v))ach(w,pl,'chat');

@@ -13,7 +13,8 @@
 //   {t:'refused', msg}             join refusé (pseudo déjà connecté) ; le serveur ferme ensuite la connexion
 //   {t:'self', save}               état privé complet, envoyé seulement quand il change (avant 'ev' et 'snap')
 //   {t:'ev', list}                 événements du joueur : msg, chat, emote, err, toast, banner, float, burst, puff, lvlup,
-//                                  ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade (voir shared/sim.js)
+//                                  ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade, online (voir shared/sim.js)
+//                                  online = {names} : pseudos de tous les connectés, à chaque arrivée/départ.
 //                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les
 //                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.

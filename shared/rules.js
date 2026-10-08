@@ -33,6 +33,8 @@ export function cmpInfo(S,id){
   return{it,curId,cur,same,rows,v,cls,net,better:!same&&(cls==='up'||(cls==='mix'&&net>0))&&S.lvl>=(it.rl||1)};
 }
 
+// Les droits viennent du fichier de sauvegarde ; le serveur est le seul à trancher, le client ne s'en sert que pour l'affichage.
+export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
@@ -43,5 +45,6 @@ export function normalizeSave(sv){
   const S=Object.assign(newSave(),sv);S.eq=Object.assign(newSave().eq,sv.eq||{});S.inv=(S.inv||[]).filter(s=>ITEMS[s.id]);
   for(const k in S.eq)if(S.eq[k]&&!ITEMS[S.eq[k]])S.eq[k]=null;
   if(S.q.i>QUESTS.length)S.q.i=QUESTS.length;
+  S.droits=Array.isArray(sv.droits)?sv.droits.filter(d=>typeof d==='string'):[];
   return S;
 }

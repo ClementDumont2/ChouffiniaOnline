@@ -65,3 +65,14 @@ test('genDungeon est jouable : 6 salles minimum, boss atteignable depuis l\'entr
 test('genDungeon est déterministe', () => {
   assert.deepEqual(genDungeon(5, 1), genDungeon(5, 1));
 });
+
+test('suggest : commandes par préfixe/alias, pseudos pour les arguments joueur', async () => {
+  const {suggest} = await import('../shared/commands.js');
+  const pl = {S: {droits: []}}, fills = (t, online) => suggest(t, pl, online).map(s => s.fill);
+  assert.deepEqual(fills('/q'), ['/qui', '/quitter']);
+  assert.deepEqual(fills('/wh'), ['/qui'], 'alias /who');
+  assert.deepEqual(fills('/mp a', ['Alice', 'Bob', 'Alain']), ['/mp Alice ', '/mp Alain ']);
+  assert.deepEqual(fills('/echanger B', ['Bob']), ['/echanger Bob']);
+  assert.deepEqual(fills('/mp bob sal', ['Bob']), [], 'le texte libre n\'est pas complété');
+  assert.deepEqual(fills('bonjour'), []);
+});
