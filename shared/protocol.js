@@ -23,14 +23,14 @@
 //                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, group).
 import {HATS} from './data.js';
 import {CLASSES} from './data/classes.js';
-import {stats} from './rules.js';
+import {bossUpcoming,stats} from './rules.js';
 
 export const cleanName=n=>String(n||'').trim().replace(/\s+/g,'_').replace(/[^\p{L}\p{N}_-]/gu,'').slice(0,16)||'Sire_Chouffin';
 export const cleanCls=c=>CLASSES[c]?c:undefined;
 export const cleanHat=h=>HATS.some(x=>x[0]===h)?h:undefined;
 
 const r2=n=>Math.round(n*100)/100;
-const mobRec=m=>({id:m.id,kind:'mob',type:m.type,l:m.l,x:r2(m.x),y:r2(m.y),hp:Math.round(m.hp),mhp:m.mhp,alive:m.alive,dieT:r2(m.dieT),st:m.st,stun:m.stun>0?1:0,cast:r2(m.cast),castMax:m.castMax,enr:m.enr,face:m.face,moving:m.moving,step:r2(m.step),ph:r2(m.ph),hgt:m.hgt,say:m.sayT>0?m.say:'',sayT:r2(Math.max(0,m.sayT))});
+const mobRec=m=>({id:m.id,kind:'mob',type:m.type,l:m.l,x:r2(m.x),y:r2(m.y),hp:Math.round(m.hp),mhp:m.mhp,alive:m.alive,dieT:r2(m.dieT),st:m.st,stun:m.stun>0?1:0,cast:r2(m.cast),castMax:m.castMax,castN:m.castN,castK:m.castK,castR:m.castR,mark:m.mark,zone:m.zone?{x:r2(m.zone.x),y:r2(m.zone.y),r:r2(m.zone.r)}:null,shield:Math.round(m.shield),mshield:m.mshield,affix:m.affix,elite:m.elite,up:m.b&&m.alive?bossUpcoming(m):null,enr:m.enr,face:m.face,moving:m.moving,step:r2(m.step),ph:r2(m.ph),hgt:m.hgt,say:m.sayT>0?m.say:'',sayT:r2(Math.max(0,m.sayT))});
 const objRec=(o,viewer)=>({id:o.id,kind:'obj',type:o.type,n:o.n,x:o.x,y:o.y,hgt:o.hgt,opened:!!o.openedBy&&o.openedBy.includes(viewer),exit:!!o.exit});
 const botRec=b=>({id:b.id,kind:'bot',n:b.n,g:b.g,lvl:b.lvl,hat:b.hat,coat:b.coat,shirt:b.shirt,x:r2(b.x),y:r2(b.y),face:b.face,moving:b.moving,step:r2(b.step),tip:r2(Math.max(0,b.tip)),hgt:b.hgt,say:b.sayT>0?b.say:'',sayT:r2(Math.max(0,b.sayT))});
 function groupRec(w,pl){

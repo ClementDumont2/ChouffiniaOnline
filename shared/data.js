@@ -15,12 +15,10 @@ export const ZONES={
 export {ITEMS,SLOTS,RN,SHOP,STOCK,ART_POOL,RARITY_MULT} from './data/items.js';
 export const DIFFS=[
   {n:'Normal',sub:'Pour les touristes du forum',rl:4,L:4,bonus:150,arts:2,gold:60,w:{common:45,unc:38,rare:17},packs:[2,2]},
-  {n:'Héroïque',sub:'Pour ceux qui ont fini le tutoriel',rl:7,L:7,bonus:400,arts:3,gold:150,w:{unc:40,rare:42,epic:18},packs:[2,3]},
-  {n:'Mythique',sub:'Interdit aux gens qui ont une copine',rl:10,L:10,bonus:900,arts:3,gold:350,w:{rare:35,epic:45,leg:20},packs:[2,3],grim:.25},
-  {n:'Sans Douche',sub:"Odeur de niveau 13. Ne vous retournez pas.",rl:13,L:13,bonus:1600,arts:4,gold:800,w:{epic:55,leg:45},packs:[3,3],grim:.4}
+  {n:'Héroïque',sub:'Pour ceux qui ont fini le tutoriel',rl:7,L:7,bonus:400,arts:3,gold:150,w:{unc:40,rare:42,epic:18},packs:[3,4]},
+  {n:'Mythique',sub:'Interdit aux gens qui ont une copine',rl:10,L:10,bonus:900,arts:3,gold:350,w:{rare:35,epic:45,leg:20},packs:[3,5],grim:.25},
+  {n:'Sans Douche',sub:"Odeur de niveau 13. Ne vous retournez pas.",rl:13,L:13,bonus:1600,arts:4,gold:800,w:{epic:55,leg:45},packs:[4,5],grim:.4}
 ];
-export const AOE_MAMAN={n:'Coupure du Wi-Fi',r:4.5,warn:'Coupure du Wi-Fi ! Éloignez-vous de 4 cases !',hit:'coupe le Wi-Fi. Ping : infini.',dodge:'Vous esquivez la Coupure du Wi-Fi en passant en 4G.',dodgeF:'Esquivé (4G)',hitF:'DÉCONNECTÉ',shout:['JE COUPE LE WI-FI !','IL EST 23 H !','JE DÉBRANCHE LA BOX !'],enrage:"J'AI VU TON HISTORIQUE DE NAVIGATION."};
-export const AOE_ARCH={n:'Mur de Texte',r:3.6,warn:'Mur de Texte ! Sortez de la zone !',hit:'vous ensevelit sous 40 paragraphes.',dodge:'Vous esquivez le Mur de Texte avec un « TL;DR ».',dodgeF:'TL;DR',hitF:'ENSEVELI',shout:['LISEZ LE RÈGLEMENT !','RÉPONSE EN PAVÉ !','CITATION DE 2008 !'],enrage:'Je vais tout citer. TOUT.'};
 export const MOBS={
   herbe:{n:"Herbe Agressive",l:1,hp:24,atk:[2,4],xp:14,g:[1,2],sp:1.4,ag:3,cd:1.8,hgt:.95,v:"vous fouette les chevilles",
     lines:["*bruissement menaçant*","Touche-moi. Pour voir.","Ça fait combien de temps que t'es pas sorti ?"],loot:[['chips',.3],['poignee',.25],['mitaines',.05]]},
@@ -32,7 +30,7 @@ export const MOBS={
     lines:["Règle n° 47 : pas de memes dans #général.","Ban. Raison : vibes.","Je fais ça bénévolement. Pour le pouvoir."],loot:[['chips',.4],['poignee',.3],['tshirt',.1],['mitaines',.1]]},
   troll:{n:"Troll de Forum",l:5,hp:110,atk:[8,13],xp:66,g:[5,9],sp:1.8,ag:4,cd:1.9,hgt:1.5,scale:1.25,v:"répond « source ? » à votre existence",
     lines:["Source ?","Ok boomer.","Ton anime préféré est surcoté.","Premier !"],loot:[['chips',.5],['poignee',.4],['clavier',.06]]},
-  maman:{n:"Maman, Gardienne du Wi-Fi",l:7,hp:650,atk:[10,15],xp:420,g:[60,60],sp:2.3,ag:5,cd:1.8,hgt:2.15,scale:1.75,boss:1,yn:'Maman',fem:1,aoe:AOE_MAMAN,v:"vous ordonne de ranger votre chambre",
+  maman:{n:"Maman, Gardienne du Wi-Fi",l:7,hp:650,atk:[10,15],xp:420,g:[60,60],sp:2.3,ag:5,cd:1.8,hgt:2.15,scale:1.75,boss:1,yn:'Maman',fem:1,v:"vous ordonne de ranger votre chambre",
     lines:["TU AS MANGÉ ?","Ta chambre est une porcherie.","Ton cousin, lui, il est notaire.","Tu vas finir avec les yeux carrés !"],loot:[['chips',1]]},
   lag:{n:"Pic de Lag",l:6,hpM:.9,sp:2,ag:4.5,cd:1.6,hgt:1.2,v:"vous fige l'écran",
     lines:["*se téléporte en arrière*","Ping : 999.","Vous avez été déconnecté. Non, en fait si."],loot:[['chips',.4],['poignee',.3],['art_cle',.06]]},
@@ -52,7 +50,7 @@ export const MOBS={
     lines:["Par pitié le khey…","Ayaaa…","J'étais là au début du forum…","Up mon topic, par pitié."]},
   pave:{n:"Pavé Vivant",dg:1,hpM:1.4,atkM:.75,sp:1.3,ag:4.5,cd:2.1,hgt:1.2,v:"vous fait lire 47 paragraphes",
     lines:["TL;DR ? Non.","Paragraphe 1 sur 47.","Je n'ai pas fini."]},
-  archiviste:{n:"Le Grand Archiviste",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:2,ag:6,cd:1.9,hgt:2.2,scale:1.7,yn:'Le Grand Archiviste',aoe:AOE_ARCH,v:"vous déplace dans la corbeille",
+  archiviste:{n:"Le Grand Archiviste",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:2,ag:6,cd:1.9,hgt:2.2,scale:1.7,yn:'Le Grand Archiviste',v:"vous déplace dans la corbeille",
     lines:["SILENCE. CE TOPIC EST ARCHIVÉ.","Votre message a été jugé hors-sujet.","Les Archives n'oublient rien. Surtout pas vos posts de 2012."]}
 };
 export const SPAWNS=[['herbe',7,15,24,1,11],['normie',6,17,29,24,36],['soleil',5,26,47,1,15],['modo',5,32,48,17,27],['troll',4,32,48,28,36],['lag',6,52,77,2,30],['texture',5,52,77,2,30],['khey',7,2,48,40,57],['topic',5,2,48,40,57],['serveur',6,54,76,35,57]];

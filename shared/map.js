@@ -95,7 +95,16 @@ export function genDungeon(seed,ti){
     D.portal={x:Math.floor(st.cx)+.5,y:Math.floor(st.cy)-.2};
     D.rooms=rooms;
     const kinds=['spam','necro','fantome','pave'];
-    for(let i=1;i<order.length-1;i++){const r=order[i],n=ri(df.packs[0],df.packs[1]);for(let k=0;k<n;k++){const p=randSpot(D,rnd,r.x+1,r.x+r.w-2,r.y+1,r.y+r.h-2);D.spawns.push({type:pick(kinds),x:p.x,y:p.y,l:df.L})}}
+    for(let i=1;i<order.length-1;i++){
+      const r=order[i],n=ri(df.packs[0],df.packs[1]);
+      // Patrouille : le monstre suit le couloir en L qui relie sa salle à la suivante (mêmes points que le creusement ci-dessus). Héroïque et plus, environ un monstre sur huit.
+      const a=order[i],b=order[i+1],ax=Math.floor(a.cx),ay=Math.floor(a.cy),bx=Math.floor(b.cx),by=Math.floor(b.cy);
+      for(let k=0;k<n;k++){
+        const p=randSpot(D,rnd,r.x+1,r.x+r.w-2,r.y+1,r.y+r.h-2),spawn={type:pick(kinds),x:p.x,y:p.y,l:df.L};
+        if(ti>=1&&rnd()<.12)spawn.patrol=[{x:ax+.5,y:ay+.5},{x:bx+.5,y:ay+.5},{x:bx+.5,y:by+.5}];
+        D.spawns.push(spawn);
+      }
+    }
     const br=order[order.length-1];D.spawns.push({type:'archiviste',x:Math.floor(br.cx)+.5,y:Math.floor(br.cy)+.5,l:df.L+1});
     return D;
   }

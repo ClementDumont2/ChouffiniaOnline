@@ -5,6 +5,7 @@ import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUE
 import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
+import {AFFIXES,BOSSES} from './data/bosses.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
@@ -32,9 +33,10 @@ export function createWorld({seed=20111,rng,bots=false}={}){
   return w;
 }
 
-function mkMob(w,type,x,y,L,id){
+const newBoss=()=>({t:0,cd:{},done:{},summons:[]});
+function mkMob(w,type,x,y,L,id,diff=0){
   const d=MOBS[type];L=L||d.l;const{hp,atk,xp,g}=statsDeMob(type,L),{rr}=w.r;
-  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,bt:6,cast:0,castMax:2.6,enr:0,yt:5,hgt:d.hgt,blink:2};
+  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
 }
 
 function spawnOver(w){
@@ -110,6 +112,7 @@ export function tick(w,dt){
       if(n.lines.length&&here.length&&(n.talkT=(n.talkT??w.r.rr(8,25))-dt)<=0){n.talkT=w.r.rr(30,60);say(n,w.r.pick(n.lines),4)}
     }
   }
+  for(const map of Object.values(w.maps))if(map.mobs.some(m=>m.gone))map.mobs=map.mobs.filter(m=>!m.gone);
   tickBots(w,dt);
   const due=w.later.filter(l=>l.at<=w.time);
   if(due.length){w.later=w.later.filter(l=>l.at>w.time);for(const l of due)l.fn()}
@@ -166,22 +169,25 @@ function pickTarget(m,valid){
   const cur=valid.find(p=>p.id===m.target);if(cur)return cur;
   const n=nearest(m,valid);return n&&dist(m,n.P)<m.d.ag?n:null;
 }
-const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
+const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.mark=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
 
 function aggro(w,map,m,pl){
   if(m.st==='chase')return;
   const {pick}=w.r;
+  if(m.patrol){m.hx=m.x;m.hy=m.y}
   m.st='chase';m.acd=.6;m.target=pl.id;if(w.rnd()<.55||m.d.boss)say(m,pick(m.d.lines));
   if(map.id!=='over')for(const o of map.mobs)if(o!==m&&o.alive&&o.st==='idle'&&!o.d.boss&&dist(o,m)<4.2){o.st='chase';o.acd=.9;o.target=pl.id}
 }
 
 function hitMob(w,map,m,dmg,crit,src,pl){
   if(!m.alive)return;
-  m.hp-=dmg;float(w,map.id,m.x,m.y-m.hgt,String(dmg),crit?'#ffd84a':'#ffffff',crit);
+  // Le bouclier de l'affixe « Épinglé » absorbe avant les PV ; la menace, elle, compte les dégâts bruts.
+  const full=dmg,abs=Math.min(m.shield,dmg);m.shield-=abs;dmg-=abs;
+  m.hp-=dmg;float(w,map.id,m.x,m.y-m.hgt,dmg>0?String(dmg):'Absorbé',crit?'#ffd84a':dmg>0?'#ffffff':'#8ab4ff',crit);
   burst(w,map.id,m.x,m.y-m.hgt*.5,src==='dot'?'#ede1c5':'#ffcf8a',crit?8:4);
   if(pl){
-    msg(w,pl.id,'cb',`${src==='dot'?'Copypasta':'Votre '+src} inflige ${dmg} dégâts${crit?' (critique)':''} à ${m.d.n}.`);
-    m.threat[pl.id]=(m.threat[pl.id]||0)+dmg;
+    msg(w,pl.id,'cb',`${src==='dot'?'Copypasta':'Votre '+src} inflige ${full} dégâts${crit?' (critique)':''}${abs?` (dont ${abs} absorbés)`:''} à ${m.d.n}.`);
+    m.threat[pl.id]=(m.threat[pl.id]||0)+full;
     if(!m.tag)m.tag=pl.id;
     if(!m.hitters.includes(pl.id))m.hitters.push(pl.id);
   }
@@ -190,8 +196,15 @@ function hitMob(w,map,m,dmg,crit,src,pl){
 }
 
 function killMob(w,map,m){
+  // « Nécroposté » : revient une fois à 30 % de PV, sans récompense la première fois.
+  if(m.affix==='necroposte'&&!m.revived){
+    m.revived=1;m.hp=Math.round(m.mhp*.3);m.dots=[];float(w,map.id,m.x,m.y-m.hgt-.3,'Nécroposté !','#c9a8ff',true);burst(w,map.id,m.x,m.y-m.hgt*.5,'#c9a8ff',14);return;
+  }
   const inDg=map.id!=='over';
-  m.alive=false;m.hp=0;m.dieT=.7;m.rt=inDg?Infinity:(m.d.boss?75:14);m.dots=[];m.cast=0;m.target=null;m.threat={};
+  m.alive=false;m.hp=0;m.dieT=.7;m.rt=inDg||m.summoned?Infinity:(m.d.boss?75:14);m.dots=[];m.cast=0;m.mark=null;m.zone=null;m.target=null;m.threat={};
+  // Les invocations n'ont ni butin ni XP ; elles disparaissent avec leur invocateur.
+  if(m.b)for(const o of map.mobs)if(m.b.summons.includes(o.id)){o.alive=false;o.hp=0;o.dieT=.3;o.rt=Infinity}
+  if(m.summoned){m.hitters=[];m.tag=null;for(const o of onMap(w,map.id))if(o.P.target===m.id){o.P.target=null;o.P.auto=false}return}
   // Participants : ceux qui ont frappé et sont encore assez près. Butin et or : au premier frappeur (s'il est parti, au premier participant).
   const group=m.hitters.map(id=>w.players[id]).filter(p=>p&&p.mapId===map.id&&dist(p.P,m)<=SHARE_RANGE);
   const first=w.players[m.tag];
@@ -349,7 +362,9 @@ const SELF={
     const map=w.maps[pl.mapId];
     for(const m of mobsAround(w,pl,sk.r)){
       // Les boss sont immunisés à l'étourdissement : on les ralentit seulement.
-      if(m.d.boss){m.slow=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Ralenti','#7fb6ff')}else{m.stun=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Banni','#ffd84a')}
+      if(m.d.boss){m.slow=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Ralenti','#7fb6ff')}
+      else if(m.affix==='modere')float(w,map.id,m.x,m.y-m.hgt-.3,'Insensible','#ffd84a');
+      else{m.stun=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Banni','#ffd84a')}
       aggro(w,map,m,pl);
     }
     say(pl.P,'Ban temporaire. Réfléchissez à vos actes.',2);P_combat(pl);pay(pl,sk);
@@ -395,7 +410,7 @@ function strike(w,pl,t,sk,st,crit,mul){
       {const {S}=pl;P.tipT=.45;S.tips++;if(S.tips%4===1)float(w,pl.mapId,P.x,P.y-1.9,'M\'lady.','#ede1c5');if(S.tips>=50)ach(w,pl,'mlady');hit(roll(st.atk*mul),crit,sk.n)}
       break;
     case 'enfait':
-      say(P,pick(ENFAIT),2.4);if(t.kind==='mob'){if(!t.d.boss)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,t.d.boss?'Insensible':'Étourdi','#ffd84a')}hit(roll(st.atk*1.5*mul),crit,sk.n);
+      say(P,pick(ENFAIT),2.4);if(t.kind==='mob'){const immune=t.d.boss||t.affix==='modere';if(!immune)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,immune?'Insensible':'Étourdi','#ffd84a')}hit(roll(st.atk*1.5*mul),crit,sk.n);
       break;
     case 'copypasta':
       say(P,'*colle 4 000 caractères*',1.8);
@@ -760,6 +775,17 @@ function completeQuest(w,pl){
   if(S.q.i>=QUESTS.length)ev(w,pl.id,{t:'campaignEnd'});
 }
 
+// Monstre de donjon : mise à l'échelle du groupe, Héroïque et plus (PV ×1,3, dégâts ×1,2), élite (PV ×1,5, dégâts ×1,2) avec son affixe.
+function mkDgMob(w,D,type,x,y,l,spec={}){
+  const m=mkMob(w,type,x,y,l,undefined,D.ti),hard=D.ti>=1;
+  let hp=D.scale*(hard?1.3:1),dm=hard?1.2:1;
+  if(spec.elite){m.elite=1;m.affix=spec.affix;hp*=1.5;dm*=1.2}
+  m.hp=m.mhp=Math.round(m.hp*hp);m.atk=m.atk.map(a=>Math.round(a*dm));
+  if(m.affix==='epingle')m.shield=m.mshield=Math.round(m.mhp*.5);
+  if(spec.patrol)m.patrol=spec.patrol;
+  return m;
+}
+
 function enterDungeon(w,pl,ti){
   const df=DIFFS[ti],g=groupOf(w,pl);
   if(!df||pl.mapId!=='over'||!nearNpc(pl,'gardien'))return;
@@ -775,7 +801,11 @@ function enterDungeon(w,pl,ti){
     if(!D){err(w,pl.id,'Les Archives sont en maintenance. Réessayez.');return}
     const scale=1+.6*(ready.length-1);
     D.id='dg'+(++w.instN);D.seed=seed;D.gid=g?g.id:null;D.done=false;D.npcs=[];D.bots=[];
-    D.mobs=D.spawns.map(s=>{const m=mkMob(w,s.type,s.x,s.y,s.l);m.hp=m.mhp=Math.round(m.hp*scale);return m});
+    D.scale=scale;
+    D.mobs=D.spawns.map(s=>{
+      const elite=ti>=2&&s.type!=='archiviste'&&w.rnd()<(ti===2?.15:.25);
+      return mkDgMob(w,D,s.type,s.x,s.y,s.l,{elite,affix:elite?w.r.pick(Object.keys(AFFIXES)):null,patrol:s.patrol});
+    });
     D.objs=[{id:nid(w,'o'),kind:'obj',type:'portal',n:'Sortie des Archives',x:D.portal.x,y:D.portal.y,hgt:.9}];
     w.maps[D.id]=D;
   }
@@ -945,10 +975,101 @@ function tickBots(w,dt){
   w.sysT-=dt;if(w.sysT<=0){w.sysT=rr(45,80);toAll(w,{t:'msg',cls:'sys',text:`[Serveur] ${pick(SYS_LINES)}`})}
 }
 
+// ---- Moteur de boss : lit shared/data/bosses.js, ne connaît aucun boss en particulier ----
+const bossAbilities=m=>BOSSES[m.type].abilities.filter(a=>m.diff>=a.diffMin);
+const yell=(w,map,m,text,dur)=>{say(m,text,dur||3.5);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${m.d.yn}] crie : ${text}`})};
+const bossMult=m=>(m.hard?m.hardMult:1);
+
+// Phases déclenchées par un seuil de PV ou un délai.
+const PHASE={
+  rage(w,map,m,a){m.enr=1;m.enrMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} devient enragé${m.d.fem?'e':''} !`})},
+  summon(w,map,m,a){
+    yell(w,map,m,a.say);
+    const spots=[[-1.8,0],[1.8,0],[0,1.8],[0,-1.8]].map(([dx,dy])=>({x:m.x+dx,y:m.y+dy})).filter(q=>canStand(map,q.x,q.y));
+    for(let i=0;i<a.count&&spots.length;i++){
+      const q=spots[i%spots.length],l=Math.max(1,m.l-1);
+      const c=map.id==='over'?mkMob(w,a.summon,q.x,q.y,l,undefined,m.diff):mkDgMob(w,map,a.summon,q.x,q.y,l);
+      c.summoned=true;c.xp=0;c.g=[0,0];c.rt=Infinity;c.st='chase';c.acd=.9;c.target=m.target;
+      map.mobs.push(c);m.b.summons.push(c.id);burst(w,map.id,q.x,q.y-.5,'#c9a8ff',8);
+    }
+  },
+  shrink(w,map,m,a){m.zone={x:m.hx,y:m.hy,r:a.r0,t:0,acc:0,a};yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${a.n} : la zone de combat rétrécit !`})},
+  enrage(w,map,m,a){m.hard=1;m.hardMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} n'a plus de patience !`})},
+};
+
+// Incantations : le début annonce (barre nommée, zone au sol), la fin applique.
+function startCast(w,map,m,a,here){
+  const {pick}=w.r;
+  if(a.type==='chain'){
+    const cands=here.filter(p=>!p.P.dead&&dist(m,p.P)<14);
+    if(!cands.length)return false;
+    m.mark=pick(cands).id;
+  }
+  m.cast=m.castMax=a.cast;m.castN=a.n;m.castK=a.type;m.castR=a.type==='aoe'?a.r:a.jump;m.castA=a;
+  if(a.shout)yell(w,map,m,pick(a.shout),2.6);
+  toMap(w,map.id,{t:'err',text:a.warn});
+  return true;
+}
+const FINISH={
+  aoe(w,map,m,a,here){
+    for(const p of here){
+      if(p.P.dead)continue;
+      if(dist(m,p.P)<a.r){hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,a.hitF,'#ec5a4c',true);burst(w,map.id,p.P.x,p.P.y-.6,'#ec5a4c',16,4)}
+      else if(m.threat[p.id]||m.target===p.id){msg(w,p.id,'sys',a.dodge);float(w,map.id,p.P.x,p.P.y-1.9,a.dodgeF,'#7fb6ff')}
+    }
+  },
+  // Le coup part du joueur marqué puis saute au plus proche non encore touché, à moins de `jump` cases : seul, on n'en prend qu'un.
+  chain(w,map,m,a,here){
+    const first=w.players[m.mark];
+    if(!first||first.P.dead||first.mapId!==map.id)return;
+    const hit=[first];
+    while(hit.length<=a.jumps){
+      const last=hit[hit.length-1].P,next=here.filter(p=>!p.P.dead&&!hit.includes(p)&&dist(last,p.P)<=a.jump).sort((x,y)=>dist(last,x.P)-dist(last,y.P))[0];
+      if(!next)break;hit.push(next);
+    }
+    hit.forEach((p,i)=>{hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*(1+.25*i)*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,a.hitF,'#c9a8ff',true);burst(w,map.id,p.P.x,p.P.y-.6,'#c9a8ff',12,3)});
+  },
+};
+
+function bossTick(w,map,m,dt,here){
+  const B=m.b,{rr}=w.r,abs=bossAbilities(m);
+  B.t+=dt;m.yt-=dt;
+  if(m.yt<=0&&m.cast<=0){m.yt=rr(6,10);yell(w,map,m,w.r.pick(m.d.lines))}
+  // La zone de combat rétrécit : ce qui est dehors prend des dégâts à chaque seconde.
+  const z=m.zone;
+  if(z){
+    const a=z.a;z.t+=dt;z.r=Math.max(a.rMin,a.r0-(a.r0-a.rMin)*z.t/a.duree);z.acc+=dt;
+    if(z.acc>=1){z.acc-=1;for(const p of here)if(!p.P.dead&&Math.hypot(p.P.x-z.x,p.P.y-z.y)>z.r)hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*bossMult(m)),m,a.hit)}
+  }
+  const ratio=m.hp/m.mhp;
+  for(const a of abs){
+    if(a.type==='enrage'){if(!B.done[a.id]&&B.t>=a.apres){B.done[a.id]=1;PHASE.enrage(w,map,m,a)}continue}
+    for(const th of a.seuilsPV||(a.seuilPV!=null?[a.seuilPV]:[])){
+      const k=a.id+th;
+      if(ratio<=th&&!B.done[k]){B.done[k]=1;PHASE[a.type](w,map,m,a)}
+    }
+  }
+  if(m.cast>0){
+    m.cast-=dt;m.moving=false;
+    if(m.cast<=0){const a=m.castA;FINISH[a.type](w,map,m,a,here);B.cd[a.id]=rr(a.recharge[0],a.recharge[1]);m.mark=null}
+    return true;
+  }
+  for(const a of abs){
+    if(!a.recharge)continue;
+    B.cd[a.id]=(B.cd[a.id]??a.ouverture)-dt;
+    if(B.cd[a.id]<=0&&startCast(w,map,m,a,here))return true;
+  }
+  return false;
+}
+function resetBoss(map,m){
+  for(const o of map.mobs)if(m.b.summons.includes(o.id))o.gone=true;
+  m.b=newBoss();m.enr=0;m.hard=0;m.zone=null;m.mark=null;
+}
+
 function tickMob(w,map,m,dt,here){
   const {rr,ri,pick}=w.r,over=map.id==='over';
   if(m.sayT>0)m.sayT-=dt;
-  if(!m.alive){if(m.dieT>0)m.dieT-=dt;m.rt-=dt;if(m.rt<=0)Object.assign(m,mkMob(w,m.type,m.hx,m.hy,m.l,m.id));return}
+  if(!m.alive){if(m.dieT>0)m.dieT-=dt;if(m.summoned&&m.dieT<=0){m.gone=true;return}m.rt-=dt;if(m.rt<=0)Object.assign(m,mkMob(w,m.type,m.hx,m.hy,m.l,m.id,m.diff));return}
   const d=m.d;
   for(const o of m.dots){o.t-=dt;o.acc+=dt;if(o.acc>=1){o.acc-=1;hitMob(w,map,m,o.dmg,false,'dot',w.players[o.by]);if(!m.alive)return}}
   m.dots=m.dots.filter(o=>o.t>0);
@@ -961,6 +1082,7 @@ function tickMob(w,map,m,dt,here){
     m.hp=Math.min(m.mhp,m.hp+m.mhp*.2*dt);
     const near=nearest(m,valid);
     if(near&&dist(m,near.P)<d.ag)aggro(w,map,m,near);
+    else if(m.patrol){const q=m.patrol[m.pi];if(stepToward(map,m,q.x,q.y,d.sp*.5,dt)){m.pi+=m.pd;if(m.pi<0||m.pi>=m.patrol.length){m.pd*=-1;m.pi+=2*m.pd}}}
     else if(!d.boss){m.wt-=dt;if(m.wt<=0){m.wt=rr(2.5,6);const p={x:m.hx+rr(-2,2),y:m.hy+rr(-2,2)};if(!isSolid(map,p.x,p.y)&&!(over&&isSafe(map,p.x,p.y))){m.wx=p.x;m.wy=p.y}}if(Math.hypot(m.wx-m.x,m.wy-m.y)>.1){if(stepToward(map,m,m.wx,m.wy,d.sp*.4,dt)){m.wx=m.x;m.wy=m.y}}else m.moving=false}
   }else if(m.st==='chase'){
     const leash=over?(d.boss?8:9):16,tgt=pickTarget(m,valid);
@@ -968,29 +1090,12 @@ function tickMob(w,map,m,dt,here){
     m.target=tgt.id;
     if(m.stun>0){m.moving=false;return}
     const T=tgt.P,dp=dist(m,T);
-    if(d.boss){
-      const A=d.aoe;m.bt-=dt;m.yt-=dt;
-      if(m.yt<=0&&m.cast<=0){m.yt=rr(6,10);const l=pick(d.lines);say(m,l);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${d.yn}] crie : ${l}`})}
-      if(!m.enr&&m.hp<m.mhp*.5){m.enr=1;say(m,A.enrage,3.5);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${d.yn}] crie : ${A.enrage}`});toMap(w,map.id,{t:'err',text:`${d.yn} devient enragé${d.fem?'e':''} !`})}
-      if(m.cast>0){
-        m.cast-=dt;m.moving=false;
-        if(m.cast<=0){
-          for(const p of here){
-            if(p.P.dead)continue;
-            if(dist(m,p.P)<A.r){hurtPlayer(w,p,Math.round(m.atk[1]*2.2),m,A.hit);float(w,map.id,p.P.x,p.P.y-1.9,A.hitF,'#ec5a4c',true);burst(w,map.id,p.P.x,p.P.y-.6,'#ec5a4c',16,4)}
-            else if(m.threat[p.id]||m.target===p.id){msg(w,p.id,'sys',A.dodge);float(w,map.id,p.P.x,p.P.y-1.9,A.dodgeF,'#7fb6ff')}
-          }
-          m.bt=rr(8,10);
-        }
-        return;
-      }
-      if(m.bt<=0){m.cast=2.6;m.castMax=2.6;const l=pick(A.shout);say(m,l,2.6);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${d.yn}] crie : ${l}`});toMap(w,map.id,{t:'err',text:A.warn});return}
-    }
+    if(d.boss&&bossTick(w,map,m,dt,here))return;
     if(m.type==='lag'){m.blink-=dt;if(m.blink<=0&&dp>2){m.blink=rr(2,3.2);const L=Math.min(1.8,dp-1),nx=m.x+(T.x-m.x)/dp*L,ny=m.y+(T.y-m.y)/dp*L;if(!isSolid(map,nx,ny)){burst(w,map.id,m.x,m.y-.6,'#ff3bd5',6);m.x=nx;m.y=ny;float(w,map.id,m.x,m.y-1.4,'*lag*','#3bf0ff')}}}
     if(dp>1.1){stepToward(map,m,T.x,T.y,d.sp*(m.slow>0?.5:1),dt)}
-    else{m.moving=false;if(Math.abs(T.x-m.x)>.05)m.face=T.x>m.x?1:-1;if(m.acd<=0){m.acd=d.cd*(m.slow>0?2:1);let dmg=ri(m.atk[0],m.atk[1]);if(m.enr)dmg=Math.round(dmg*1.3);hurtPlayer(w,tgt,dmg,m)}}
+    else{m.moving=false;if(Math.abs(T.x-m.x)>.05)m.face=T.x>m.x?1:-1;if(m.acd<=0){m.acd=d.cd*(m.slow>0?2:1)/(m.hard?1.6:1);let dmg=Math.round(ri(m.atk[0],m.atk[1])*(m.enr?m.enrMult:1)*bossMult(m));hurtPlayer(w,tgt,dmg,m)}}
   }else if(m.st==='ret'){
     m.hp=Math.min(m.mhp,m.hp+m.mhp*.6*dt);
-    if(stepToward(map,m,m.hx,m.hy,d.sp*1.6,dt)||dh<.15){m.x=m.hx;m.y=m.hy;m.st='idle';m.hp=m.mhp;m.moving=false;m.bt=6;m.enr=0}
+    if(stepToward(map,m,m.hx,m.hy,d.sp*1.6,dt)||dh<.15){m.x=m.hx;m.y=m.hy;m.st='idle';m.hp=m.mhp;m.moving=false;if(m.b)resetBoss(map,m)}
   }
 }

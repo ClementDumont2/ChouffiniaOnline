@@ -5,6 +5,7 @@ import {createWorld, addPlayer, removePlayer, tick, handleAction, handleChat, ta
 import {snapshotFor} from '../shared/protocol.js';
 import {statsDeMob, newSave} from '../shared/rules.js';
 import {BOT_LINES, DIFFS, ITEMS, NPCS} from '../shared/data.js';
+import {BOSSES} from '../shared/data/bosses.js';
 
 const npc = id => NPCS.find(n => n.id === id);
 const place = (pl, x, y) => { pl.P.x = x; pl.P.y = y; };
@@ -131,11 +132,11 @@ test('même graine, même monde', () => {
 });
 
 test('l\'AoE du boss touche tous les joueurs dans la zone et prévient ceux qui l\'ont esquivée', () => {
-  const {w, p1, p2} = duo(), maman = w.maps.over.mobs.find(m => m.type === 'maman'), A = maman.d.aoe;
+  const {w, p1, p2} = duo(), maman = w.maps.over.mobs.find(m => m.type === 'maman'), A = BOSSES.maman.abilities[0];
   place(p1, maman.x, maman.y + 1); place(p2, maman.x, maman.y + A.r + 2);
   p1.S.hp = p2.S.hp = 9999;
-  maman.st = 'chase'; maman.target = 'p1'; maman.threat = {p1: 1, p2: 1}; maman.bt = 0;
-  for (let i = 0; i < 80 && !(maman.cast <= 0 && maman.bt > 7); i++) tick(w, .05);
+  maman.st = 'chase'; maman.target = 'p1'; maman.threat = {p1: 1, p2: 1}; maman.b.cd.coupure = 0;
+  for (let i = 0; i < 80 && !(maman.cast <= 0 && maman.b.cd.coupure > 7); i++) tick(w, .05);
   const m1 = takeEvents(w, 'p1').filter(e => e.t === 'msg').map(e => e.text), m2 = takeEvents(w, 'p2').filter(e => e.t === 'msg').map(e => e.text);
   assert.ok(m1.some(t => t.includes(A.hit)), 'p1 touché');
   assert.ok(m2.some(t => t === A.dodge), 'p2 a esquivé');
