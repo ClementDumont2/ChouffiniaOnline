@@ -124,6 +124,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .trade h4{margin:4px 0;font-family:var(--f-display);font-size:12px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
 .trl{display:block;width:100%;text-align:left;margin:2px 0;background:var(--well);border:1px solid #3a2f24;padding:4px 6px;color:inherit;cursor:pointer}
 .trbag{display:grid;grid-template-columns:repeat(2,1fr);gap:2px}
+.optk{display:grid;grid-template-columns:1fr auto auto;gap:4px 8px;align-items:center;margin:6px 0}
+.optk kbd{min-width:2.2em;text-align:center}
+.optk .btn{padding:2px 10px;font-size:13px}
 #dlg.wide{width:min(560px,calc(100% - 32px))}
 .ph{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--gold-dim);padding-bottom:6px;margin-bottom:10px}
 .ph h2{margin:0;font-family:var(--f-display);font-size:18px;color:var(--gold);flex:1;text-wrap:balance}
@@ -344,6 +347,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
       <dl class="stats" id="cstats"></dl>
     </div>
 
+    <div id="opts" class="frame panel" hidden>
+      <div class="ph"><h2>Options</h2><button class="x" data-close="opts" aria-label="Fermer">×</button></div>
+      <p class="ty">Touches de cet appareil. « Changer » attend la prochaine touche (Échap pour annuler) ; une touche déjà prise est échangée.</p>
+      <div id="optsBody" class="optk"></div>
+      <div class="acts"><button class="btn alt" id="optsReset" type="button">Réinitialiser</button></div>
+    </div>
+
     <div id="dlg" class="frame panel" hidden>
       <div class="ph"><h2 id="dlgT"></h2><button class="x" data-close="dlg" aria-label="Fermer">×</button></div>
       <div id="dlgSub"></div>
@@ -382,7 +392,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
         <button class="btn" id="newg" type="button">Entrer dans le monde</button>
       </div>
       <p class="fine" id="joinerr" role="alert" hidden style="color:var(--bad);font-weight:700"></p>
-      <p class="fine"><kbd>ZQSD</kbd> / <kbd>WASD</kbd> / flèches ou toucher le sol pour bouger · toucher un ennemi pour l'attaquer · <kbd>1</kbd>–<kbd>5</kbd> compétences · <kbd>6</kbd> Chouffe · <kbd>7</kbd> Chips · <kbd>Tab</kbd> cibler · <kbd>I</kbd> sac · <kbd>C</kbd> personnage · <kbd>Entrée</kbd> chat</p>
+      <p class="fine" id="help"><kbd>ZQSD</kbd> / <kbd>WASD</kbd> / flèches ou toucher le sol pour bouger · toucher un ennemi pour l'attaquer · <kbd>1</kbd>–<kbd>5</kbd> compétences · <kbd>6</kbd> Chouffe · <kbd>7</kbd> Chips · <kbd>Tab</kbd> cibler · <kbd>I</kbd> sac · <kbd>C</kbd> personnage · <kbd>Entrée</kbd> chat</p>
     </div>
   </div>
 

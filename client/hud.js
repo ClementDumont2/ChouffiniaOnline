@@ -4,6 +4,7 @@ import {$,esc,fmt} from './util.js';
 import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
 import {H,MINI_S,TS,W,cam} from './render.js';
 import {openPortal,renderCharStats,togglePanel} from './panels.js';
+import {keyOf,label} from './keys.js';
 import {P,S,WD,me,send,targetEnt,world} from './state.js';
 
 const count=id=>{const s=S.inv.find(s=>s.id===id);return s?s.n:0};
@@ -20,13 +21,14 @@ export function banner(title,sub,cls){const b=$('#banner');b.className='hud '+(c
 const skEls=[];let conEls=[];
 export function buildBar(){
   const bar=$('#bar');bar.innerHTML='';skEls.length=0;conEls=[];
-  SKILLS.forEach((sk,i)=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',sk.n);b.appendChild(iconCanvas(sk.id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${i+1}</span>`);
+  SKILLS.forEach((sk,i)=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',sk.n);b.appendChild(iconCanvas(sk.id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${label(keyOf('s'+(i+1)))}</span>`);
     b.addEventListener('click',()=>send({a:'skill',i}));tipOn(b,()=>`<b>${esc(sk.n)}</b><div class="c">${sk.c?sk.c+' Caféine · ':''}${sk.self?'Soi-même':'Portée '+sk.rg+' cases'} · Recharge ${String(sk.cd).replace('.',',')} s${S.lvl<sk.l?` · <span style="color:var(--bad)">Niveau ${sk.l} requis</span>`:''}</div><p>${esc(sk.d)}</p>`);
     bar.appendChild(b);skEls.push({b,cd:b.querySelector('.cd'),cdt:b.querySelector('.cdt'),sk})});
   bar.insertAdjacentHTML('beforeend','<span class="sep"></span>');
-  [['chouffe',6],['chips',7]].forEach(([id,k])=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',ITEMS[id].n);b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${k}</span><span class="cnt"></span>`);b.addEventListener('click',()=>send({a:'useItem',id}));tipOn(b,()=>`<b>${esc(ITEMS[id].n)}</b><div class="c">Consommable · ${count(id)} dans le sac · Recharge partagée 6 s</div><p>${esc(ITEMS[id].d)}</p>`);bar.appendChild(b);conEls.push({b,id,cd:b.querySelector('.cd'),cdt:b.querySelector('.cdt'),cnt:b.querySelector('.cnt')})});
+  ['chouffe','chips'].forEach(id=>{const b=document.createElement('button');b.className='sk';b.type='button';b.setAttribute('aria-label',ITEMS[id].n);b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="cd"></span><span class="cdt"></span><span class="k">${label(keyOf(id))}</span><span class="cnt"></span>`);b.addEventListener('click',()=>send({a:'useItem',id}));tipOn(b,()=>`<b>${esc(ITEMS[id].n)}</b><div class="c">Consommable · ${count(id)} dans le sac · Recharge partagée 6 s</div><p>${esc(ITEMS[id].d)}</p>`);bar.appendChild(b);conEls.push({b,id,cd:b.querySelector('.cd'),cdt:b.querySelector('.cdt'),cnt:b.querySelector('.cnt')})});
   bar.insertAdjacentHTML('beforeend','<span class="sep"></span>');
-  for(const [id,lbl,fn] of [['bag','Sac',()=>togglePanel('bag')],['char','Perso',()=>togglePanel('char')]]){const b=document.createElement('button');b.className='sk menu';b.type='button';b.setAttribute('aria-label',lbl);b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="lbl">${lbl}</span><span class="k">${id==='bag'?'I':'C'}</span>`);b.addEventListener('click',fn);bar.appendChild(b)}
+  $('#chatin').placeholder=`${label(keyOf('chat'))} pour parler · /aide`;
+  for(const [id,lbl,fn] of [['bag','Sac',()=>togglePanel('bag')],['char','Perso',()=>togglePanel('char')],['opts','Options',()=>togglePanel('opts')]]){const b=document.createElement('button');b.className='sk menu';b.type='button';b.setAttribute('aria-label',lbl);b.appendChild(iconCanvas(id,64));b.insertAdjacentHTML('beforeend',`<span class="lbl">${lbl}</span><span class="k">${label(keyOf(id))}</span>`);b.addEventListener('click',fn);bar.appendChild(b)}
 }
 export const tipEl=$('#tip');
 export function tipOn(el,fn){el.addEventListener('pointerenter',e=>{if(e.pointerType!=='mouse')return;tipEl.innerHTML=fn();tipEl.hidden=false;const r=el.getBoundingClientRect(),ar=$('#app').getBoundingClientRect();const tw=tipEl.offsetWidth,th=tipEl.offsetHeight;tipEl.style.left=clamp(r.left-ar.left+r.width/2-tw/2,8,ar.width-tw-8)+'px';tipEl.style.top=Math.max(8,r.top-ar.top-th-8)+'px'});el.addEventListener('pointerleave',()=>tipEl.hidden=true)}

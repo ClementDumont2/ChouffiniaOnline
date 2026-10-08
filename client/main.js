@@ -7,6 +7,7 @@ import {burst,floater,paintWorld,parts,render,resize,updFx} from './render.js';
 import {banner,buildBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
 import {refreshDialog,renderBag,renderChar,showChest,showDeath,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
+import {helpHTML} from './keys.js';
 import {buildMap,connect,hooks,interp} from './net.js';
 import {P,S,WD,running,setMap} from './state.js';
 
@@ -55,6 +56,7 @@ hooks.event=e=>{
 const pv=$('#preview'),pg=pv.getContext('2d');
 function drawPreview(t){pg.clearRect(0,0,pv.width,pv.height);pg.imageSmoothingEnabled=false;const tip=(t%3.2)<.45?(t%3.2):0;drawChouffin(pg,75,172,140,{hat:S.hat,coat:'#4a4552',shirt:'#161419',glasses:true,face:Math.sin(t*.7)>0?1:-1,moving:false,step:0,tip})}
 function showStart(){
+  $('#help').innerHTML=helpHTML();
   const sw=$('#sw');sw.innerHTML='';
   HATS.forEach(([c,n])=>{const b=document.createElement('button');b.type='button';b.style.background=c;b.title=n;b.setAttribute('aria-label','Fedora '+n);b.onclick=()=>{S.hat=c;showStartSw()};sw.appendChild(b)});
   showStartSw();

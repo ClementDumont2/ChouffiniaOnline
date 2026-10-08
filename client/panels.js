@@ -2,13 +2,15 @@ import {DEATH,DIFFS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
 import {cmpInfo,dist,npcById,stats,statsWith} from '../shared/rules.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
-import {itemLink,tipEl,tipOn} from './hud.js';
+import {buildBar,itemLink,tipEl,tipOn} from './hud.js';
+import {ACTIONS,helpHTML,keyOf,label,rebind,resetKeys} from './keys.js';
 import {P,S,WD,me,send} from './state.js';
 
 let dlgNpc=null,dlgRedo=null,trade=null;
 let selItem=-1,selId=null;
-export function togglePanel(id){const p=$('#'+id);if(p.hidden){for(const o of ['bag','char'])if(o!==id)$('#'+o).hidden=true;if(id==='bag'){p.hidden=false;renderBag()}else{p.hidden=false;renderChar()}}else p.hidden=true;tipEl.hidden=true}
-export function closePanel(id){if(id==='dlg'){if(dlgLocked)return;if(trade)send({a:'tradeCancel'});dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
+const PANELS={bag:()=>renderBag(),char:()=>renderChar(),opts:()=>renderOpts()};
+export function togglePanel(id){const p=$('#'+id);if(p.hidden){for(const o in PANELS)if(o!==id)$('#'+o).hidden=true;p.hidden=false;PANELS[id]()}else{p.hidden=true;waiting=null}tipEl.hidden=true}
+export function closePanel(id){if(id==='opts')waiting=null;if(id==='dlg'){if(dlgLocked)return;if(trade)send({a:'tradeCancel'});dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
 function nearMerchant(){return WD.id==='over'&&['gerard','bernard','tavernier'].some(id=>dist(P,npcById(id))<3.5)}
 function sellValue(s){return ITEMS[s.id].price*s.n}
 export function renderBag(){
@@ -67,7 +69,7 @@ export function dialog(title,sub,html,btns,locked,npc){
   dlgLocked=!!locked;dlgNpc=npc||null;dlgRedo=null;$('#dlgT').textContent=title;$('#dlgSub').textContent=sub||'';const body=$('#dlgBody');body.innerHTML='';if(typeof html==='string')body.innerHTML=html;else body.appendChild(html);
   const a=$('#dlgActs');a.innerHTML='';
   for(const [lbl,fn,alt,dis] of btns){const b=document.createElement('button');b.className='btn'+(alt?' alt':'');b.type='button';b.textContent=lbl;b.disabled=!!dis;b.onclick=fn;a.appendChild(b)}
-  $('#dlg').classList.remove('wide');$('#dlg').hidden=false;$('#bag').hidden=true;$('#char').hidden=true;tipEl.hidden=true;
+  $('#dlg').classList.remove('wide');$('#dlg').hidden=false;$('#bag').hidden=true;$('#char').hidden=true;$('#opts').hidden=true;tipEl.hidden=true;
 }
 function questBlock(n){
   const q=QUESTS[S.q.i];if(!q||q.g!==n.id)return{html:'',btns:[]};
@@ -173,3 +175,23 @@ export function showTrade(e){
   dialog('Échange',`Avec ${e.with} · Les deux doivent valider ; modifier une offre annule les validations`,wrap,[[e.mine.ok?'Validé ✔':'Valider',()=>send({a:'tradeOk'}),false,e.mine.ok],['Annuler',()=>closePanel('dlg'),true]]);
   dlgRedo=null;$('#dlg').classList.add('wide');$('#dlg').scrollTop=sc;
 }
+
+// Réglage des touches : « Changer » arme `waiting`, et la prochaine touche (écoutée en phase de capture) devient la nouvelle liaison.
+let waiting=null;
+export function refreshKeyLabels(){buildBar();$('#help').innerHTML=helpHTML()}
+export function renderOpts(){
+  if($('#opts').hidden)return;
+  const body=$('#optsBody');body.innerHTML='';
+  for(const [id,lbl] of ACTIONS){
+    body.insertAdjacentHTML('beforeend',`<span>${lbl}</span><kbd>${waiting===id?'…':esc(label(keyOf(id)))}</kbd>`);
+    const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent=waiting===id?'Appuyez…':'Changer';
+    b.onclick=()=>{waiting=id;renderOpts()};body.appendChild(b);
+  }
+}
+addEventListener('keydown',e=>{
+  if(!waiting)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(e.code!=='Escape'){rebind(waiting,e.code);refreshKeyLabels()}
+  waiting=null;renderOpts();
+},true);
+$('#optsReset').onclick=()=>{resetKeys();waiting=null;renderOpts();refreshKeyLabels()};

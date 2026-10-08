@@ -6,27 +6,31 @@ import {$,esc,pick} from './util.js';
 import {TS,cam,cv,setMarker} from './render.js';
 import {chat} from './hud.js';
 import {autoCloseDlg,closePanel,openNpc,openPortal,togglePanel} from './panels.js';
+import {actionOf} from './keys.js';
 import {P,WD,running,send,sendChat,sendMove,world} from './state.js';
 
 export const keys={};
 // Déplacement : le client calcule sa position et la propose ; la sim ne fait que la valider.
 export const nav={goal:null,follow:null,stuck:0};
-const KM={KeyW:'up',ArrowUp:'up',KeyS:'down',ArrowDown:'down',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right'};
+// Les flèches restent toujours actives en plus de la touche configurée.
+const ARROWS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'},MOVES=['up','down','left','right'];
+const actionFor=code=>ARROWS[code]||actionOf(code);
 const chatIn=$('#chatin');
 function openObj(o){if(o.type==='portal')openPortal();else if(o.type==='chest')send({a:'openChest',id:o.id})}
 addEventListener('keydown',e=>{
   if(!running)return;
   if(document.activeElement===chatIn){if(e.key==='Escape')chatIn.blur();return}
   if(document.activeElement===$('#nm'))return;
-  const k=KM[e.code];if(k){keys[k]=true;e.preventDefault();return}
-  const dm=e.code.match(/^(?:Digit|Numpad)([1-7])$/);if(dm){const n=+dm[1];if(n<=5)send({a:'skill',i:n-1});else send({a:'useItem',id:n===6?'chouffe':'chips'});e.preventDefault();return}
-  if(e.code==='Tab'){e.preventDefault();const list=WD.mobs.filter(m=>m.alive&&dist(m,P)<10).sort((a,b)=>dist(a,P)-dist(b,P));if(list.length){const i=list.findIndex(m=>m.id===P.target);send({a:'target',id:list[(i+1)%list.length].id})}return}
-  if(e.code==='KeyI'||e.code==='KeyB'){togglePanel('bag');return}
-  if(e.code==='KeyC'){togglePanel('char');return}
-  if(e.code==='Enter'){e.preventDefault();chatIn.focus();return}
-  if(e.code==='Escape'){if(!$('#dlg').hidden)closePanel('dlg');else if(!$('#bag').hidden||!$('#char').hidden){$('#bag').hidden=true;$('#char').hidden=true}else send({a:'target',id:null})}
+  const act=actionFor(e.code);
+  if(MOVES.includes(act)){keys[act]=true;e.preventDefault();return}
+  const sk=act&&act.match(/^s([1-5])$/);if(sk){send({a:'skill',i:sk[1]-1});e.preventDefault();return}
+  if(act==='chouffe'||act==='chips'){send({a:'useItem',id:act});e.preventDefault();return}
+  if(act==='target'){e.preventDefault();const list=WD.mobs.filter(m=>m.alive&&dist(m,P)<10).sort((a,b)=>dist(a,P)-dist(b,P));if(list.length){const i=list.findIndex(m=>m.id===P.target);send({a:'target',id:list[(i+1)%list.length].id})}return}
+  if(act==='bag'||act==='char'||act==='opts'){togglePanel(act);return}
+  if(act==='chat'){e.preventDefault();chatIn.focus();return}
+  if(e.code==='Escape'){if(!$('#dlg').hidden)closePanel('dlg');else if(['bag','char','opts'].some(id=>!$('#'+id).hidden)){for(const id of ['bag','char','opts'])$('#'+id).hidden=true}else send({a:'target',id:null})}
 });
-addEventListener('keyup',e=>{const k=KM[e.code];if(k)keys[k]=false});
+addEventListener('keyup',e=>{const k=actionFor(e.code);if(MOVES.includes(k))keys[k]=false});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 // Appelé depuis main.js : à l'évaluation du module, render.js n'est pas encore initialisé (import circulaire).
 export function initInput(){cv.addEventListener('pointerdown',e=>{

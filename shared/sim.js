@@ -50,7 +50,7 @@ export function addPlayer(w,id,{save,name,hat}={}){
   const pl=w.players[id]={id,S,P,mapId:'over',group:null};
   msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${fmt(1247)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`);
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
-  msg(w,id,'sys','[Aide] ZQSD, WASD, flèches ou toucher le sol pour bouger. Toucher un ennemi pour l\'attaquer. 1 à 5 : compétences. 6 : Chouffe. 7 : Chips. Tab : cibler. I : sac. C : personnage.');
+  msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
   if(!save)msg(w,id,'sys','[Aide] Le Vieux Sage du Forum vous attend dans le sous-sol. Il a un point d\'exclamation au-dessus de la tête. C\'est sa seule expression.');
   later(w,1.2,()=>{if(w.players[id]&&S.q.i===0&&S.q.st==='avail')say(w.maps.over.npcs[0],'Psst. Jeune chouffin. Viens par ici.',4)});
   return pl;
