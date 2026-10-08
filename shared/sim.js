@@ -10,7 +10,7 @@ import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zone
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
-const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
+const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,DG_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
 const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});
@@ -29,7 +29,7 @@ const later=(w,delay,fn)=>w.later.push({at:w.time+delay,fn});
 
 export function createWorld({seed=20111,rng,bots=false}={}){
   const rnd=rng||mulberry32(seed^0x9e3779b9);
-  const w={tick:0,time:0,seed,rnd,r:rngTools(rnd),bots,maps:{},players:{},events:[],later:[],nextId:1,instN:0,groupN:0,groups:{},invites:{},botT:6,sysT:40};
+  const w={tick:0,time:0,seed,rnd,r:rngTools(rnd),bots,maps:{},players:{},events:[],later:[],nextId:1,instN:0,invites:{},botT:6,sysT:40};
   w.maps.over=Object.assign(genOverworld(seed),{seed,mobs:[],objs:[],npcs:NPCS.map(n=>({...n})),bots:[]});
   spawnOver(w);
   return w;
@@ -59,7 +59,7 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
   const S=save?normalizeSave(save):newSave(name,hat,cls),st=stats(S);
   S.hp=clamp(S.hp||st.maxhp,1,st.maxhp);S.caf=clamp(S.caf,0,st.maxcaf);
   const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},dots:[],mount:null,mountSayT:0,nextCrit:false,hotAmt:0,hotAcc:0};
-  const pl=w.players[id]={id,S,P,mapId:'over',group:null,duel:null};
+  const pl=w.players[id]={id,S,P,mapId:'over',duel:null};
   msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${fmt(1247)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`);
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
   msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
@@ -71,7 +71,7 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
 
 export function removePlayer(w,id){
   const pl=w.players[id];if(!pl)return;
-  endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);abandonDuel(w,pl);dropAggro(w,pl);leaveGroup(w,pl,true);
+  endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);abandonDuel(w,pl);dropAggro(w,pl);
   for(const k in w.invites)if(k===id||w.invites[k].from===id)delete w.invites[k];
   delete w.players[id];
   announceOnline(w);
@@ -601,22 +601,66 @@ function changeClass(w,pl,cls){
   ev(w,pl.id,{t:'toast',kicker:'Nouvelle classe',title:CLASSES[cls].nom,sub:''});
 }
 
-const groupOf=(w,pl)=>pl.group?w.groups[pl.group]:null;
-const toGroup=(w,g,text)=>{for(const id of g.members)msg(w,id,'sys',text)};
 const byName=(w,name)=>Object.values(w.players).find(p=>p.S.name.toLowerCase()===String(name).toLowerCase());
+const allSaves=w=>w.saves?w.saves():Object.values(w.players).map(p=>p.S);
+const guildOnline=(w,g)=>Object.values(w.players).filter(p=>p.S.guilde===g);
+const toGuild=(w,g,text)=>{for(const p of guildOnline(w,g))msg(w,p.id,'guild',text)};
+const cleanGuild=n=>n.replace(/[<>[\]*]/g,'').replace(/\s+/g,' ').trim().slice(0,32);
 
-function invite(w,pl,name){
-  const g=groupOf(w,pl);
-  if(!name){msg(w,pl.id,'sys','Usage : /inviter <pseudo>');return}
+// Guilde : un simple nom dans la sauvegarde de chaque membre. Pas de chef : tout membre peut recruter.
+function guilde(w,pl,v){
+  const {S}=pl,name=cleanGuild(v.replace(/^\S+\s*/,''));
+  if(!name){
+    if(!S.guilde){msg(w,pl.id,'sys','Vous n\'avez pas de guilde. /guilde <nom> pour en fonder une, ou demandez à un membre de vous /recruter.');return}
+    msg(w,pl.id,'guild',`<${S.guilde}> · membres connectés : ${guildOnline(w,S.guilde).map(p=>`${p.S.name} (niv. ${p.S.lvl})`).join(', ')}.`);return;
+  }
+  if(S.guilde){msg(w,pl.id,'sys',`Vous êtes déjà dans <${S.guilde}>. /quitter d'abord.`);return}
+  if(allSaves(w).some(o=>o.guilde&&plain(o.guilde)===plain(name))){msg(w,pl.id,'sys',`La guilde <${name}> existe déjà. Demandez à un de ses membres de vous /recruter.`);return}
+  S.guilde=name;
+  toAll(w,{t:'msg',cls:'sys',text:`[Serveur] ${S.name} fonde la guilde <${name}>. Les candidatures sont ouvertes. Personne n'en enverra.`});
+}
+
+function inviteCheck(w,pl,name,usage){
+  if(!name){msg(w,pl.id,'sys',usage);return null}
   const dest=byName(w,name);
-  if(!dest){msg(w,pl.id,'sys',`Personne ne s'appelle ${name} en ligne.`);return}
-  if(dest===pl){msg(w,pl.id,'sys','Vous invitez vous-même. Le groupe est complet, il n\'y a que vous.');return}
-  if(g&&g.leader!==pl.id){msg(w,pl.id,'sys','Seul le chef de groupe peut inviter.');return}
-  if(g&&g.members.length>=GROUP_MAX){msg(w,pl.id,'sys',`Le groupe est complet (${GROUP_MAX} joueurs maximum).`);return}
-  if(dest.group){msg(w,pl.id,'sys',`[${dest.S.name}] est déjà dans un groupe.`);return}
-  w.invites[dest.id]={from:pl.id,exp:w.time+INVITE_TTL};
-  msg(w,dest.id,'sys',`[${pl.S.name}] vous invite dans son groupe. Tapez /accepter pour rejoindre (l'invitation expire dans ${INVITE_TTL} s).`);
+  if(!dest){msg(w,pl.id,'sys',`Personne ne s'appelle ${name} en ligne.`);return null}
+  if(dest===pl){msg(w,pl.id,'sys','Vous vous invitez vous-même. Vous acceptez. Vous êtes toujours seul.');return null}
+  return dest;
+}
+
+function recruit(w,pl,name){
+  if(!pl.S.guilde){msg(w,pl.id,'sys','Vous n\'avez pas de guilde à proposer. /guilde <nom> pour en fonder une.');return}
+  const dest=inviteCheck(w,pl,name,'Usage : /recruter <pseudo>');if(!dest)return;
+  if(dest.S.guilde){msg(w,pl.id,'sys',`[${dest.S.name}] est déjà dans <${dest.S.guilde}>.`);return}
+  w.invites[dest.id]={from:pl.id,exp:w.time+INVITE_TTL,kind:'guild',g:pl.S.guilde};
+  msg(w,dest.id,'sys',`[${pl.S.name}] vous propose de rejoindre la guilde <${pl.S.guilde}>. Tapez /accepter (l'invitation expire dans ${INVITE_TTL} s).`);
+  msg(w,pl.id,'sys',`Proposition envoyée à [${dest.S.name}].`);
+}
+
+// Donjon à plusieurs : on entre seul, puis on fait venir ses amis où qu'ils soient sur la carte du monde.
+function invite(w,pl,name){
+  const D=w.maps[pl.mapId];
+  if(pl.mapId==='over'){msg(w,pl.id,'sys','Entrez d\'abord dans un donjon, puis /inviter <pseudo> pour qu\'un ami vous rejoigne.');return}
+  const dest=inviteCheck(w,pl,name,'Usage : /inviter <pseudo>');if(!dest)return;
+  if(onMap(w,D.id).length>=DG_MAX){msg(w,pl.id,'sys',`Le donjon est complet (${DG_MAX} joueurs maximum).`);return}
+  if(dest.mapId===D.id){msg(w,pl.id,'sys',`[${dest.S.name}] est déjà là. Regardez mieux.`);return}
+  w.invites[dest.id]={from:pl.id,exp:w.time+INVITE_TTL,kind:'dungeon',map:D.id};
+  msg(w,dest.id,'sys',`[${pl.S.name}] vous invite dans ${DUNGEONS[D.dg].n} (${DIFFS[D.ti].n}). Tapez /accepter pour le rejoindre (l'invitation expire dans ${INVITE_TTL} s).`);
   msg(w,pl.id,'sys',`Invitation envoyée à [${dest.S.name}]. Il a ${INVITE_TTL} s pour réfléchir.`);
+}
+
+function joinDungeon(w,pl,inv){
+  const D=w.maps[inv.map],df=D&&dgDiff(D.dg,D.ti);
+  if(!D||D.done){msg(w,pl.id,'sys','Ce donjon est déjà terminé (ou détruit). Trop tard.');return}
+  if(pl.mapId!=='over'||pl.P.dead||pl.duel||pl.trade){msg(w,pl.id,'sys','Revenez sur la carte du monde, vivant et libre, puis réessayez.');return}
+  if(pl.S.lvl<df.rl){msg(w,pl.id,'sys',`Niveau ${df.rl} requis pour la difficulté ${df.n}.`);return}
+  if(onMap(w,D.id).length>=DG_MAX){msg(w,pl.id,'sys','Le donjon est complet.');return}
+  // Chaque joueur en plus renforce les ennemis encore debout, comme s'il était entré dès le début.
+  const scale=1+.6*onMap(w,D.id).length;
+  for(const m of D.mobs)if(m.alive){m.hp=Math.round(m.hp*scale/D.scale);m.mhp=Math.round(m.mhp*scale/D.scale)}
+  D.scale=scale;
+  toMap(w,D.id,{t:'msg',cls:'sys',text:`[${pl.S.name}] vous rejoint. Les ennemis le sentent et prennent du volume.`});
+  descend(w,pl,D);
 }
 
 function acceptInvite(w,pl){
@@ -625,24 +669,24 @@ function acceptInvite(w,pl){
   if(!inv||inv.exp<w.time||!from){msg(w,pl.id,'sys','Personne ne vous a invité récemment. Ça arrive.');return}
   if(inv.kind==='trade'){openTrade(w,from,pl);return}
   if(inv.kind==='duel'){startDuel(w,from,pl);return}
-  if(pl.group){msg(w,pl.id,'sys','Vous êtes déjà dans un groupe : /quitter d\'abord.');return}
-  let g=groupOf(w,from);
-  if(g&&(g.leader!==from.id||g.members.length>=GROUP_MAX)){msg(w,pl.id,'sys','Ce groupe est complet ou son chef a changé.');return}
-  if(!g){g=w.groups['g'+(++w.groupN)]={id:'g'+w.groupN,leader:from.id,members:[from.id]};from.group=g.id}
-  g.members.push(pl.id);pl.group=g.id;
-  toGroup(w,g,`[${pl.S.name}] rejoint le groupe de [${w.players[g.leader].S.name}].`);
+  if(inv.kind==='dungeon'){joinDungeon(w,pl,inv);return}
+  if(pl.S.guilde){msg(w,pl.id,'sys',`Vous êtes déjà dans <${pl.S.guilde}> : /quitter d'abord.`);return}
+  pl.S.guilde=inv.g;
+  toGuild(w,inv.g,`[${pl.S.name}] rejoint la guilde <${inv.g}>.`);
 }
 
-function leaveGroup(w,pl,quiet){
-  const g=groupOf(w,pl);if(!g)return;
-  g.members=g.members.filter(id=>id!==pl.id);pl.group=null;
-  if(!quiet)msg(w,pl.id,'sys','Vous quittez le groupe.');
-  if(g.members.length<2){
-    for(const id of g.members){w.players[id].group=null;msg(w,id,'sys',`[${pl.S.name}] quitte le groupe. Le groupe est dissous.`)}
-    delete w.groups[g.id];return;
-  }
-  toGroup(w,g,`[${pl.S.name}] quitte le groupe.`);
-  if(g.leader===pl.id){g.leader=g.members[0];toGroup(w,g,`[${w.players[g.leader].S.name}] devient chef de groupe.`)}
+function leaveGuild(w,pl){
+  const g=pl.S.guilde;
+  if(!g){msg(w,pl.id,'sys','Vous n\'avez pas de guilde à quitter.');return}
+  toGuild(w,g,`[${pl.S.name}] quitte la guilde <${g}>.`);
+  pl.S.guilde=null;
+}
+
+function guildChat(w,pl,v){
+  const text=v.replace(/^\S+\s*/,'');
+  if(!pl.S.guilde){msg(w,pl.id,'sys','Vous n\'avez pas de guilde. Vous parlez seul, comme d\'habitude.');return}
+  if(!text){msg(w,pl.id,'sys','Usage : /g <texte>');return}
+  for(const p of guildOnline(w,pl.S.guilde))ev(w,p.id,{t:'chat',ch:'Guilde',who:pl.S.name,text,me:p===pl});
 }
 
 // Échange : l'offre de chaque joueur vit dans pl.trade. Toute modification d'une offre annule les deux validations,
@@ -783,7 +827,7 @@ function completeQuest(w,pl){
   if(q.fin)ev(w,pl.id,{t:'campaignEnd',final:!!q.final});
 }
 
-// Monstre de donjon : mise à l'échelle du groupe, Héroïque et plus (PV ×1,3, dégâts ×1,2), élite (PV ×1,5, dégâts ×1,2) avec son affixe.
+// Monstre de donjon : mise à l'échelle du nombre de joueurs, Héroïque et plus (PV ×1,3, dégâts ×1,2), élite (PV ×1,5, dégâts ×1,2) avec son affixe.
 function mkDgMob(w,D,type,x,y,l,spec={}){
   const m=mkMob(w,type,x,y,l,undefined,D.ti),hard=D.ti>=1;
   let hp=D.scale*(hard?1.3:1),dm=hard?1.2:1;
@@ -795,34 +839,26 @@ function mkDgMob(w,D,type,x,y,l,spec={}){
 }
 
 function enterDungeon(w,pl,ti,dgId='archives'){
-  const dg=DUNGEONS[dgId],df=dg&&DIFFS[ti]&&dgDiff(dgId,ti),g=groupOf(w,pl);
+  const dg=DUNGEONS[dgId],df=dg&&DIFFS[ti]&&dgDiff(dgId,ti);
   if(!df||pl.mapId!=='over'||!nearNpc(pl,dg.npc))return;
-  if(g&&g.leader!==pl.id){err(w,pl.id,`Seul le chef de groupe peut lancer ${dg.court}.`);return}
   if(pl.S.lvl<df.rl){err(w,pl.id,`Niveau ${df.rl} requis pour la difficulté ${df.n}.`);return}
-  // Le groupe descend ensemble : tous les membres présents dans la zone de l'entrée, sauf ceux qui n'ont pas le niveau.
-  const zone=zoneAt(w.maps.over,npcById(dg.npc).x,npcById(dg.npc).y);
-  const crew=(g?g.members.map(id=>w.players[id]):[pl]).filter(p=>p.mapId==='over'&&zoneAt(w.maps.over,p.P.x,p.P.y)===zone);
-  const ready=crew.filter(p=>p.S.lvl>=df.rl);
-  for(const p of crew)if(!ready.includes(p))msg(w,p.id,'sys',`Niveau ${df.rl} requis pour la difficulté ${df.n} : vous restez à l'entrée.`);
-  let D=g&&Object.values(w.maps).find(m=>m.gid===g.id&&!m.done&&m.dg===dgId);
-  if(!D){
-    const seed=(w.rnd()*2**32)>>>0;D=genDungeon(seed,ti,{L:df.L,kinds:dg.kinds,boss:dg.boss});
-    if(!D){err(w,pl.id,`${dg.n} est en maintenance. Réessayez.`);return}
-    const scale=1+.6*(ready.length-1);
-    D.id='dg'+(++w.instN);D.seed=seed;D.dg=dgId;D.gid=g?g.id:null;D.done=false;D.npcs=[];D.bots=[];
-    D.scale=scale;
-    D.mobs=D.spawns.map(s=>{
-      const elite=ti>=2&&![].concat(dg.boss).includes(s.type)&&w.rnd()<(ti===2?.15:.25);
-      return mkDgMob(w,D,s.type,s.x,s.y,s.l,{elite,affix:elite?w.r.pick(Object.keys(AFFIXES)):null,patrol:s.patrol});
-    });
-    D.objs=[{id:nid(w,'o'),kind:'obj',type:'portal',n:dg.sortie,x:D.portal.x,y:D.portal.y,hgt:.9}];
-    w.maps[D.id]=D;
-  }
-  for(const p of ready){
-    dismount(w,p);p.mapId=D.id;p.P.target=null;p.P.auto=false;p.P.cast=null;dropAggro(w,p);
-    teleport(w,p,D.sx,D.sy);
-    msg(w,p.id,'sys',`Vous descendez dans ${dg.n} (${DIFFS[D.ti].n}). ${dg.arrivee}`);
-  }
+  const seed=(w.rnd()*2**32)>>>0,D=genDungeon(seed,ti,{L:df.L,kinds:dg.kinds,boss:dg.boss});
+  if(!D){err(w,pl.id,`${dg.n} est en maintenance. Réessayez.`);return}
+  D.id='dg'+(++w.instN);D.seed=seed;D.dg=dgId;D.done=false;D.npcs=[];D.bots=[];D.scale=1;
+  D.mobs=D.spawns.map(s=>{
+    const elite=ti>=2&&![].concat(dg.boss).includes(s.type)&&w.rnd()<(ti===2?.15:.25);
+    return mkDgMob(w,D,s.type,s.x,s.y,s.l,{elite,affix:elite?w.r.pick(Object.keys(AFFIXES)):null,patrol:s.patrol});
+  });
+  D.objs=[{id:nid(w,'o'),kind:'obj',type:'portal',n:dg.sortie,x:D.portal.x,y:D.portal.y,hgt:.9}];
+  w.maps[D.id]=D;
+  descend(w,pl,D);
+  msg(w,pl.id,'sys','[Aide] Pour faire venir des amis : /inviter <pseudo>.');
+}
+
+function descend(w,p,D){
+  dismount(w,p);p.mapId=D.id;p.P.target=null;p.P.auto=false;p.P.cast=null;dropAggro(w,p);
+  teleport(w,p,D.sx,D.sy);
+  msg(w,p.id,'sys',`Vous descendez dans ${DUNGEONS[D.dg].n} (${DIFFS[D.ti].n}). ${DUNGEONS[D.dg].arrivee}`);
 }
 
 function destroyIfEmpty(w,mapId){if(mapId!=='over'&&!onMap(w,mapId).length)delete w.maps[mapId]}
@@ -865,7 +901,7 @@ export function handleAction(w,id,a){
       if(a.id==null){P.target=null;P.auto=false;break}
       {const e=findEnt(w,pl.mapId,a.id);if(!e||(e.kind==='mob'&&!e.alive))break;P.target=e.id;if(a.auto&&(e.kind==='mob'||(e.kind==='player'&&duelFoe(w,pl)&&duelFoe(w,pl).id===e.id)))P.auto=true}
       break;
-    case 'talk':if(nearNpc(pl,a.id)){P.target=a.id;if(a.id==='tavernier')ach(w,pl,'khey')}break;
+    case 'talk':if(nearNpc(pl,a.id)){P.target=a.id;if(a.id==='tavernier')ach(w,pl,'khey');if(npcById(a.id).board)ev(w,id,{t:'board',tops:tops(w,10)})}break;
     case 'skill':useSkill(w,pl,a.i,false);break;
     case 'useItem':if(ITEMS[a.id]&&ITEMS[a.id].t==='use')useItem(w,pl,a.id);break;
     case 'equip':equip(w,pl,a.idx);break;
@@ -904,7 +940,10 @@ const RUN={
   mp:(w,pl,v)=>whisper(w,pl,v),
   inviter:(w,pl,v)=>invite(w,pl,v.split(/\s+/)[1]),
   accepter:(w,pl)=>acceptInvite(w,pl),
-  quitter:(w,pl)=>leaveGroup(w,pl),
+  guilde:(w,pl,v)=>guilde(w,pl,v),
+  recruter:(w,pl,v)=>recruit(w,pl,v.split(/\s+/)[1]),
+  quitter:(w,pl)=>leaveGuild(w,pl),
+  g:(w,pl,v)=>guildChat(w,pl,v),
   echanger:(w,pl,v)=>requestTrade(w,pl,v.split(/\s+/)[1]),
   duel:(w,pl,v)=>requestDuel(w,pl,v.split(/\s+/)[1]),
   top:(w,pl)=>top(w,pl),
@@ -949,12 +988,13 @@ const zoneName=(map,P)=>{const z=zoneAt(map,P.x,P.y);return z==='dungeon'?`${DUN
 
 // w.saves() est fourni par le serveur (toutes les sauvegardes, hors-ligne compris) ; la sim seule ne connaît que les connectés.
 const TOPS=[['Niveau',S=>S.lvl,(a,b)=>b.xp-a.xp],['Archives terminées',S=>S.dg||0],['Chouffes bues',S=>S.chouffes||0],['Duels',S=>S.duelWins||0,null,S=>`${S.duelWins||0}V/${S.duelLosses||0}D`]];
+// [[intitulé, [[pseudo, valeur affichée, guilde], …]], …] : partagé par /top et le Tableau d'Honneur du sous-sol.
+function tops(w,n=5){
+  const rows=allSaves(w);
+  return TOPS.map(([label,val,tie,show])=>[label,[...rows].sort((a,b)=>val(b)-val(a)||(tie?tie(a,b):0)).slice(0,n).map(S=>[S.name,show?show(S):fmt(val(S)),S.guilde||''])]);
+}
 function top(w,pl){
-  const rows=w.saves?w.saves():Object.values(w.players).map(p=>p.S);
-  for(const [label,val,tie,show] of TOPS){
-    const best=[...rows].sort((a,b)=>val(b)-val(a)||(tie?tie(a,b):0)).slice(0,5);
-    msg(w,pl.id,'sys',`Top ${label} : ${best.map((S,i)=>`${i+1}. ${S.name} (${show?show(S):fmt(val(S))})`).join(' · ')}`);
-  }
+  for(const [label,best] of tops(w))msg(w,pl.id,'sys',`Top ${label} : ${best.map(([n,v],i)=>`${i+1}. ${n} (${v})`).join(' · ')}`);
 }
 
 function whisper(w,pl,v){

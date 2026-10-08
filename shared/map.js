@@ -128,6 +128,17 @@ export function zoneAt(map,x,y){
   if(y<14)return'plaine';
   return'steppe';
 }
+// Point d'ancrage du nom de chaque zone : ses tuiles les plus éloignées du bord (distance de Manhattan, deux passes), lisible même pour les zones en L.
+// r = cette distance, en tuiles : la place disponible autour du point.
+export function zoneLabels(map){
+  const {w,h}=map,z=[],d=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)z[i]=zoneAt(map,i%w+.5,(i/w|0)+.5);
+  const at=(x,y,i)=>x<0||y<0||x>=w||y>=h||z[y*w+x]!==z[i]?0:d[y*w+x];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;d[i]=Math.min(at(x-1,y,i),at(x,y-1,i))+1}
+  for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){const i=y*w+x;d[i]=Math.min(d[i],at(x+1,y,i)+1,at(x,y+1,i)+1)}
+  const acc={};for(let i=0;i<w*h;i++){const a=acc[z[i]]??={r:0,x:0,y:0,n:0};if(d[i]>a.r)Object.assign(a,{r:d[i],x:0,y:0,n:0});if(d[i]===a.r){a.x+=i%w+.5;a.y+=(i/w|0)+.5;a.n++}}
+  return Object.entries(acc).map(([k,a])=>({z:k,x:a.x/a.n,y:a.y/a.n,r:a.r}));
+}
 export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='arene'};
 
 // Les monstres ne sont pas créés ici (ils portent de l'état d'exécution) : la carte rend seulement où et quoi faire apparaître.

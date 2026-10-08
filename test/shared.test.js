@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {xpNeed, stats, newItem} from '../shared/rules.js';
-import {genOverworld, genDungeon, isSolid} from '../shared/map.js';
-import {DIFFS} from '../shared/data.js';
+import {genOverworld, genDungeon, isSolid, zoneAt, zoneLabels} from '../shared/map.js';
+import {DIFFS, DUNGEONS, NPCS} from '../shared/data.js';
 
 const equip = ids => Object.fromEntries(Object.entries(ids).map(([slot, id]) => [slot, newItem(id)]));
 const joueur = (lvl, eq = {}) => ({lvl, eq: {tete: null, torse: null, mains: null, jambes: null, arme: null, ...equip(eq)}});
@@ -90,4 +90,14 @@ test('xpNeed : identique à l\'ancienne courbe jusqu\'au niveau 15, strictement 
   // Les stats de base ne reculent jamais et gardent la courbe d'origine jusqu'au niveau 15.
   assert.deepEqual(baseStats(15), {atk: 4 + 2 * 14, hp: 60 + 15 * 14, caf: 50 + 8 * 14});
   for (let l = 1; l < MAXLVL; l++) for (const k of ['atk', 'hp', 'caf']) assert.ok(baseStats(l + 1)[k] > baseStats(l)[k], `${k} niveau ${l}`);
+});
+
+test("zoneLabels place chaque nom de zone à l'intérieur de sa zone", () => {
+  const map = genOverworld(20111), labels = zoneLabels(map);
+  assert.ok(labels.length >= 10);
+  for (const l of labels) assert.equal(zoneAt(map, l.x, l.y), l.z, l.z);
+});
+
+test('chaque donjon a un PNJ d’entrée qui y mène', () => {
+  for (const [id, dg] of Object.entries(DUNGEONS)) assert.equal(NPCS.find(n => n.id === dg.npc)?.dungeon, id, id);
 });
