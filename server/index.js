@@ -1,5 +1,5 @@
 import http from 'node:http';
-import {mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
+import {copyFileSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {extname, join, normalize, sep} from 'node:path';
 import {networkInterfaces} from 'node:os';
@@ -36,7 +36,11 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
   let nextId = 1;
 
   const saveFile = name => join(savesDir, name.toLowerCase() + '.json');
-  const loadSave = name => { try { return JSON.parse(readFileSync(saveFile(name), 'utf8')); } catch { return null; } };
+  // Un fichier absent = nouveau joueur. Un fichier illisible aussi, mais on en garde une copie : la prochaine sauvegarde écraserait ce qui reste.
+  const loadSave = name => {
+    try { return JSON.parse(readFileSync(saveFile(name), 'utf8')); }
+    catch (e) { if (e.code !== 'ENOENT') try { copyFileSync(saveFile(name), saveFile(name) + '.corrupt'); } catch {} return null; }
+  };
   // Les droits s'éditent à la main dans le fichier : on garde ceux du disque, la mémoire ne fait que les avoir lus à la connexion.
   function savePlayer(name, state) {
     const tmp = saveFile(name) + '.tmp';

@@ -1,4 +1,4 @@
-import {ITEMS,MOBS,DIFFS,ART_POOL,HATS,NPCS,QUESTS,RARITY_MULT} from './data.js';
+import {ITEMS,MOBS,DIFFS,ART_POOL,HATS,MAXLVL,NPCS,QUESTS,RARITY_MULT} from './data.js';
 import {rngTools} from './rng.js';
 import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
 import {MOUNTS} from './data/mounts.js';
@@ -91,24 +91,49 @@ export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
 export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null});
-// Les sauvegardes viennent d'un fichier ou du localStorage : on les remet d'aplomb si le contenu d'objets a changé entre deux versions.
+// Les sauvegardes viennent d'un fichier (parfois édité à la main, parfois abîmé) : on les remet d'aplomb sans jamais lever d'exception.
+// Entier borné ; une valeur absente donne `def`, une valeur absurde (texte, NaN, négatif) donne `min`.
+const int=(v,def,min=0,max=1e12)=>v===undefined?def:Number.isFinite(+v)&&v!==null&&v!==''?Math.min(max,Math.max(min,Math.floor(+v))):min;
+const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);
 export function normalizeSave(sv){
-  sv=JSON.parse(JSON.stringify(sv));
-  const S=Object.assign(newSave(),sv);S.eq=Object.assign(newSave().eq,sv.eq||{});
+  sv=isObj(sv)?JSON.parse(JSON.stringify(sv)):{};
+  const base=newSave(),S={...base,...sv};
+  S.name=typeof sv.name==='string'&&sv.name.trim()?sv.name.slice(0,16):base.name;
+  if(!HATS.some(h=>h[0]===sv.hat))S.hat=base.hat;
+  S.lvl=int(sv.lvl,1,1,MAXLVL);
+  for(const k of ['xp','tips','deaths','kills','herbe','played','chouffes','dg','artSold','duelWins','duelLosses'])S[k]=int(sv[k],0);
+  S.gold=int(sv.gold,base.gold);
+  S.hp=Number.isFinite(+sv.hp)&&sv.hp!==null?+sv.hp:base.hp;S.caf=Number.isFinite(+sv.caf)&&sv.caf!==null?+sv.caf:base.caf;
+  S.ach=isObj(sv.ach)?sv.ach:{};
+  S.q={i:int(isObj(sv.q)?sv.q.i:0,0,0,QUESTS.length),st:isObj(sv.q)&&['avail','active','ready'].includes(sv.q.st)?sv.q.st:'avail',n:int(isObj(sv.q)?sv.q.n:0,0)};
+  S.concede=typeof sv.concede==='string'?sv.concede:null;
+  if(typeof sv.titre!=='string')delete S.titre;
+  const rawInv=Array.isArray(sv.inv)?sv.inv:base.inv,rawEq=isObj(sv.eq)?sv.eq:{};
+  S.eq=Object.assign(newSave().eq,rawEq);
   // Migration : avant les instances, un équipement était un simple identifiant (dans le sac : {id,n:1}). Il devient un objet au niveau de son rl, à sa rareté d'origine.
   const isInst=x=>x&&typeof x==='object'&&typeof x.uid==='string'&&ITEMS[x.id]&&ITEMS[x.id].t==='eq';
-  S.nextUid=Math.max(+S.nextUid||0,...[...(sv.inv||[]),...Object.values(S.eq)].map(x=>isInst(x)?+x.uid.slice(1)||0:0));
+  S.nextUid=Math.max(int(sv.nextUid,0),...[...rawInv,...Object.values(S.eq)].map(x=>isInst(x)?+x.uid.slice(1)||0:0));
   const inst=x=>{
     if(isInst(x))return{uid:x.uid,...newItem(x.id,x.nObj,x.rarete)};
     const id=typeof x==='string'?x:x&&x.id;
     return ITEMS[id]&&ITEMS[id].t==='eq'?withUid(S,newItem(id)):null;
   };
-  S.inv=(sv.inv||[]).map(x=>ITEMS[x&&x.id]&&ITEMS[x.id].t!=='eq'?{id:x.id,n:Math.max(1,x.n|0)}:inst(x)).filter(Boolean);
+  // Un sac ne contient jamais plus de 24 emplacements (BAG dans sim.js).
+  S.inv=rawInv.map(x=>ITEMS[x&&x.id]&&ITEMS[x.id].t!=='eq'?{id:x.id,n:int(x.n,1,1,9999)}:inst(x)).filter(Boolean).slice(0,24);
   for(const k in S.eq)S.eq[k]=inst(S.eq[k]);
-  if(S.q.i>QUESTS.length)S.q.i=QUESTS.length;
   if(!CLASSES[S.cls])S.cls=DEFAULT_CLASS;
   S.mounts=(Array.isArray(sv.mounts)?sv.mounts:[]).filter(id=>MOUNTS[id]);
   if(!S.mounts.includes(S.mount))S.mount=S.mounts[0]||null;
   S.droits=Array.isArray(sv.droits)?sv.droits.filter(d=>typeof d==='string'):[];
+  return S;
+}
+
+// Remet le butin à zéro (sac et équipement : le kit de départ) en gardant tout le reste : niveau, XP, or, quêtes, montures, hauts faits, droits…
+// Le résultat suit la structure actuelle des sauvegardes (voir normalizeSave) ; les PV sont ramenés au maximum d'un joueur sans équipement.
+export function resetLoot(sv){
+  const start=newSave();
+  const S=normalizeSave({...(isObj(sv)?sv:{}),inv:start.inv,eq:start.eq,nextUid:0});
+  S.hp=Math.min(S.hp,stats(S).maxhp);
+  if(!isObj(sv)||!Array.isArray(sv.droits))delete S.droits;
   return S;
 }

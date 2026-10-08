@@ -260,3 +260,16 @@ test('les droits édités à la main survivent aux sauvegardes, et la mémoire n
     assert.equal('droits' in JSON.parse(readFileSync(join(savesDir, 'bob.json'), 'utf8')), false, 'pas de champ droits écrit pour un joueur sans droit');
   } finally { await stop(); }
 });
+
+test('une sauvegarde absurde ou illisible laisse le joueur se connecter ; l\'illisible est conservée en .corrupt', async () => {
+  const {client, savesDir, stop} = await setup();
+  try {
+    writeFileSync(join(savesDir, 'bizarre.json'), JSON.stringify({name: 'bizarre', lvl: 'x', gold: -4, inv: 'oups', eq: 3, q: {i: -9}}));
+    const a = await client('bizarre');
+    assert.equal(a.welcome.save.lvl, 1); assert.equal(a.welcome.save.gold, 0); assert.deepEqual(a.welcome.save.inv, [{id: 'chips', n: 3}, {id: 'chouffe', n: 1}], 'sac absurde = kit de départ');
+    writeFileSync(join(savesDir, 'casse.json'), '{pas du json');
+    const b = await client('casse');
+    assert.equal(b.welcome.save.lvl, 1);
+    assert.equal(readFileSync(join(savesDir, 'casse.json.corrupt'), 'utf8'), '{pas du json');
+  } finally { await stop(); }
+});
