@@ -97,13 +97,6 @@ export const MOBS={
     lines:["SILENCE. CE TOPIC EST ARCHIVÉ.","Votre message a été jugé hors-sujet.","Les Archives n'oublient rien. Surtout pas vos posts de 2012."]}
 };
 export const SPAWNS=[['herbe',7,15,24,1,11],['normie',6,17,29,24,36],['soleil',5,26,47,1,15],['modo',5,32,48,17,27],['troll',4,32,48,28,36],['lag',6,52,77,2,30],['texture',5,52,77,2,30],['khey',7,2,48,40,57],['topic',5,2,48,40,57],['serveur',6,54,76,35,57]];
-export const SKILLS=[
-  {id:'tip',n:"Tip du Fedora",l:1,cd:1.4,c:0,rg:1.6,d:"Soulève le fedora avec une courtoisie offensive. Inflige 100 % de l'Attaque. Coûte 1 point de Dignité. Se lance automatiquement au contact."},
-  {id:'enfait',n:"« En fait... »",l:2,cd:7,c:15,rg:4.5,d:"Entame un monologue non sollicité de 14 paragraphes. Inflige 150 % de l'Attaque et étourdit la cible 2,5 s."},
-  {id:'copypasta',n:"Copypasta",l:3,cd:10,c:22,rg:5,d:"Colle un pavé de 4 000 caractères sur la cible et tout ce qui se trouve à 2 cases. 55 % de l'Attaque par seconde pendant 5 s."},
-  {id:'canette',n:"Canette Tiède",l:1,cd:18,c:0,self:1,d:"Boit une boisson énergisante ouverte depuis mardi. Rend 35 % des PV et 30 Caféine."},
-  {id:'ragequit',n:"Rage Quit",l:5,cd:40,c:0,self:1,d:"Alt+F4 émotionnel. Après 1,5 s d'incantation, vous ramène au Sous-Sol de Maman (ou à l'entrée du donjon)."}
-];
 export const QUESTS=[
   {g:'sage',n:"Le Premier Pas Dehors",m:'herbe',k:5,rl:1,xp:60,gold:10,item:'fedora',
     t:"Cela fait 1 427 jours que tu n'es pas sorti, jeune chouffin. Les herbes de la plaine se moquent de toi. Va. Ne les touche pas : frappe-les. Ensuite, passe au Bourg-Forum, juste au sud-est : Bernard y vend des armes.",
@@ -146,7 +139,10 @@ export const NPCS=[
   {id:'tavernier',kind:'npc',n:"Le Khey Tavernier",tag:"Taverne du 18-25",ti:"Taverne du 18-25 · Membre depuis 2011",x:12.9,y:18.55,hgt:1.2,
     greet:"Bienvenue au 18-25, khey. Ici on a tous 18 ans depuis 2011. Une Chouffe ? Par pitié le khey, prends une Chouffe, t'as une tête de PNJ de zone de départ."},
   {id:'gardien',kind:'npc',n:"Le Gardien des Archives",tag:"Archives du Forum",ti:"Donjon · Les Archives Oubliées du Forum",x:22.6,y:18.7,hgt:1.25,
-    greet:"Sous ce bourg dorment les Archives Oubliées du Forum : quinze ans de topics morts, de pavés et de flame wars. Des trésors y attendent. Des nécroposteurs aussi."}
+    greet:"Sous ce bourg dorment les Archives Oubliées du Forum : quinze ans de topics morts, de pavés et de flame wars. Des trésors y attendent. Des nécroposteurs aussi."},
+  {id:'conseiller',kind:'npc',n:"Le Conseiller d'Orientation",tag:"Reconversion",ti:"Orientation · Changement de classe",x:16.9,y:19.8,hgt:1.2,
+    greet:"Bonjour. Vous voulez être soigneur, tank ou en vitesse ? Dans la vraie vie on n'a pas ce choix, profitez. Je ne juge pas votre parcours. Enfin si, mais ça se règle avec de l'or."}
+
 ].map(n=>({...n,lines:LIGNES_PNJ[n.id]||[]}));
 export const BOTS=[['xX_DarkSasuke_Xx','Les Incompris'],['Kévin_du_42','Ctrl+Alt+Défaite'],['FedoraLord1987','Sous-Sol Éternel'],['MangaKing2009',''],['LeMageNoir','Sans Lumière du Jour'],['Sylvain_Tank','Ctrl+Alt+Défaite'],['NeckbeardSama','Les Incompris'],['PapyGamer',''],['Khey_du_18-25','Par Pitié'],['Célestin_Niv99','Par Pitié']];
 export const BOT_LINES=["LFG Archives Héroïque, besoin d'un heal, pas de normies svp","qqun sait comment on parle à une fille ? je demande pour un ami (l'ami c'est moi)","en fait techniquement c'est pas un MMO c'est un MMORPG","/me ajuste ses lunettes avec le majeur","ma mère dit que le soleil existe, qqun confirme ?","j'ai pas dormi depuis jeudi, je suis à 98 % de la quête","la saison 2 était meilleure, changez-moi d'avis (vous pourrez pas)","6 jours avec le même t-shirt, c'est un buff caché","VDS [Poignée de Main Moite] x47, jamais acceptées","la guilde <Les Incompris> recrute, critère : avoir été incompris","ma copine est au Canada, vous la connaissez pas","c'est pas un trench-coat c'est un MANTEAU DE GUERRE","le jeu lag ou c'est ma vie ?","brb ma mère crie","je mange les pâtes crues pour gagner du temps","m'lady (je m'entraîne)","quelqu'un a déjà touché l'herbe ? ça fait quoi ?","le Vieux Sage m'a fait lire un post de 2004 pendant 40 minutes","je suis pas asocial, je suis en mode furtif","par pitié le khey, qqun pour les Archives en Mythique ?","AYAAA j'ai drop un Sticker Original Non Compressé","c'est la hess, il me reste 3 po","ISSOU, Maman m'a os en un coup","+1 le khey","je suis au 18-25 depuis 2011 et j'ai toujours 18 ans dans mon cœur","la Chouffe de la taverne rend 55 % des PV, par pitié buvez-en","khey t'aurais pas 20 po ?","Gérard m'a racheté une Sauvegarde à 100 % pour 1 200 po, je pleure","l'Armure en Carton a pris l'eau, Bernard rembourse pas","les Kheys Enragés du Désert de Sel sont trop chiants, par pitié nerfez-les","Célestin un jour, Célestin toujours",...NOUVELLES_BOT_LINES];

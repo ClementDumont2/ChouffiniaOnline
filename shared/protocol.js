@@ -1,7 +1,7 @@
 // Protocole réseau : JSON sur WebSocket, un message par trame.
 //
 // Client → serveur
-//   {t:'join', name, hat}          une seule fois par connexion ; le pseudo désigne la sauvegarde saves/<pseudo>.json
+//   {t:'join', name, hat, cls}     une seule fois par connexion (cls : classe, ignorée si la sauvegarde existe) ; le pseudo désigne la sauvegarde saves/<pseudo>.json
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
 //                                  acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn,
@@ -21,9 +21,11 @@
 //                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.
 //                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, group).
 import {HATS} from './data.js';
+import {CLASSES} from './data/classes.js';
 import {stats} from './rules.js';
 
 export const cleanName=n=>String(n||'').trim().replace(/\s+/g,'_').replace(/[^\p{L}\p{N}_-]/gu,'').slice(0,16)||'Sire_Chouffin';
+export const cleanCls=c=>CLASSES[c]?c:undefined;
 export const cleanHat=h=>HATS.some(x=>x[0]===h)?h:undefined;
 
 const r2=n=>Math.round(n*100)/100;
@@ -36,8 +38,8 @@ function groupRec(w,pl){
 }
 function playerRec(w,pl,mine){
   const {S,P}=pl;
-  const rec={id:pl.id,kind:'player',n:P.n,lvl:S.lvl,look:{hat:S.hat,eq:S.eq},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
-  if(mine)rec.priv={hp:r2(S.hp),caf:r2(S.caf),cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,group:groupRec(w,pl)};
+  const rec={id:pl.id,kind:'player',n:P.n,lvl:S.lvl,cls:S.cls,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:S.eq},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
+  if(mine)rec.priv={hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,group:groupRec(w,pl)};
   return rec;
 }
 

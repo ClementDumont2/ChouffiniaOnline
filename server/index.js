@@ -6,7 +6,7 @@ import {networkInterfaces} from 'node:os';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {WebSocketServer} from 'ws';
 import {addPlayer, createWorld, handleAction, handleChat, movePlayer, removePlayer, takeEvents, tick} from '../shared/sim.js';
-import {cleanHat, cleanName, snapshotFor} from '../shared/protocol.js';
+import {cleanCls, cleanHat, cleanName, snapshotFor} from '../shared/protocol.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -82,7 +82,7 @@ export async function startServer({port = PORT, savesDir = join(ROOT, 'saves'), 
       }
       const save = loadSave(name);
       c.id = 'p' + nextId++; c.name = name;
-      addPlayer(world, c.id, {save, name, hat: cleanHat(m.hat)});
+      addPlayer(world, c.id, {save, name, hat: cleanHat(m.hat), cls: cleanCls(m.cls)});
       conns.set(c.id, c);
       send(c.ws, {t: 'welcome', id: c.id, seed: world.seed, save: world.players[c.id].S});
       return;

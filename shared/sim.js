@@ -1,13 +1,14 @@
 // Simulation pure : ni DOM, ni Math.random, aucun import du client.
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
-import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SKILLS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {clamp,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,score,stackable,stats,statsDeMob,xpNeed} from './rules.js';
+import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
+import {clamp,classOf,cmpInfo,dist,fmt,newSave,normalizeSave,npcById,rollArt,score,skillsOf,stackable,stats,statsDeMob,xpNeed} from './rules.js';
+import {CLASSES,SKILL_DEFS} from './data/classes.js';
 import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
-const GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
+const CLASS_COST=50,GROUP_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
 const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});
@@ -30,7 +31,7 @@ export function createWorld({seed=20111,rng,bots=false}={}){
 
 function mkMob(w,type,x,y,L,id){
   const d=MOBS[type];L=L||d.l;const{hp,atk,xp,g}=statsDeMob(type,L),{rr}=w.r;
-  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,bt:6,cast:0,castMax:2.6,enr:0,yt:5,hgt:d.hgt,blink:2};
+  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,bt:6,cast:0,castMax:2.6,enr:0,yt:5,hgt:d.hgt,blink:2};
 }
 
 function spawnOver(w){
@@ -47,10 +48,10 @@ function spawnOver(w){
 // Les pseudos connectés, pour l'autocomplétion des commandes (le snapshot ne contient que la carte du joueur).
 const announceOnline=w=>toAll(w,{t:'online',names:Object.values(w.players).map(p=>p.S.name)});
 
-export function addPlayer(w,id,{save,name,hat}={}){
-  const S=save?normalizeSave(save):newSave(name,hat),st=stats(S);
+export function addPlayer(w,id,{save,name,hat,cls}={}){
+  const S=save?normalizeSave(save):newSave(name,hat,cls),st=stats(S);
   S.hp=clamp(S.hp||st.maxhp,1,st.maxhp);S.caf=clamp(S.caf,0,st.maxcaf);
-  const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{}};
+  const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},nextCrit:false,hotAmt:0,hotAcc:0};
   const pl=w.players[id]={id,S,P,mapId:'over',group:null};
   msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${fmt(1247)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`);
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
@@ -86,7 +87,7 @@ export function movePlayer(w,id,x,y,face){
   const {P}=pl,map=w.maps[pl.mapId],d=Math.hypot(x-P.x,y-P.y);
   if(P.cast){P.cast=null;err(w,id,'Incantation interrompue.')}
   // Exception volontaire : la position vient du client ; on ne refuse que murs et vitesse impossible, et on renvoie alors la vraie position.
-  if(!canStand(map,x,y)||d>MAX_SPEED*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
+  if(!canStand(map,x,y)||d>MAX_SPEED*stats(pl.S).spd*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
   P.step+=d*2.7;P.x=x;P.y=y;P.mt=w.time;
   if(d>0){P.mv=.15;P.moving=true}
   if(face)P.face=face>0?1:-1;
@@ -120,10 +121,13 @@ function tickPlayer(w,pl,dt){
   if(P.dead)return;
   S.caf=Math.min(st.maxcaf,S.caf+dt*2.6);
   P.combat+=dt;if(P.combat>5)S.hp=Math.min(st.maxhp,S.hp+st.maxhp*.06*dt);
+  if(P.buffs.fiche>0){P.hotAcc+=dt;if(P.hotAcc>=1){P.hotAcc-=1;healBy(w,pl,pl,P.hotAmt)}}
+  const haste=P.buffs.anypct>0?1.4:1;
+  for(const k in P.buffs)if((P.buffs[k]-=dt)<=0)delete P.buffs[k];
   if(P.cast){P.cast.t-=dt;if(P.cast.t<=0){const c=P.cast;P.cast=null;finishCast(w,pl,c)}}
-  const tg=findEnt(w,pl.mapId,P.target);
-  if(tg&&tg.kind==='mob'&&tg.alive&&P.auto&&!P.cast&&dist(P,tg)<=SKILLS[0].rg&&(P.cd.tip||0)<=0)useSkill(w,pl,0,true);
-  for(const k in P.cd)if(P.cd[k]>0)P.cd[k]-=dt;
+  const tg=findEnt(w,pl.mapId,P.target),sk0=SKILL_DEFS[classOf(S).skills[0]];
+  if(tg&&tg.kind==='mob'&&tg.alive&&P.auto&&!P.cast&&dist(P,tg)<=sk0.rg&&(P.cd[classOf(S).skills[0]]||0)<=0)useSkill(w,pl,0,true);
+  for(const k in P.cd)if(P.cd[k]>0)P.cd[k]-=k==='pot'?dt:dt*haste;
 }
 
 function finishCast(w,pl,c){
@@ -145,13 +149,14 @@ function dropAggro(w,pl){
 
 const nearest=(m,list)=>{let best=null,bd=Infinity;for(const p of list){const d=dist(m,p.P);if(d<bd){bd=d;best=p}}return best};
 function pickTarget(m,valid){
+  if(m.taunt){const tp=valid.find(p=>p.id===m.taunt.by);if(tp)return tp}
   let best=null,bt=0;
   for(const p of valid){const t=m.threat[p.id]||0;if(t>bt){bt=t;best=p}}
   if(best)return best;
   const cur=valid.find(p=>p.id===m.target);if(cur)return cur;
   const n=nearest(m,valid);return n&&dist(m,n.P)<m.d.ag?n:null;
 }
-const dropMob=m=>{m.st='ret';m.cast=0;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
+const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
 
 function aggro(w,map,m,pl){
   if(m.st==='chase')return;
@@ -195,6 +200,7 @@ function rewardKill(w,map,m,group,T){
   for(const pl of group){
     const {S}=pl;
     S.kills++;ach(w,pl,'first');
+    if(S.cls==='speedrunner'){say(pl.P,'WR !',2);float(w,map.id,pl.P.x,pl.P.y-1.9,'WR !','#ffd84a',true)}
     if(m.type==='herbe'){S.herbe++;if(S.herbe>=10)ach(w,pl,'grass')}
     gainXP(w,pl,share,m.d.n);
   }
@@ -229,7 +235,7 @@ function gainXP(w,pl,n,src){
   S.xp+=n;ev(w,id,{t:'float',x:P.x,y:P.y-1.6,txt:`+${n} XP`,col:'#c4a8ff'});msg(w,id,'xpm',`${src?src+' meurt. ':''}Vous gagnez ${n} points d'expérience.`);
   while(S.lvl<MAXLVL&&S.xp>=xpNeed(S.lvl)){
     S.xp-=xpNeed(S.lvl);S.lvl++;const st=stats(S,P.drunk);S.hp=st.maxhp;S.caf=st.maxcaf;
-    const sk=SKILLS.find(s=>s.l===S.lvl),df=DIFFS.find(d=>d.rl===S.lvl);
+    const sk=skillsOf(S).find(s=>s.l===S.lvl),df=DIFFS.find(d=>d.rl===S.lvl);
     ev(w,id,{t:'banner',title:`Niveau ${S.lvl}`,sub:sk?`Nouvelle compétence : ${sk.n}`:df?`Archives débloquées : difficulté ${df.n}`:pick(LVLUP),cls:'lvl'});
     msg(w,id,'sys',`Félicitations, vous avez atteint le niveau ${S.lvl} !${sk?` Nouvelle compétence : **${sk.n}**.`:''}${df?` Les Archives en difficulté **${df.n}** sont accessibles.`:''}`);
     ev(w,id,{t:'lvlup',x:P.x,y:P.y});
@@ -240,7 +246,8 @@ function gainXP(w,pl,n,src){
 
 function hurtPlayer(w,pl,d,m,verb){
   const {S,P}=pl;if(P.dead)return;
-  const st=stats(S,P.drunk);d=Math.max(1,Math.round(d*(1-st.red)));
+  if(P.buffs.glitch>0){float(w,pl.mapId,P.x,P.y-1.3,'Glitch','#7fb6ff');return}
+  const st=stats(S,P.drunk);d=Math.max(1,Math.round(d*(1-st.red)*(P.buffs.reglement>0?.5:1)));
   S.hp-=d;P.combat=0;float(w,pl.mapId,P.x,P.y-1.3,'-'+d,'#ff5a4a');
   msg(w,pl.id,'cb in',`${m.d.n} ${verb||m.d.v} : ${d} dégâts.`);
   if(S.hp<=0){S.hp=0;die(w,pl)}
@@ -248,7 +255,7 @@ function hurtPlayer(w,pl,d,m,verb){
 
 function die(w,pl){
   const {S,P}=pl;
-  P.dead=true;P.cast=null;P.auto=false;S.deaths++;ach(w,pl,'death');endTrade(w,pl,'Échange annulé : un des joueurs est mort.');
+  P.dead=true;P.cast=null;P.auto=false;P.buffs={};S.deaths++;ach(w,pl,'death');endTrade(w,pl,'Échange annulé : un des joueurs est mort.');
   dropAggro(w,pl);
   ev(w,pl.id,{t:'died'});ev(w,pl.id,{t:'self'});
 }
@@ -297,34 +304,141 @@ function useItem(w,pl,id){
 
 function nearestMob(map,P,r){let best=null,bd=r;for(const m of map.mobs){if(!m.alive)continue;const d=dist(P,m);if(d<bd){bd=d;best=m}}return best}
 
+const alliesNear=(w,pl,r)=>onMap(w,pl.mapId).filter(p=>!p.P.dead&&dist(p.P,pl.P)<=r);
+const pay=(pl,sk)=>{pl.S.caf-=sk.c;pl.P.cd[sk.id]=sk.cd};
+function healBy(w,from,to,amt){
+  const mx=stats(to.S,to.P.drunk).maxhp;
+  to.S.hp=Math.min(mx,to.S.hp+amt);float(w,to.mapId,to.P.x,to.P.y-1.3,'+'+amt,'#6cff7a');
+  if(to!==from)msg(w,to.id,'loot',`[${from.S.name}] vous soigne de ${amt} PV.`);
+}
+function revive(w,by,pl,pct){
+  const {S,P}=pl;
+  P.dead=false;P.combat=0;S.hp=Math.max(1,Math.round(stats(S,P.drunk).maxhp*pct));
+  msg(w,pl.id,'sys',`[${by.S.name}] vous ressuscite avec un Joker MJ. Le MJ est d'accord, exceptionnellement.`);
+  burst(w,pl.mapId,P.x,P.y-.8,'#f0d070',18,3);ev(w,pl.id,{t:'respawned'});ev(w,pl.id,{t:'self'});
+}
+// Mobs vivants dans un rayon autour du lanceur ; sert au contrôle de foule (étourdir, ralentir, provoquer).
+const mobsAround=(w,pl,r)=>w.maps[pl.mapId].mobs.filter(m=>m.alive&&dist(m,pl.P)<=r);
+
+// Compétences sans cible ennemie : chacune paie son coût elle-même et peut refuser sans rien débiter.
+const SELF={
+  canette(w,pl,sk,st){
+    const {S,P}=pl;
+    S.hp=Math.min(st.maxhp,S.hp+Math.round(st.maxhp*.35));S.caf=Math.min(st.maxcaf,S.caf+30);
+    float(w,pl.mapId,P.x,P.y-1.3,'+'+Math.round(st.maxhp*.35),'#6cff7a');say(P,'*gloups* … elle est tiède.',2);burst(w,pl.mapId,P.x,P.y-.8,'#7fe04a',10);pay(pl,sk);
+  },
+  ragequit(w,pl,sk){const {P}=pl;P.cast={id:'ragequit',n:'Rage Quit',t:1.5,max:1.5};ev(w,pl.id,{t:'stop'});say(P,'C\'EST TRUQUÉ CE JEU',1.6);pay(pl,sk)},
+  fiche(w,pl,sk,st){
+    const amt=Math.max(1,Math.round(st.atk*.25));
+    for(const a of alliesNear(w,pl,sk.r)){a.P.buffs.fiche=6;a.P.hotAmt=amt;a.P.hotAcc=0;burst(w,pl.mapId,a.P.x,a.P.y-.8,'#6cff7a',8)}
+    say(pl.P,'Voici vos fiches. Elles sont équilibrées.',2.2);pay(pl,sk);
+  },
+  ban(w,pl,sk){
+    const map=w.maps[pl.mapId];
+    for(const m of mobsAround(w,pl,sk.r)){
+      // Les boss sont immunisés à l'étourdissement : on les ralentit seulement.
+      if(m.d.boss){m.slow=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Ralenti','#7fb6ff')}else{m.stun=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Banni','#ffd84a')}
+      aggro(w,map,m,pl);
+    }
+    say(pl.P,'Ban temporaire. Réfléchissez à vos actes.',2);P_combat(pl);pay(pl,sk);
+  },
+  lock(w,pl,sk){
+    const map=w.maps[pl.mapId];
+    for(const m of mobsAround(w,pl,sk.r)){m.taunt={by:pl.id,t:6};aggro(w,map,m,pl);float(w,map.id,m.x,m.y-m.hgt-.3,'!','#ff7a68')}
+    say(pl.P,'Ce topic est verrouillé.',2);P_combat(pl);pay(pl,sk);
+  },
+  anypct(w,pl,sk){pl.P.buffs.anypct=6;say(pl.P,'Any% ! Pas de pause.',2);burst(w,pl.mapId,pl.P.x,pl.P.y-.8,'#7fe0ff',12);pay(pl,sk)},
+  glitch(w,pl,sk){pl.P.buffs.glitch=2;say(pl.P,'*clip à travers le décor*',2);burst(w,pl.mapId,pl.P.x,pl.P.y-.8,'#7fb6ff',12);pay(pl,sk)},
+  reglement(w,pl,sk){pl.P.buffs.reglement=5;say(pl.P,'Règlement, article 1.',2);burst(w,pl.mapId,pl.P.x,pl.P.y-.8,'#ffd84a',12);pay(pl,sk)},
+};
+const P_combat=pl=>{pl.P.combat=0};
+
+// Compétences sur un joueur ciblé (allié vivant ou mort).
+const targetedPlayer=(w,pl)=>{const t=findEnt(w,pl.mapId,pl.P.target);return t&&t.kind==='player'&&t.id!==pl.id?w.players[t.id]:null};
+const ALLY={
+  relance(w,pl,sk,st){
+    let ally=pl;const t=targetedPlayer(w,pl);
+    if(t){
+      if(t.P.dead){err(w,pl.id,'Cet allié est mort. Il lui faut un Joker MJ.');return}
+      if(dist(pl.P,t.P)>sk.rg){err(w,pl.id,'Allié hors de portée.');return}
+      ally=t;
+    }
+    healBy(w,pl,ally,Math.max(1,Math.round(st.atk*2.2)));say(pl.P,'Je relance !',1.6);burst(w,pl.mapId,ally.P.x,ally.P.y-.8,'#6cff7a',10);pay(pl,sk);
+  },
+  joker(w,pl,sk){
+    const t=targetedPlayer(w,pl),inRange=p=>p.P.dead&&dist(pl.P,p.P)<=sk.rg;
+    const dead=t&&inRange(t)?t:onMap(w,pl.mapId).filter(p=>p!==pl&&inRange(p)).sort((a,b)=>dist(pl.P,a.P)-dist(pl.P,b.P))[0];
+    if(!dead){err(w,pl.id,'Aucun allié mort à portée.');return}
+    revive(w,pl,dead,.4);say(pl.P,'Joker MJ activé.',2);pay(pl,sk);
+  },
+};
+
+// Compétences sur un ennemi : même cible, même portée, même critique ; seule la formule de dégâts change.
+function strike(w,pl,t,sk,st,crit,mul){
+  const {P}=pl,map=w.maps[pl.mapId],{pick,rr}=w.r,id=pl.id,roll=base=>Math.max(1,Math.round(base*rr(.85,1.15)));
+  switch(sk.id){
+    case 'tip':
+      {const {S}=pl;P.tipT=.45;S.tips++;if(S.tips%4===1)float(w,pl.mapId,P.x,P.y-1.9,'M\'lady.','#ede1c5');if(S.tips>=50)ach(w,pl,'mlady');hitMob(w,map,t,roll(st.atk*mul),crit,sk.n,pl)}
+      break;
+    case 'enfait':
+      say(P,pick(ENFAIT),2.4);if(!t.d.boss)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,t.d.boss?'Insensible':'Étourdi','#ffd84a');hitMob(w,map,t,roll(st.atk*1.5*mul),crit,sk.n,pl);
+      break;
+    case 'copypasta':
+      say(P,'*colle 4 000 caractères*',1.8);
+      for(const m of map.mobs){if(m.alive&&dist(m,t)<=2.2){m.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});aggro(w,map,m,pl);toMap(w,map.id,{t:'puff',x:m.x,y:m.y-m.hgt*.6})}}
+      break;
+    case 'd20':{
+      const nat=w.rnd()<.05,dmg=Math.max(1,Math.round(st.atk*rr(.6,1.4)*(nat?2:1)));
+      if(nat){float(w,pl.mapId,P.x,P.y-1.9,'20 NATUREL !','#ffd84a',true);msg(w,id,'sys','20 NATUREL ! Le MJ n\'a rien vu venir.');say(P,'20 NATUREL !',2)}
+      hitMob(w,map,t,dmg,nat,sk.n,pl);break}
+    case 'frame':hitMob(w,map,t,roll(st.atk*.7*mul),crit,sk.n,pl);break;
+    case 'avertissement':{
+      const dmg=roll(st.atk*mul);hitMob(w,map,t,dmg,crit,sk.n,pl);
+      if(t.alive)t.threat[id]=(t.threat[id]||0)+dmg*2;
+      break}
+  }
+}
+
 function useSkill(w,pl,i,auto){
-  const {S,P}=pl,id=pl.id,map=w.maps[pl.mapId],{pick}=w.r,sk=SKILLS[i];
+  const {S,P}=pl,id=pl.id,map=w.maps[pl.mapId],sk=skillsOf(S)[i];
   if(!sk||P.dead)return;
   if(S.lvl<sk.l){if(!auto)err(w,id,`« ${sk.n} » se débloque au niveau ${sk.l}.`);return}
   if((P.cd[sk.id]||0)>0){if(!auto)err(w,id,'Pas encore prêt. La patience n\'est pas votre compétence principale.');return}
   if(P.cast){if(!auto)err(w,id,'Vous êtes déjà occupé.');return}
   if(S.caf<sk.c){err(w,id,'Pas assez de Caféine.');return}
-  const st=stats(S,P.drunk),roll=base=>Math.max(1,Math.round(base*w.r.rr(.85,1.15)));
-  if(sk.id==='canette'){
-    const h=Math.round(st.maxhp*.35);S.hp=Math.min(st.maxhp,S.hp+h);S.caf=Math.min(st.maxcaf,S.caf+30);
-    float(w,pl.mapId,P.x,P.y-1.3,'+'+h,'#6cff7a');say(P,'*gloups* … elle est tiède.',2);burst(w,pl.mapId,P.x,P.y-.8,'#7fe04a',10);P.cd[sk.id]=sk.cd;return;
-  }
-  if(sk.id==='ragequit'){P.cast={id:'ragequit',n:'Rage Quit',t:1.5,max:1.5};ev(w,id,{t:'stop'});say(P,'C\'EST TRUQUÉ CE JEU',1.6);P.cd[sk.id]=sk.cd;return}
+  const st=stats(S,P.drunk);
+  if(sk.self)return SELF[sk.id](w,pl,sk,st);
+  if(sk.ally)return ALLY[sk.id](w,pl,sk,st);
   let t=findEnt(w,pl.mapId,P.target);
   if(!t||t.kind!=='mob'||!t.alive){t=nearestMob(map,P,sk.rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
   if(dist(P,t)>sk.rg){
-    if(!auto){if(sk.id==='tip'){P.auto=true;ev(w,id,{t:'approach',id:t.id})}else err(w,id,'Hors de portée. Rapprochez-vous (physiquement, ce n\'est pas social).')}
+    // Les attaques de base s'approchent toutes seules ; les autres demandent de se rapprocher à la main.
+    if(!auto){if(i===0){P.auto=true;ev(w,id,{t:'approach',id:t.id})}else err(w,id,'Hors de portée. Rapprochez-vous (physiquement, ce n\'est pas social).')}
     return;
   }
   if(Math.abs(t.x-P.x)>.05)P.face=t.x>P.x?1:-1;
-  S.caf-=sk.c;P.cd[sk.id]=sk.cd;P.combat=0;P.auto=true;
-  const crit=w.rnd()<.12,mul=crit?1.8:1;
-  if(sk.id==='tip'){P.tipT=.45;S.tips++;if(S.tips%4===1)float(w,pl.mapId,P.x,P.y-1.9,'M\'lady.','#ede1c5');if(S.tips>=50)ach(w,pl,'mlady');hitMob(w,map,t,roll(st.atk*mul),crit,'Tip du Fedora',pl)}
-  else if(sk.id==='enfait'){say(P,pick(ENFAIT),2.4);if(!t.d.boss)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,t.d.boss?'Insensible':'Étourdi','#ffd84a');hitMob(w,map,t,roll(st.atk*1.5*mul),crit,'« En fait... »',pl)}
-  else if(sk.id==='copypasta'){
-    say(P,'*colle 4 000 caractères*',1.8);
-    for(const m of map.mobs){if(m.alive&&dist(m,t)<=2.2){m.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});aggro(w,map,m,pl);toMap(w,map.id,{t:'puff',x:m.x,y:m.y-m.hgt*.6})}}
+  if(sk.id==='skipcine'){
+    // « Derrière » = du côté opposé à l'orientation du monstre ; s'il y a un mur, on prend l'autre côté plutôt que d'échouer.
+    const spot=[-t.face,t.face].map(d=>({x:t.x+d*1.1,y:t.y})).find(q=>canStand(map,q.x,q.y));
+    if(!spot){if(!auto)err(w,id,'Pas de place derrière la cible.');return}
+    teleport(w,pl,spot.x,spot.y);P.face=t.x>spot.x?1:-1;P.nextCrit=true;P.auto=true;P.combat=0;
+    float(w,pl.mapId,P.x,P.y-1.9,'Skip !','#7fe0ff');burst(w,pl.mapId,P.x,P.y-.8,'#7fe0ff',10);pay(pl,sk);return;
   }
+  pay(pl,sk);P.combat=0;P.auto=true;
+  const crit=P.nextCrit||w.rnd()<.12,mul=crit?1.8:1;
+  P.nextCrit=false;
+  strike(w,pl,t,sk,st,crit,mul);
+}
+
+function changeClass(w,pl,cls){
+  const {S,P}=pl,cost=CLASS_COST*S.lvl;
+  if(!nearNpc(pl,'conseiller')||!CLASSES[cls])return;
+  if(S.cls===cls){err(w,pl.id,`Vous êtes déjà ${CLASSES[cls].nom}.`);return}
+  if(S.gold<cost){err(w,pl.id,'Pas assez d\'or. La reconversion professionnelle, ça se finance.');return}
+  S.gold-=cost;S.cls=cls;P.cd={};P.buffs={};P.cast=null;P.auto=false;P.nextCrit=false;
+  S.hp=Math.min(S.hp,stats(S,P.drunk).maxhp);
+  msg(w,pl.id,'sys',`Reconversion terminée : vous êtes désormais **${CLASSES[cls].nom}** (${fmt(cost)} po). Niveau, équipement et quêtes conservés.`);
+  ev(w,pl.id,{t:'toast',kicker:'Nouvelle classe',title:CLASSES[cls].nom,sub:''});
 }
 
 const groupOf=(w,pl)=>pl.group?w.groups[pl.group]:null;
@@ -585,6 +699,7 @@ export function handleAction(w,id,a){
     case 'tradeOffer':tradeOffer(w,pl,a);break;
     case 'tradeOk':tradeOk(w,pl);break;
     case 'tradeCancel':endTrade(w,pl,'Échange annulé.');break;
+    case 'changeClass':changeClass(w,pl,a.cls);break;
     case 'respawn':if(P.dead)respawn(w,pl);break;
     default:return;
   }
@@ -685,6 +800,8 @@ function tickMob(w,map,m,dt,here){
   for(const o of m.dots){o.t-=dt;o.acc+=dt;if(o.acc>=1){o.acc-=1;hitMob(w,map,m,o.dmg,false,'dot',w.players[o.by]);if(!m.alive)return}}
   m.dots=m.dots.filter(o=>o.t>0);
   if(m.stun>0)m.stun-=dt;
+  if(m.slow>0)m.slow-=dt;
+  if(m.taunt&&(m.taunt.t-=dt)<=0)m.taunt=null;
   m.acd-=dt;
   const dh=Math.hypot(m.x-m.hx,m.y-m.hy),valid=here.filter(p=>!p.P.dead&&!(over&&isSafe(map,p.P.x,p.P.y)));
   if(m.st==='idle'){
@@ -717,8 +834,8 @@ function tickMob(w,map,m,dt,here){
       if(m.bt<=0){m.cast=2.6;m.castMax=2.6;const l=pick(A.shout);say(m,l,2.6);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${d.yn}] crie : ${l}`});toMap(w,map.id,{t:'err',text:A.warn});return}
     }
     if(m.type==='lag'){m.blink-=dt;if(m.blink<=0&&dp>2){m.blink=rr(2,3.2);const L=Math.min(1.8,dp-1),nx=m.x+(T.x-m.x)/dp*L,ny=m.y+(T.y-m.y)/dp*L;if(!isSolid(map,nx,ny)){burst(w,map.id,m.x,m.y-.6,'#ff3bd5',6);m.x=nx;m.y=ny;float(w,map.id,m.x,m.y-1.4,'*lag*','#3bf0ff')}}}
-    if(dp>1.1){stepToward(map,m,T.x,T.y,d.sp,dt)}
-    else{m.moving=false;if(Math.abs(T.x-m.x)>.05)m.face=T.x>m.x?1:-1;if(m.acd<=0){m.acd=d.cd;let dmg=ri(m.atk[0],m.atk[1]);if(m.enr)dmg=Math.round(dmg*1.3);hurtPlayer(w,tgt,dmg,m)}}
+    if(dp>1.1){stepToward(map,m,T.x,T.y,d.sp*(m.slow>0?.5:1),dt)}
+    else{m.moving=false;if(Math.abs(T.x-m.x)>.05)m.face=T.x>m.x?1:-1;if(m.acd<=0){m.acd=d.cd*(m.slow>0?2:1);let dmg=ri(m.atk[0],m.atk[1]);if(m.enr)dmg=Math.round(dmg*1.3);hurtPlayer(w,tgt,dmg,m)}}
   }else if(m.st==='ret'){
     m.hp=Math.min(m.mhp,m.hp+m.mhp*.6*dt);
     if(stepToward(map,m,m.hx,m.hy,d.sp*1.6,dt)||dh<.15){m.x=m.hx;m.y=m.hy;m.st='idle';m.hp=m.mhp;m.moving=false;m.bt=6;m.enr=0}
