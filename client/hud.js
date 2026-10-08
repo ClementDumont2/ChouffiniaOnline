@@ -19,6 +19,8 @@ let errTO=0;
 export function err(msg){const e=$('#err');e.textContent=msg;e.classList.add('on');clearTimeout(errTO);errTO=setTimeout(()=>e.classList.remove('on'),2200)}
 export function toast(kicker,title,sub){const d=document.createElement('div');d.className='toast frame';d.innerHTML=`<small>${esc(kicker)}</small><b>${esc(title)}</b>${sub?`<span>${esc(sub)}</span>`:''}`;$('#toasts').appendChild(d);setTimeout(()=>d.remove(),5100)}
 export function banner(title,sub,cls){const b=$('#banner');b.className='hud '+(cls||'');b.querySelector('b').textContent=title;b.querySelector('span').textContent=sub||'';void b.offsetWidth;b.classList.add('show')}
+// Chiffre géant au centre de l'écran (compte à rebours d'un duel).
+export function countdown(text){const c=$('#countdown');c.textContent=text;c.classList.remove('show');void c.offsetWidth;c.classList.add('show')}
 export function announce(who,text){const a=$('#announce');a.querySelector('small').textContent=`Annonce de ${who}`;a.querySelector('b').textContent=text;a.classList.remove('show');void a.offsetWidth;a.classList.add('show')}
 const skEls=[];let conEls=[],barCls=null;
 // La barre dépend de la classe : à reconstruire quand l'état privé annonce un changement.

@@ -84,7 +84,7 @@ export function renderChar(){
 export function renderCharStats(){
   if(charTab!=='eq')return;
   const st=stats(S,P.drunk),dig=Math.max(0,100-S.tips),days=6+Math.floor(S.played/60);
-  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${S.eq.tete==='fedora'?2:3} <small>${S.eq.tete==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
+  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${S.eq.tete==='fedora'?2:3} <small>${S.eq.tete==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
   $('#cstats').innerHTML=rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
 let dlgLocked=false;
@@ -204,6 +204,11 @@ export function showEnd(){
 }
 
 // Fenêtre d'échange : l'état vient entièrement du serveur ({with, mine, theirs}) ; chaque clic renvoie l'offre complète.
+// Défi en duel : fenêtre Accepter/Refuser qui se referme toute seule quand l'invitation expire côté serveur.
+export function showDuelInvite(e){
+  dialog('Défi en duel',`De ${e.from}`,`<p><b>${esc(e.from)}</b> vous défie dans l'Arène du Débat Stérile. Dégâts réduits de moitié, personne ne meurt. Le perdant doit écrire « tu as raison ».</p><p class="rw">Expire dans ${e.ttl} s.</p>`,[['Accepter',()=>{closePanel('dlg');send({a:'duelReply',ok:true})}],['Refuser',()=>{closePanel('dlg');send({a:'duelReply',ok:false})},true]]);
+  setTimeout(()=>{if($('#dlgT').textContent==='Défi en duel')closePanel('dlg')},e.ttl*1000);
+}
 export function showTrade(e){
   if(e.end){if(trade){trade=null;if($('#dlgT').textContent==='Échange')unlockDlg()}return}
   const first=!trade;trade=e;

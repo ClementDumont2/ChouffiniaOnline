@@ -290,11 +290,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 }
 /* Au-dessus du canvas, sous les cadres du HUD : le liseré ne doit pas teinter l'interface. */
 #deadbar{bottom:150px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;padding:6px 12px}
+#countdown{top:30%;left:50%;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:900;font-size:clamp(60px,14vw,150px);color:#ffe9a8;text-shadow:0 4px 0 #000,0 0 30px rgba(212,173,96,.7);pointer-events:none;opacity:0;white-space:nowrap}
+#countdown.show{animation:count 1s ease-out forwards}
+@keyframes count{0%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}15%{opacity:1}80%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.9)}}
 #vig{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(200,0,0,.55) 100%)}
 #vig.low{opacity:1;animation:vig 1.6s ease-in-out infinite}
 #vig.crit{opacity:1;background:radial-gradient(ellipse at center,transparent 38%,rgba(220,0,0,.8) 100%);animation:vig .7s ease-in-out infinite}
 @keyframes vig{50%{opacity:.45}}
-@media (prefers-reduced-motion:reduce){.toast,#banner.show{animation-duration:.01s}#announce.show{animation:announceFade 8s linear forwards}@keyframes announceFade{0%{opacity:0;transform:translate(-50%,0)}4%,92%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}#vig.low,#vig.crit{animation:none}}
+@media (prefers-reduced-motion:reduce){#countdown.show{animation:countFade 1s linear forwards}@keyframes countFade{0%,85%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0;transform:translate(-50%,-50%)}}.toast,#banner.show{animation-duration:.01s}#announce.show{animation:announceFade 8s linear forwards}@keyframes announceFade{0%{opacity:0;transform:translate(-50%,0)}4%,92%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}#vig.low,#vig.crit{animation:none}}
 </style>
 </head>
 <body>
@@ -353,6 +356,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
     <div id="err" class="hud"></div>
     <div id="toasts" class="hud"></div>
     <div id="banner" class="hud"><b></b><span></span></div>
+    <div id="countdown" class="hud" aria-live="assertive"></div>
     <div id="announce" class="hud" role="alert"><small></small><b></b></div>
 
     <div id="bag" class="frame panel" hidden>

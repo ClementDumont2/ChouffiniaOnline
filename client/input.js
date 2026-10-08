@@ -44,7 +44,7 @@ export function initInput(){cv.addEventListener('pointerdown',e=>{
   if(best){
     if(best.kind==='mob'){send({a:'target',id:best.id,auto:true});nav.goal=null;if(dist(P,best)>1.35)nav.follow=best.id}
     else if(best.kind==='npc'||best.kind==='obj'){send({a:'target',id:best.id});nav.goal=null;const need=best.kind==='npc'?1.7:1.3;if(dist(P,best)<need){best.kind==='npc'?openNpc(best):openObj(best)}else nav.follow=best.id}
-    else if(best.kind==='player')send({a:'target',id:best.id});
+    else if(best.kind==='player')send({a:'target',id:best.id,auto:true});
     else{send({a:'target',id:best.id});chat('wsp',`[${esc(best.n)}] vous chuchote : ${esc(pick(WHISPERS))}`)}
   }else{nav.goal={x:wx,y:wy};nav.follow=null;setMarker({x:wx,y:wy,t:0})}
 });}
