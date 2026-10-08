@@ -60,7 +60,7 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
   S.hp=clamp(S.hp||st.maxhp,1,st.maxhp);S.caf=clamp(S.caf,0,st.maxcaf);
   const P={id,n:S.name,x:SPAWN.x,y:SPAWN.y,mt:w.time,face:1,moving:false,mv:0,step:0,tipT:0,target:null,auto:false,combat:99,dead:false,cast:null,hgt:1.25,kind:'player',drunk:0,say:'',sayT:0,cd:{},buffs:{},dots:[],mount:null,mountSayT:0,nextCrit:false,hotAmt:0,hotAcc:0};
   const pl=w.players[id]={id,S,P,mapId:'over',duel:null};
-  msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${fmt(1247)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`);
+  msg(w,id,'sys',`[Serveur] Bienvenue sur Chouffinia Online, ${S.name}. ${(n=>n>1?`${fmt(n)} joueurs sont connectés. Aucun n'a vu le soleil cette semaine.`:'Vous êtes seul connecté. Comme d\'habitude.')(Object.keys(w.players).length)}`);
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
   msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
   if(!save)msg(w,id,'sys','[Aide] Le Vieux Sage du Forum vous attend dans le sous-sol. Il a un point d\'exclamation au-dessus de la tête. C\'est sa seule expression.');

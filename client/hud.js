@@ -9,7 +9,7 @@ import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
 import {H,MINI_S,TS,W,cam} from './render.js';
 import {openPortal,renderCharStats,togglePanel} from './panels.js';
 import {keyOf,label} from './keys.js';
-import {P,S,WD,me,send,targetEnt,world} from './state.js';
+import {P,S,WD,me,online,send,targetEnt,world} from './state.js';
 
 const count=id=>{const s=S.inv.find(s=>!s.uid&&s.id===id);return s?s.n:0};
 
@@ -102,7 +102,7 @@ export function hud(t){
     mctx.textBaseline='middle';
     for(const z of zoneLbl){const ls=wrapText(z.n,Math.max(2*z.r*MINI_S,40));ls.forEach((l,i)=>{const y=(z.y+(i-(ls.length-1)/2)*2.6)*MINI_S,hw=mctx.measureText(l).width/2+1,x=clamp(z.x*MINI_S,hw,miniC.width-hw);mctx.strokeText(l,x,y);mctx.fillText(l,x,y)})}}
   const d=new Date();$('#clk').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  $('#pop').textContent=`${fmt(1247+Math.round(Math.sin(t/40)*23))} en ligne`;
+  $('#pop').textContent=`${fmt(online.length)} en ligne`;
   if(WD.id!=='over'){const left=WD.mobs.filter(m=>m.alive&&!m.d.boss).length,boss=WD.mobs.some(m=>m.alive&&m.d.boss);const el=$('#dgleft');if(el)el.textContent=`Ennemis restants : ${left} · Boss : ${boss?'en vie':'vaincu'}`}
   if(!$('#char').hidden)renderCharStats();
 }
