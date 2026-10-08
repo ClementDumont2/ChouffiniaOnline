@@ -26,6 +26,9 @@ function paintTile(g,map,x,y){
   const metal=()=>{R(0,0,32,32,'#3a3f46');R(0,0,32,1,'#4a5058');R(0,0,1,32,'#4a5058');R(31,0,1,32,'#2a2e33');R(0,31,32,1,'#2a2e33');R(3,3,2,2,'#2a2e33');R(27,3,2,2,'#2a2e33');R(3,27,2,2,'#2a2e33');R(27,27,2,2,'#2a2e33')};
   const dfloor=()=>{R(0,0,32,32,'#2a2730');R(1,1,14,14,'#322e39');R(17,1,14,14,Hh(1)<.5?'#2f2b36':'#353140');R(1,17,14,14,Hh(2)<.5?'#353140':'#2f2b36');R(17,17,14,14,'#322e39');if(Hh(3)<.3)R(Math.floor(Hh(4)*24),Math.floor(Hh(5)*24),7,1,'#1f1c24')};
   const dwall=()=>{R(0,0,32,32,'#16131a');R(0,0,32,5,'#221e28');for(let j=0;j<4;j++){R(0,5+j*7,32,1,'#0e0c11');R((j%2)*12+6,5+j*7,1,7,'#0e0c11');R((j%2)*12+22,5+j*7,1,7,'#0e0c11')}};
+  const asphalt=()=>{R(0,0,32,32,'#3a3b40');for(let i=0;i<5;i++)R(Math.floor(Hh(i+1)*30),Math.floor(Hh(i+9)*30),2,2,Hh(i+17)<.5?'#46474d':'#303137')};
+  const sfloor=()=>{for(let j=0;j<2;j++)for(let i=0;i<2;i++)R(i*16,j*16,16,16,(i+j)%2?'#d9d6cc':'#c9c5b8')};
+  const carpet=()=>{R(0,0,32,32,'#3e4a66');for(let i=0;i<6;i++)R(Math.floor(Hh(i+1)*30),Math.floor(Hh(i+9)*30),2,2,'#4a5878')};
   const stall=(c1,c2)=>{stone();R(1,14,30,16,'#6b4a2f');R(1,14,30,3,'#7d5a3a');for(let i=0;i<5;i++)R(1+i*6,2,6,10,i%2?c2:c1);R(1,12,30,2,'#3a2a1e');R(4,10,2,6,'#3a2a1e');R(26,10,2,6,'#3a2a1e')};
   switch(t){
     case T.GRASS:grass();break;
@@ -57,6 +60,18 @@ function paintTile(g,map,x,y){
     case T.CRYSTAL:salt();g.fillStyle='#f4f1ea';g.beginPath();g.moveTo(X+10,Y+28);g.lineTo(X+14,Y+6);g.lineTo(X+18,Y+28);g.fill();g.fillStyle='#e6c9d0';g.beginPath();g.moveTo(X+16,Y+28);g.lineTo(X+22,Y+12);g.lineTo(X+26,Y+28);g.fill();g.fillStyle='#ffffff';g.fillRect(X+13,Y+10,1,10);break;
     case T.METAL:metal();break;
     case T.RACK:metal();R(3,0,26,31,'#141619');R(3,0,26,2,'#25282d');for(let j=0;j<5;j++)R(5,4+j*5,22,3,'#1e2125');break;
+    // ---- Lot 8 : Parking, Supermarché, Pôle Emploi ----
+    case T.ASPHALT:asphalt();break;
+    case T.LINE:asphalt();R(14,0,3,32,'#d8d8d0');R(14,Math.floor(Hh(40)*26),3,6,'#3a3b40');break;
+    case T.CAR:{asphalt();const c=['#c0392b','#2f6fb0','#d8d8d0','#e0b020','#3a8a4a'][Math.floor(Hh(41)*5)];R(3,12,26,13,c);R(8,6,16,8,c);R(10,7,12,6,'#9fd0e8');R(15,7,2,6,c);R(4,22,6,6,'#111');R(22,22,6,6,'#111');R(5,24,3,3,'#9a9aa2');R(23,24,3,3,'#9a9aa2');R(26,15,3,3,'#f4f0a0');R(3,15,2,3,'#ff4a4a');break}
+    case T.LAMP:asphalt();R(15,5,3,25,'#5a5a62');R(9,2,15,4,'#d8d070');R(10,6,13,2,'rgba(240,230,120,.4)');R(12,28,9,3,'#3a3a42');break;
+    case T.SFLOOR:sfloor();break;
+    case T.AISLE:{sfloor();R(1,3,30,26,'#8a8f98');for(let j=0;j<3;j++){R(2,5+j*8,28,1.5,'#5a5f68');for(let i=0;i<7;i++)R(3+i*4,j*8+7-Math.floor(Hh(i+j*7)*3)*0,3,5,['#d4301f','#2f6fb0','#f4d03f','#3a8a4a','#e07a1f','#8a5ab0'][Math.floor(Hh(i+j*9+60)*6)])}break}
+    case T.CASH:sfloor();R(2,10,28,17,'#4a4f58');R(2,10,28,3,'#6a707a');R(4,15,18,5,'#1a1a1e');R(6,16,8,3,'#8a8f98');R(23,12,6,7,'#2a2f38');R(24,13,4,3,'#7fe0ff');R(24,17,2,1,'#ff4a4a');break;
+    case T.CART:sfloor();R(6,10,20,10,'rgba(0,0,0,0)');g.strokeStyle='#9aa0a8';g.lineWidth=2;g.strokeRect(X+7,Y+10,18,10);for(let i=1;i<4;i++){g.beginPath();g.moveTo(X+7+i*4.5,Y+10);g.lineTo(X+7+i*4.5,Y+20);g.stroke()}R(4,6,3,6,'#7a7f88');R(4,6,10,2,'#7a7f88');R(8,21,3,3,'#222');R(21,21,3,3,'#222');break;
+    case T.CARPET:carpet();break;
+    case T.GUICHET:carpet();R(1,8,30,20,'#8a7a5a');R(1,8,30,3,'#a89a74');R(4,1,24,8,'#9fd0e8');R(4,1,24,2,'#c8e6f4');R(12,13,8,2,'#2a2218');R(13,17,6,5,'#f4f1e6');break;
+    case T.PLANT:carpet();R(9,19,14,11,'#a0522d');R(9,19,14,3,'#b8683d');circ(16,12,9,'#2f6a34');circ(11,10,6,'#3a7a3d');circ(21,10,6,'#357535');circ(16,6,5,'#4a8a46');break;
     case T.DFLOOR:dfloor();break;
     case T.PAPERS:dfloor();for(let i=0;i<3;i++){const a=2+Math.floor(Hh(i+20)*20),b=2+Math.floor(Hh(i+30)*20);R(a,b,8,6,'#cfc7b4');R(a+1,b+2,6,1,'#8a826f');R(a+1,b+4,4,1,'#8a826f')}break;
     case T.DWALL:dwall();break;
@@ -65,7 +80,7 @@ function paintTile(g,map,x,y){
   }
 }
 export const MINI_S=3;
-const MINI_COL={0:'#3e6c35',1:'#8a6a44',2:'#6a4a2e',3:'#141117',4:'#6fd13a',5:'#1f4424',6:'#c8c0ac',7:'#3e6c35',8:'#6d6b70',9:'#6a4a2e',10:'#6a4a2e',11:'#c8c0ac',12:'#c8c0ac',13:'#6a4a2e',14:'#8a847d',15:'#6b4a2f',16:'#b9352c',17:'#2f5f9a',18:'#5e3b1c',19:'#5a3a8a',20:'#3c4a33',21:'#1f2f2b',22:'#2c3927',23:'#dcd6c8',24:'#f4f1ea',25:'#4a5058',26:'#141619',27:'#433d4c',28:'#100e13',29:'#e08a2a',30:'#2a2730',31:'#5a5448'};
+const MINI_COL={0:'#3e6c35',1:'#8a6a44',2:'#6a4a2e',3:'#141117',4:'#6fd13a',5:'#1f4424',6:'#c8c0ac',7:'#3e6c35',8:'#6d6b70',9:'#6a4a2e',10:'#6a4a2e',11:'#c8c0ac',12:'#c8c0ac',13:'#6a4a2e',14:'#8a847d',15:'#6b4a2f',16:'#b9352c',17:'#2f5f9a',18:'#5e3b1c',19:'#5a3a8a',20:'#3c4a33',21:'#1f2f2b',22:'#2c3927',23:'#dcd6c8',24:'#f4f1ea',25:'#4a5058',26:'#141619',27:'#433d4c',28:'#100e13',29:'#e08a2a',30:'#2a2730',31:'#5a5448',32:'#3a3b40',33:'#d8d8d0',34:'#2f6fb0',35:'#d8d070',36:'#d9d6cc',37:'#8a8f98',38:'#4a4f58',39:'#9aa0a8',40:'#3e4a66',41:'#8a7a5a',42:'#2f6a34'};
 export function paintWorld(Wd){
   Wd.c=document.createElement('canvas');Wd.c.width=Wd.w*PX;Wd.c.height=Wd.h*PX;
   const g=Wd.c.getContext('2d');for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++)paintTile(g,Wd,x,y);
@@ -116,6 +131,7 @@ export function render(t){
       ctx.fillStyle='rgba(120,15,30,.34)';ctx.fill('evenodd');ctx.restore();
       ctx.strokeStyle='rgba(255,210,120,.95)';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(sx(m.zone.x),sy(m.zone.y),m.zone.r*TS,m.zone.r*TS*.62,0,0,7);ctx.stroke();
     }
+    if(m.spots&&m.cast>0){const p=1-m.cast/m.castMax;for(const q of m.spots){ring(q.x,q.y,m.castR,`rgba(236,90,76,${.14+.14*p})`,'rgba(236,90,76,.9)');ctx.fillStyle='rgba(236,90,76,.28)';ctx.beginPath();ctx.ellipse(sx(q.x),sy(q.y),m.castR*TS*p,m.castR*TS*.62*p,0,0,7);ctx.fill()}}
     if(m.cast>0&&m.castK==='chain'){
       const mk=m.mark===me?P:world.players[m.mark]&&world.players[m.mark].P;
       if(mk){ring(mk.x,mk.y,m.castR,`rgba(180,120,255,${.1+.1*Math.sin(t*10)})`,'rgba(201,168,255,.9)');ctx.strokeStyle='rgba(201,168,255,.7)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(m.x),sy(m.y)-m.hgt*TS*.5);ctx.lineTo(sx(mk.x),sy(mk.y)-TS*.6);ctx.stroke()}

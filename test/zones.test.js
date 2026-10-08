@@ -221,3 +221,13 @@ test('chaque boss suit la progression par difficulté (Normal → Sans Douche)',
   assert.ok(noms('reserve', 1).includes('Promos −70 %') && !noms('reserve', 1).includes('Étiquettes Rouges') && noms('reserve', 2).includes('Étiquettes Rouges'));
   assert.ok(noms('labyrinthe', 0).includes('Revenez Demain'));
 });
+
+test('la fin de campagne suit la dernière quête d\'origine (fin), pas la dernière du tableau', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), i = QUESTS.findIndex(q => q.fin);
+  assert.ok(i >= 0 && i < QUESTS.length - 1);
+  p.S.q = {i, st: 'ready', n: 1}; place(p, npc(QUESTS[i].g).x + 1, npc(QUESTS[i].g).y + .3);
+  takeEvents(w, 'p1');
+  handleAction(w, 'p1', {a: 'completeQuest'});
+  assert.ok(takeEvents(w, 'p1').some(e => e.t === 'campaignEnd'));
+  assert.equal(p.S.q.i, i + 1, 'la quête du Parking s\'ouvre ensuite');
+});

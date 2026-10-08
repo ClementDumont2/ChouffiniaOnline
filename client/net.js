@@ -10,7 +10,7 @@ const raw=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))};
 
 export function buildMap(w){
   const map=w.id==='over'?genOverworld(w.seed):genDungeon(w.seed,w.ti);
-  return Object.assign(map,{id:w.id,seed:w.seed,ti:w.ti,done:!!w.done,mobs:[],objs:[],npcs:w.id==='over'?NPCS.map(n=>({...n})):[],bots:[],c:null,mini:null});
+  return Object.assign(map,{id:w.id,seed:w.seed,ti:w.ti,dg:w.dg,done:!!w.done,mobs:[],objs:[],npcs:w.id==='over'?NPCS.map(n=>({...n})):[],bots:[],c:null,mini:null});
 }
 
 export function connect(name,hat,cls){ident={name,hat,cls};joined=false;refusal=null;clearTimeout(retry);if(ws){const old=ws;ws=null;old.close()}open()}

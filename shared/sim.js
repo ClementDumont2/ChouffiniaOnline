@@ -775,7 +775,8 @@ function completeQuest(w,pl){
   S.q.i++;S.q.st='avail';S.q.n=0;
   gainXP(w,pl,q.xp);ev(w,pl.id,{t:'toast',kicker:'Quête terminée',title:q.n,sub:''});
   if(S.gold>=100)ach(w,pl,'rich');
-  if(S.q.i>=QUESTS.length)ev(w,pl.id,{t:'campaignEnd'});
+  // La fin de campagne marque la dernière quête d'origine (fin:true) : d'autres quêtes lui font suite.
+  if(q.fin)ev(w,pl.id,{t:'campaignEnd'});
 }
 
 // Monstre de donjon : mise à l'échelle du groupe, Héroïque et plus (PV ×1,3, dégâts ×1,2), élite (PV ×1,5, dégâts ×1,2) avec son affixe.

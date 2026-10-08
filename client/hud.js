@@ -1,4 +1,4 @@
-import {DIFFS,ITEMS,MAXLVL,MOBS,NPCS,QUESTS} from '../shared/data.js';
+import {DIFFS,DUNGEONS,ITEMS,MAXLVL,MOBS,NPCS,QUESTS} from '../shared/data.js';
 import {CLASSES,SKILL_DEFS} from '../shared/data/classes.js';
 import {AFFIXES} from '../shared/data/bosses.js';
 import {clamp,npcById,skillsOf,stats,xpNeed} from '../shared/rules.js';
@@ -53,7 +53,7 @@ export function updTarget(){
   const t=targetEnt(),f=$('#tframe');
   if(!t||(t.kind==='mob'&&!t.alive)){f.hidden=true;return}
   f.hidden=false;const un=$('#tun');
-  if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?'Élite · Gardien de donjon':t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Archives':'Hostile';$('#thpw').className='bar hp'}
+  if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?'Élite · Gardien de donjon':t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Donjon':'Hostile';$('#thpw').className='bar hp'}
   else if(t.kind==='npc'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='PNJ';$('#tsub').textContent=t.ti;$('#thpw').className='bar npc'}
   else if(t.kind==='obj'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='Objet';$('#tsub').textContent=t.type==='chest'?'Contient des artéfacts':'Portail';$('#thpw').className='bar npc'}
   else if(t.kind==='player'){un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=`${CLASSES[t.cls]?CLASSES[t.cls].nom:'Chouffin'} · Joueur${t.dead?' · Mort':''}`;$('#thpw').className='bar hp'}
@@ -72,7 +72,7 @@ export function hud(t){
   $('#deadbar').hidden=!(P.dead&&$('#dlg').hidden);
   const need=xpNeed(S.lvl);$('#xp i').style.width=(S.lvl>=MAXLVL?100:S.xp/need*100)+'%';$('#xp span').textContent=S.lvl>=MAXLVL?'Niveau maximum. Il est temps de sortir.':`XP ${fmt(S.xp)} / ${fmt(need)}`;
   const tg=targetEnt();
-  if(tg&&!$('#tframe').hidden){if(tg.kind==='mob'){if(!tg.alive){updTarget()}else{$('#thp').style.width=(tg.hp/tg.mhp*100)+'%';$('#thpt').textContent=`${Math.ceil(tg.hp)} / ${tg.mhp}${tg.shield>0?` (+${tg.shield} bouclier)`:''}`;const cw=$('#tcastw');if(tg.cast>0){cw.hidden=false;$('#tcast').style.width=((1-tg.cast/tg.castMax)*100)+'%';$('#tcastt').textContent=tg.castN}else cw.hidden=true;renderUpcoming(tg.up)}}else if(tg.kind==='player'){$('#thp').style.width=clamp(tg.hp/tg.mhp*100,0,100)+'%';$('#thpt').textContent=`${tg.hp} / ${tg.mhp}`;$('#tcastw').hidden=true}else{$('#thp').style.width='100%';$('#thpt').textContent=tg.kind==='npc'?'Amical':tg.kind==='obj'?'Interagir':'Joueur';$('#tcastw').hidden=true}}
+  if(tg&&!$('#tframe').hidden){if(tg.kind==='mob'){if(!tg.alive){updTarget()}else{$('#thp').style.width=(tg.hp/tg.mhp*100)+'%';$('#thpt').textContent=`${Math.ceil(tg.hp)} / ${tg.mhp}${tg.shield>0?` (+${tg.shield} bouclier)`:''}`;const cw=$('#tcastw');if(tg.cast>0){cw.hidden=false;$('#tcast').style.width=((1-tg.cast/tg.castMax)*100)+'%';$('#tcastt').textContent=tg.castN+(tg.castI?' · interruptible':'')}else cw.hidden=true;renderUpcoming(tg.up)}}else if(tg.kind==='player'){$('#thp').style.width=clamp(tg.hp/tg.mhp*100,0,100)+'%';$('#thpt').textContent=`${tg.hp} / ${tg.mhp}`;$('#tcastw').hidden=true}else{$('#thp').style.width='100%';$('#thpt').textContent=tg.kind==='npc'?'Amical':tg.kind==='obj'?'Interagir':'Joueur';$('#tcastw').hidden=true}}
   for(const e of skEls){const sk=e.sk,cd=P.cd[sk.id]||0,lock=S.lvl<sk.l;e.b.classList.toggle('locked',lock);e.b.classList.toggle('nores',!lock&&S.caf<sk.c);
     if(lock){e.cd.style.height='0';e.cdt.textContent='Niv '+sk.l}else if(cd>0){e.cd.style.height=(cd/sk.cd*100)+'%';e.cdt.textContent=cd>=1.5?Math.ceil(cd):''}else{e.cd.style.height='0';e.cdt.textContent=''}}
   const pc=P.cd.pot||0;
@@ -95,9 +95,9 @@ const partyRow=(m,leader)=>`<div class="frame pm${m.dead?' dead':''}"><div class
 function renderParty(){const g=P.group;$('#party').innerHTML=g?g.members.map(m=>partyRow(m,g.leader)).join(''):''}
 export function renderQuest(){
   const q=QUESTS[S.q.i],el=$('#qbody');let h='';
-  if(WD.id!=='over'){const df=DIFFS[WD.ti];h+=`<div class="dgbox"><b>Archives Oubliées · ${df.n}</b><span class="obj" id="dgleft"></span><br><button class="btn alt" type="button" id="dgquit">Quitter le donjon</button></div>`}
+  if(WD.id!=='over'){const df=DIFFS[WD.ti];h+=`<div class="dgbox"><b>${DUNGEONS[WD.dg].n} · ${df.n}</b><span class="obj" id="dgleft"></span><br><button class="btn alt" type="button" id="dgquit">Quitter le donjon</button></div>`}
   if(!q)h+=`<div><b>Aucune quête</b><span class="hint">Toutes les quêtes sont terminées. Farmez les Archives en Sans Douche, ou sortez dehors. Ce n'est pas une quête.</span></div>`;
-  else{const giver=npcById(q.g),obj=q.dg!=null?`Archives en ${DIFFS[q.dg].n} ou plus`:`${MOBS[q.m].n}`;
+  else{const giver=npcById(q.g),obj=q.dg!=null?`${DUNGEONS[q.dgn||'archives'].n} en ${DIFFS[q.dg].n} ou plus`:`${MOBS[q.m].n}`;
     if(S.q.st==='avail')h+=`<div><b>${esc(q.n)}</b><span class="hint">Parlez à ${esc(giver.n)} (!) · niveau ${q.rl}</span></div>`;
     else if(S.q.st==='active')h+=`<div><b>${esc(q.n)}</b><span class="obj">${esc(obj)} : ${S.q.n}/${q.k}</span></div>`;
     else h+=`<div><b>${esc(q.n)}</b><span class="obj done">${esc(obj)} : ${q.k}/${q.k}</span><br><span class="hint">Retournez voir ${esc(giver.n)} (?)</span></div>`}

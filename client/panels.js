@@ -1,4 +1,6 @@
-import {DEATH,DIFFS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
+import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
+// Difficulté d'un donjon : DIFFS surchargé par les niveaux propres au donjon (même règle que le serveur).
+const dgDiffs=id=>DIFFS.map((d,i)=>({...d,...((DUNGEONS[id].diffs||[])[i])}));
 import {FUSE_PER_LEVEL,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
@@ -101,7 +103,7 @@ export function dialog(title,sub,html,btns,locked,npc){
 function questBlock(n){
   const q=QUESTS[S.q.i];if(!q||q.g!==n.id)return{html:'',btns:[]};
   const rw=`<p class="rw">Récompense : ${fmt(q.xp)} XP · ${q.gold} po${q.item?' · '+(q.itemN?q.itemN+' × ':'')+itemLink(q.item):''}</p>`;
-  const obj=q.dg!=null?`terminer les Archives Oubliées en difficulté ${DIFFS[q.dg].n} ou supérieure`:`vaincre ${q.k} × ${esc(MOBS[q.m].n)}`;
+  const obj=q.dg!=null?`terminer ${DUNGEONS[q.dgn||'archives'].n} en difficulté ${DIFFS[q.dg].n} ou supérieure`:`vaincre ${q.k} × ${esc(MOBS[q.m].n)}`;
   if(S.q.st==='avail')return{html:`<div class="qt">${esc(q.n)}</div><p>${esc(q.t)}</p><p class="rw">Objectif : ${obj} · Niveau recommandé : ${q.rl}</p>${rw}`,btns:[['Accepter la quête',()=>{closePanel('dlg');send({a:'acceptQuest'})}]]};
   if(S.q.st==='active')return{html:`<div class="qt">${esc(q.n)}</div><p>Alors ? Objectif : ${obj}. Progression : ${S.q.n}/${q.k}. Je ne juge pas. Enfin si, un peu.</p>`,btns:[]};
   return{html:`<div class="qt">${esc(q.n)}</div><p>${esc(q.done)}</p>${rw}`,btns:[['Terminer la quête',()=>{closePanel('dlg');send({a:'completeQuest'})}]]};
@@ -122,7 +124,7 @@ function showNpc(n){
     btns.push(['Acheter 5 Chouffes (55 po, le prix du khey)',()=>send({a:'buy',id:'chouffe',n:5}),true,S.gold<55]);
   }
   if(n.id==='bernard'){btns.unshift(["Voir l'armurerie",()=>openShop(n)])}
-  if(n.id==='gardien'){btns.unshift(['Descendre dans les Archives',()=>openDungeonMenu(n)])}
+  if(n.dungeon)btns.unshift([`Entrer : ${DUNGEONS[n.dungeon].n}`,()=>openDungeonMenu(n)])
   if(n.id==='kevin'){
     for(const [id,m] of Object.entries(MOUNTS).filter(([,m])=>m.seller==='kevin')){
       const own=S.mounts.includes(id);
@@ -204,31 +206,31 @@ function confirmClass(n,id){
   dialog('Confirmer la reconversion',c.nom,`<p>Devenir <b>${esc(c.nom)}</b> pour ${fmt(cost)} po ? Vos compétences changent, pas votre niveau. Aucun remboursement : le Conseiller a déjà tout dépensé.</p><p class="rw">${esc(c.desc)}</p>`,[['Confirmer',()=>{closePanel('dlg');send({a:'changeClass',cls:id})}],['Retour',()=>openClassMenu(n),true]],false,n);
 }
 function openDungeonMenu(n){
-  const wrap=document.createElement('div');
-  wrap.innerHTML=`<p>Les Archives se réorganisent à chaque descente. Au fond attend <b>le Grand Archiviste</b> et son coffre d'artéfacts. Plus la difficulté est haute, plus les artéfacts sont rares et chers.</p><p class="rw">Astuce : quand il prépare un Mur de Texte, sortez de la zone rouge. Les ennemis des Archives attaquent en groupe.</p>`;
+  const dg=DUNGEONS[n.dungeon],wrap=document.createElement('div');
+  wrap.innerHTML=`<p>${esc(dg.desc)} Plus la difficulté est haute, plus les artéfacts sont rares et chers.</p><p class="rw">Astuce : ${esc(dg.astuce)}</p>`;
   const box=document.createElement('div');box.className='diff';
   const g=P.group,follower=g&&g.leader!==me;
-  if(g)wrap.insertAdjacentHTML('beforeend',`<p class="rw">${follower?'Seul le chef de groupe peut lancer les Archives.':'Tous les membres présents au Bourg-Forum descendent avec vous. Chaque joueur en plus renforce les ennemis de 60 % de PV.'}</p>`);
-  DIFFS.forEach((df,i)=>{const b=document.createElement('button');b.type='button';b.className='dbtn';b.disabled=follower||S.lvl<df.rl;
+  if(g)wrap.insertAdjacentHTML('beforeend',`<p class="rw">${follower?`Seul le chef de groupe peut lancer ${esc(dg.court)}.`:'Tous les membres présents dans la zone descendent avec vous. Chaque joueur en plus renforce les ennemis de 60 % de PV.'}</p>`);
+  dgDiffs(n.dungeon).forEach((df,i)=>{const b=document.createElement('button');b.type='button';b.className='dbtn';b.disabled=follower||S.lvl<df.rl;
     const rar=Object.keys(df.w).map(k=>RN[k]).join(', ');
-    b.innerHTML=`<b>${df.n}</b><span>${esc(df.sub)} · Artéfacts : ${rar}</span><em>Niveau ${df.rl}+<br>Ennemis niv. ${df.L}</em>`;b.onclick=()=>{closePanel('dlg');send({a:'enterDungeon',ti:i})};box.appendChild(b)});
+    b.innerHTML=`<b>${df.n}</b><span>${esc(df.sub)} · Artéfacts : ${rar}</span><em>Niveau ${df.rl}+<br>Ennemis niv. ${df.L}</em>`;b.onclick=()=>{closePanel('dlg');send({a:'enterDungeon',ti:i,dg:n.dungeon})};box.appendChild(b)});
   wrap.appendChild(box);
-  dialog('Les Archives Oubliées','Donjon instancié · 4 difficultés',wrap,[['Retour',()=>showNpc(n),true]],false,n);
+  dialog(dg.n,'Donjon instancié · 4 difficultés',wrap,[['Retour',()=>showNpc(n),true]],false,n);
 }
 export function unlockDlg(){dlgLocked=false;$('#dlg').hidden=true}
 export function autoCloseDlg(){if(dlgNpc&&!$('#dlg').hidden&&dist(P,dlgNpc)>3.2)closePanel('dlg')}
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.close;if(id==='dlg'&&dlgLocked){send({a:'respawn'});return}closePanel(id)}));
 export function refreshDialog(){if(dlgRedo&&!dlgLocked&&!$('#dlg').hidden)dlgRedo()}
 export function openPortal(){
-  dialog('Sortie des Archives','Les Archives Oubliées',`<p>${WD.done?'Le butin est à vous. Gérard rachète tous les artéfacts au Bourg-Forum.':'Vous partez déjà ? Les Archives ne sont pas terminées. Vous ne pourrez pas reprendre cette exploration.'}</p>`,[['Remonter au Bourg-Forum',()=>{closePanel('dlg');send({a:'leaveDungeon'})}],['Rester',()=>closePanel('dlg'),true]]);
+  dialog(DUNGEONS[WD.dg].sortie,DUNGEONS[WD.dg].n,`<p>${WD.done?'Le butin est à vous. Gérard rachète tous les artéfacts au Bourg-Forum.':`Vous partez déjà ? ${DUNGEONS[WD.dg].n} n'est pas terminé. Vous ne pourrez pas reprendre cette exploration.`}</p>`,[['Sortir du donjon',()=>{closePanel('dlg');send({a:'leaveDungeon'})}],['Rester',()=>closePanel('dlg'),true]]);
 }
 export function showChest(e){
   const df=DIFFS[e.ti];
-  dialog('Coffre des Archives',`Difficulté ${df.n}`,`<div class="loot">${e.got.map(id=>`<div>${itemLink(id)} <span class="ty">· ${RN[ITEMS[id].r]} · revente ${ITEMS[id].price} po</span></div>`).join('')}<div class="goldv">+ ${e.gold} po${e.extra?` · 2 × ${itemLink('chouffe')}`:''}</div></div><p class="rw">Un portail de sortie vient d'apparaître. Gérard rachète les artéfacts au Bourg-Forum.</p>`,[['Fermer',()=>closePanel('dlg')]]);
+  dialog(DUNGEONS[e.dg].coffre,`Difficulté ${df.n}`,`<div class="loot">${e.got.map(id=>`<div>${itemLink(id)} <span class="ty">· ${RN[ITEMS[id].r]} · revente ${ITEMS[id].price} po</span></div>`).join('')}<div class="goldv">+ ${e.gold} po${e.extra?` · 2 × ${itemLink('chouffe')}`:''}</div></div><p class="rw">Un portail de sortie vient d'apparaître. Gérard rachète les artéfacts au Bourg-Forum.</p>`,[['Fermer',()=>closePanel('dlg')]]);
 }
 export function showDeath(){
   const inDg=WD.id!=='over';
-  dialog('Vous êtes mort',inDg?'Esprit errant · Archives Oubliées':'Esprit errant · Sous-sol le plus proche : 1',`<p>${esc(pick(DEATH))}</p><p class="rw">Un Rôliste à proximité peut vous ressusciter avec un Joker MJ. Morts au total : ${S.deaths}. Aucune perte d'objet. La perte de dignité, elle, est permanente.</p>`,inDg?[["Réapparaître à l'entrée des Archives",()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true],['Abandonner et remonter au Bourg',()=>{send({a:'respawn'});send({a:'leaveDungeon'})},true]]:[['Réapparaître au Sous-Sol',()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true]],true);
+  dialog('Vous êtes mort',inDg?`Esprit errant · ${DUNGEONS[WD.dg].n}`:'Esprit errant · Sous-sol le plus proche : 1',`<p>${esc(pick(DEATH))}</p><p class="rw">Un Rôliste à proximité peut vous ressusciter avec un Joker MJ. Morts au total : ${S.deaths}. Aucune perte d'objet. La perte de dignité, elle, est permanente.</p>`,inDg?[["Réapparaître à l'entrée du donjon",()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true],['Abandonner et sortir du donjon',()=>{send({a:'respawn'});send({a:'leaveDungeon'})},true]]:[['Réapparaître au Sous-Sol',()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true]],true);
 }
 export function showEnd(){
   dialog('Chouffinia est sauvée','Fin de la campagne · Le farm continue',`<p>Vous avez terminé Chouffinia Online.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Il reste la difficulté Sans Douche des Archives, au niveau 13. Par pitié le khey, vas-y.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);

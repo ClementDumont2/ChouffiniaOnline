@@ -1,4 +1,4 @@
-import {ACH,DIFFS,HATS,ZONES} from '../shared/data.js';
+import {ACH,DIFFS,DUNGEONS,HATS,ZONES} from '../shared/data.js';
 import {CLASSES,DEFAULT_CLASS} from '../shared/data/classes.js';
 import {zoneAt} from '../shared/map.js';
 import {cleanName} from '../shared/protocol.js';
@@ -22,7 +22,7 @@ let lastWD=null,curZone='';
 function syncView(){if(WD!==lastWD){lastWD=WD;if(!WD.c)paintWorld(WD);curZone='';setMini();renderQuest()}}
 function updZone(){
   const z=zoneAt(WD,P.x,P.y);if(z===curZone)return;
-  curZone=z;const Z=z==='dungeon'?{n:'Les Archives Oubliées',s:`Difficulté ${DIFFS[WD.ti].n} · ${DIFFS[WD.ti].sub}`}:ZONES[z];
+  curZone=z;const Z=z==='dungeon'?{n:DUNGEONS[WD.dg].n,s:`Difficulté ${DIFFS[WD.ti].n} · ${DIFFS[WD.ti].sub}`}:ZONES[z];
   $('#zone').textContent=Z.n;banner(Z.n,Z.s,z==='dungeon'?'dg':'');
 }
 const refreshUI=()=>{renderBag();renderChar();renderQuest();updTarget();drawPortrait()};
