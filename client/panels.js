@@ -1,4 +1,4 @@
-import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS} from '../shared/data.js';
+import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS,STOCK} from '../shared/data.js';
 // Difficulté d'un donjon : DIFFS surchargé par les niveaux propres au donjon (même règle que le serveur).
 const dgDiffs=id=>DIFFS.map((d,i)=>({...d,...((DUNGEONS[id].diffs||[])[i])}));
 import {FUSE_PER_LEVEL,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
@@ -79,7 +79,7 @@ export function renderChar(){
   $('#eqlist').hidden=$('#cstats').hidden=charTab!=='eq';$('#mntlist').hidden=charTab!=='mnt';
   document.querySelectorAll('#ctabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===charTab));
   if(charTab==='mnt'){$('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom}`;renderMounts();return}
-  $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · <Sous-Sol Éternel>`;
+  $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · ${S.titre?`<${S.titre}>`:'<Sous-Sol Éternel>'}`;
   const l=$('#eqlist');l.innerHTML='';
   for(const k in SLOTS){const q=S.eq[k];const b=document.createElement('button');b.type='button';b.className='eqrow';
     if(q){const it=ITEMS[q.id];b.appendChild(iconCanvas(q.id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]} · niv. ${q.nObj} · ${statLine(q)} · toucher pour retirer</span><span class="q-${q.rarete}">${esc(it.n)}</span></span>`);b.onclick=()=>send({a:'unequip',slot:k});tipOn(b,()=>itemHTML(q))}
@@ -125,6 +125,13 @@ function showNpc(n){
   }
   if(n.id==='bernard'){btns.unshift(["Voir l'armurerie",()=>openShop(n)])}
   if(n.dungeon)btns.unshift([`Entrer : ${DUNGEONS[n.dungeon].n}`,()=>openDungeonMenu(n)])
+  if(n.id==='otaku'){
+    for(const id of STOCK.otaku){
+      const it=ITEMS[id];
+      html+=`<p class="rw"><b class="q-${it.r}">${esc(it.n)}</b> · ${fmt(it.buy)} po<br><span class="ty">${esc(it.d)}</span></p>`;
+      btns.push([`Acheter : ${it.n} (${fmt(it.buy)} po)`,()=>send({a:'buy',id,n:1}),true,S.gold<it.buy]);
+    }
+  }
   if(n.id==='kevin'){
     for(const [id,m] of Object.entries(MOUNTS).filter(([,m])=>m.seller==='kevin')){
       const own=S.mounts.includes(id);
@@ -232,8 +239,9 @@ export function showDeath(){
   const inDg=WD.id!=='over';
   dialog('Vous êtes mort',inDg?`Esprit errant · ${DUNGEONS[WD.dg].n}`:'Esprit errant · Sous-sol le plus proche : 1',`<p>${esc(pick(DEATH))}</p><p class="rw">Un Rôliste à proximité peut vous ressusciter avec un Joker MJ. Morts au total : ${S.deaths}. Aucune perte d'objet. La perte de dignité, elle, est permanente.</p>`,inDg?[["Réapparaître à l'entrée du donjon",()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true],['Abandonner et sortir du donjon',()=>{send({a:'respawn'});send({a:'leaveDungeon'})},true]]:[['Réapparaître au Sous-Sol',()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true]],true);
 }
-export function showEnd(){
-  dialog('Chouffinia est sauvée','Fin de la campagne · Le farm continue',`<p>Vous avez terminé Chouffinia Online.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Il reste la difficulté Sans Douche des Archives, au niveau 13. Par pitié le khey, vas-y.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
+export function showEnd(final){
+  if(final)return dialog('Diplômé (enfin)','Fin de la campagne · Le farm continue',`<p>Du Sous-Sol de Maman à la Soutenance : vous avez tout terminé.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Le Vieux Sage du Forum a lu votre dernier message. Il est ému. Il vous demande d'aller vous doucher, par pitié.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
+  dialog('Chouffinia est sauvée','Fin de la campagne · Le farm continue',`<p>Vous avez terminé Chouffinia Online.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Il reste la difficulté Sans Douche des Archives, au niveau 13, puis un Parking, un Supermarché, un Pôle Emploi, une Convention, un DIIAGE. Par pitié le khey, vas-y.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
 }
 
 // Fenêtre d'échange : l'état vient entièrement du serveur ({with, mine, theirs}) ; chaque clic renvoie l'offre complète.
