@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createWorld, addPlayer, removePlayer, tick, handleAction, handleChat, takeEvents} from '../shared/sim.js';
 import {snapshotFor} from '../shared/protocol.js';
 import {statsDeMob} from '../shared/rules.js';
-import {DIFFS, ITEMS, NPCS} from '../shared/data.js';
+import {BOT_LINES, DIFFS, ITEMS, NPCS} from '../shared/data.js';
 
 const npc = id => NPCS.find(n => n.id === id);
 const place = (pl, x, y) => { pl.P.x = x; pl.P.y = y; };
@@ -474,4 +474,17 @@ test('/top : trois classements, triés, hors-ligne compris via w.saves()', () =>
   assert.match(niv, /^Top Niveau : 1\. (Yan|Xia) \(30\) · 2\. (Yan|Xia) \(30\) · 3\. Zed \(12\) · 4\. Alice \(7\)$/);
   assert.match(dg, /^Top Archives terminées : 1\. Xia \(9\) · 2\. Yan \(5\)/);
   assert.match(chouffes, /^Top Chouffes bues : 1\. Xia \(40\) · 2\. Alice \(3\) · 3\. Zed \(1\)/);
+});
+
+test('les trois nouvelles répliques existent chez les bots et chez des PNJ, et un PNJ les dit', () => {
+  const lignes = ['Alexandre Astier est un génie', 'Le seranno est très salé', 'Qu\'est ce que tu veux qu\'il te fasse le minotaure'];
+  for (const l of lignes) {
+    assert.ok(BOT_LINES.includes(l), 'bots : ' + l);
+    assert.ok(NPCS.some(n => n.lines.includes(l)), 'PNJ : ' + l);
+  }
+  const w = createWorld({seed: 1});
+  addPlayer(w, 'p1');
+  const dits = new Set();
+  for (let i = 0; i < 20 * 70; i++) { tick(w, .05); for (const n of w.maps.over.npcs) if (n.sayT > 0) dits.add(n.say); }
+  assert.ok([...dits].some(t => lignes.includes(t)), 'au moins une réplique prononcée en 70 s');
 });

@@ -99,7 +99,11 @@ export function tick(w,dt){
   for(const map of Object.values(w.maps)){
     const here=onMap(w,map.id);
     for(const m of map.mobs)tickMob(w,map,m,dt,here);
-    for(const n of map.npcs)if(n.sayT>0)n.sayT-=dt;
+    for(const n of map.npcs){
+      if(n.sayT>0)n.sayT-=dt;
+      // Les PNJ ne parlent que s'il y a quelqu'un pour les entendre.
+      if(n.lines.length&&here.length&&(n.talkT=(n.talkT??w.r.rr(8,25))-dt)<=0){n.talkT=w.r.rr(30,60);say(n,w.r.pick(n.lines),4)}
+    }
   }
   tickBots(w,dt);
   const due=w.later.filter(l=>l.at<=w.time);

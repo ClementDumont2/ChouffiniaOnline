@@ -82,7 +82,7 @@ function questBlock(n){
 export function openNpc(n){send({a:'talk',id:n.id});showNpc(n)}
 // Séparé d'openNpc : le rafraîchissement après une action rappelle showNpc, et un 'talk' à chaque rafraîchissement bouclerait.
 function showNpc(n){
-  const qb=questBlock(n);let html=`<p class="greet">« ${esc(n.greet)} »</p>`+qb.html;const btns=[...qb.btns];
+  const qb=questBlock(n);let html=`<p class="greet">« ${esc(n.greet)} »</p>`+n.lines.map(l=>`<p class="greet">« ${esc(l)} »</p>`).join('')+qb.html;const btns=[...qb.btns];
   if(n.id==='gerard'){
     const arts=S.inv.filter(s=>ITEMS[s.id].t==='art'),av=arts.reduce((a,s)=>a+sellValue(s),0),jv=S.inv.filter(s=>ITEMS[s.id].t==='junk').reduce((a,s)=>a+sellValue(s),0);
     if(arts.length)html+=`<p class="rw">Artéfacts dans votre sac : ${arts.map(s=>itemLink(s.id)+(s.n>1?' ×'+s.n:'')).join(', ')}.</p>`;
