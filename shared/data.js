@@ -1,4 +1,8 @@
 import {LIGNES_PNJ,NOUVELLES_BOT_LINES} from './data/dialogues.js';
+import {NEW_ZONES,NEW_SPAWNS,NEW_NPCS} from './data/zones.js';
+import {NEW_MOBS} from './data/mobs.js';
+import {NEW_QUESTS} from './data/quests.js';
+import {DUNGEONS} from './data/dungeons.js';
 export const ZONES={
   base:{n:"Le Sous-Sol de Maman",s:"Sanctuaire · Les monstres n'y entrent pas (l'odeur)"},
   arene:{n:"L'Arène du Débat Stérile",s:"Sanctuaire · Duels sur invitation (/duel) · Personne n'y a jamais convaincu personne"},
@@ -12,7 +16,8 @@ export const ZONES={
   sel:{n:"Désert de Sel du 18-25",s:"Niveaux 8–9 · Par pitié le khey, ne restez pas là"},
   datacenter:{n:"Datacenter Abandonné",s:"Niveau 10 · Température ambiante : 74 °C"}
 };
-export {ITEMS,SLOTS,RN,SHOP,STOCK,ART_POOL,RARITY_MULT} from './data/items.js';
+export {ITEMS,SLOTS,RN,SHOP,STOCK,ART_POOL,ART_POOLS,RARITY_MULT} from './data/items.js';
+export {DUNGEONS};
 export const DIFFS=[
   {n:'Normal',sub:'Pour les touristes du forum',rl:4,L:4,bonus:150,arts:2,gold:60,w:{common:45,unc:38,rare:17},packs:[2,2]},
   {n:'Héroïque',sub:'Pour ceux qui ont fini le tutoriel',rl:7,L:7,bonus:400,arts:3,gold:150,w:{unc:40,rare:42,epic:18},packs:[3,4]},
@@ -84,7 +89,7 @@ export const QUESTS=[
     done:"La température est redescendue à 61 °C. Un climat agréable pour un chouffin. Prends ce casque de réalité virtuelle : tu pourras voir un paysage sans sortir."},
   {g:'gardien',n:"Les Archives Interdites",dg:2,k:1,rl:10,xp:2200,gold:500,item:'grimoire',
     t:"Il existe un niveau plus profond. Les Archives en Mythique, où dorment les topics que même les modérateurs ont oubliés. Si tu reviens, tu seras une légende. Si tu ne reviens pas, personne ne remarquera.",
-    done:"Tu es revenu. Personne n'avait remarqué. Mais moi, je sais. Prends le Grimoire des Topics Épinglés. Et va prendre une douche, par pitié."}
+    done:"Tu es revenu. Personne n'avait remarqué. Mais moi, je sais. Prends le Grimoire des Topics Épinglés. Et va prendre une douche, par pitié.",fin:true}
 ];
 export const NPCS=[
   {id:'sage',kind:'npc',n:"Le Vieux Sage du Forum",tag:"Membre depuis 2003",ti:"Membre depuis 2003 · 41 000 messages",x:6.5,y:5.6,hgt:1.25,
@@ -134,3 +139,6 @@ export const ACH={
 };
 export const HATS=[['#1d1b22','Noir Éternel'],['#6b6870','Gris Feutré'],['#6d2230','Bordeaux Audacieux'],['#4d3a22','Brun Vintage'],['#2a3a5c','Bleu Convention']];
 export const MAXLVL=100;
+
+// Lot 8 : les nouvelles zones s'ajoutent aux tables d'origine.
+Object.assign(ZONES,NEW_ZONES);Object.assign(MOBS,NEW_MOBS);SPAWNS.push(...NEW_SPAWNS);NPCS.push(...NEW_NPCS);QUESTS.push(...NEW_QUESTS);

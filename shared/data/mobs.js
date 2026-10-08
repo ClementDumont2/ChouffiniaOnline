@@ -1,0 +1,28 @@
+// Monstres des trois zones du Lot 8. Pas de PV/Attaque fixes : ils suivent la formule de statsDeMob au niveau l (le donjon les reprend à son propre niveau).
+export const NEW_MOBS={
+  delegue:{n:"Ex-Délégué de Classe",l:16,hpM:1,atkM:1,sp:2,ag:4.5,cd:1.7,hgt:1.2,v:"vous colle une heure de retenue",
+    lines:["Je parle au nom de la classe.","Votre absence sera notée.","Qui est volontaire ? Personne ? Vous alors."],loot:[['chips',.35],['poignee',.3],['gilet',.04],['chouffe',.1]]},
+  scooter:{n:"Scooter Débridé",l:20,hpM:.9,atkM:1.1,sp:3.4,ag:5,cd:1.4,hgt:1,v:"vous passe dessus à 80 km/h",
+    lines:["*PRRRRRRRR*","Ça sent le 50 cm³ trafiqué.","Wheeling !"],loot:[['chips',.35],['poignee',.3],['jeans_craie',.04]]},
+  souvenir:{n:"Souvenir Gênant",l:24,hpM:1.1,atkM:1,sp:1.8,ag:4,cd:1.8,hgt:1.2,v:"vous rappelle ce que vous avez dit en 4e",
+    lines:["Tu te souviens de ta coupe en 2009 ?","Le slow avec personne.","Tu as dit « merci, toi aussi » au serveur."],loot:[['chips',.35],['poignee',.3],['casquette_cpe',.04]]},
+  caddie:{n:"Caddie Fou",l:28,hpM:.95,atkM:1.1,sp:3.1,ag:5,cd:1.5,hgt:1,v:"vous fonce dans les tibias",
+    lines:["*CLING CLING CLING*","Une roue qui tourne dans le vide.","Rendez-moi ma pièce."],loot:[['chips',.35],['poignee',.3],['blouse',.04],['chouffe',.1]]},
+  vigile:{n:"Vigile Fatigué",l:33,hpM:1.5,atkM:.8,sp:1.3,ag:3.5,cd:2,hgt:1.25,v:"vous fouille avec un soupir",
+    lines:["Votre sac, s'il vous plaît.","Il me reste quarante minutes de service. Et quarante ans.","J'ai vu des choses dans les rayons."],loot:[['chips',.35],['poignee',.3],['tablier',.04]]},
+  promo:{n:"Promo −70 %",l:38,hpM:.8,atkM:1.4,sp:2.4,ag:5,cd:1.4,hgt:1.1,v:"vous annonce que c'est « jusqu'à » −70 %",
+    lines:["−70 % SUR LE SECOND ARTICLE !","Offre non cumulable.","Dans la limite des stocks. Il n'y a plus de stock."],loot:[['chips',.35],['poignee',.3],['gants_caisse',.04]]},
+  cerfa:{n:"Formulaire Cerfa Vivant",l:42,hpM:.9,atkM:1.2,sp:2.2,ag:5,cd:1.5,hgt:1.1,v:"vous réclame une pièce justificative",
+    lines:["Cadre 4 : veuillez noircir.","Il manque un justificatif de domicile.","Cerfa n° 12345*03. Version obsolète."],loot:[['chips',.35],['poignee',.3],['cravate',.04],['chouffe',.1]]},
+  file:{n:"File d'Attente",l:48,hpM:1.6,atkM:.7,sp:1,ag:4,cd:2.2,hgt:1.2,v:"vous passe devant, par principe",
+    lines:["On attend. On attend.","Vous n'avez pas de ticket ? Vous attendrez aussi.","Moi je suis là depuis ce matin."],loot:[['chips',.35],['poignee',.3],['pantalon_tailleur',.04]]},
+  conseillerabs:{n:"Conseiller Absent",l:53,hpM:1.2,atkM:1.2,sp:2,ag:4,cd:1.7,hgt:1.25,v:"vous reçoit sur rendez-vous, dans trois mois",
+    lines:["Je suis absent. Laissez un message.","Ce n'est pas mon service.","Revenez avec le bon formulaire."],loot:[['chips',.35],['poignee',.3],['badge_pe',.04]]},
+  // Boss de donjon (moteur de shared/data/bosses.js).
+  correcteur:{n:"Le Correcteur de Philo",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:2,ag:6,cd:1.9,hgt:2.1,scale:1.6,yn:'Le Correcteur de Philo',v:"vous met 4/20 « hors-sujet »",
+    lines:["Le bonheur est-il possible ?","Vous avez quatre heures. Vous en avez perdu trois à lire le sujet.","Une problématique, des parties, une conclusion. Votre vie manque des trois."]},
+  gerant:{n:"Le Gérant de 21 h 59",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:2.1,ag:6,cd:1.9,hgt:2.05,scale:1.6,yn:'Le Gérant',v:"vous annonce la fermeture",
+    lines:["Il reste une minute. Une minute !","Qui a laissé ce caddie ici ?","Je ferme. Je ferme. Je FERME.","Je vous demande de vous diriger vers la sortie. Vers la sortie !"]},
+  guichet:{n:"Le Guichet Fermé",dg:1,boss:1,hpM:5.5,atkM:1.05,sp:1.9,ag:6,cd:2,hgt:2.1,scale:1.6,yn:'Le Guichet Fermé',v:"vous tamponne « refusé »",
+    lines:["Le guichet ferme dans cinq minutes.","Il vous manque une pièce.","Prochain !","Ce n'est pas le bon guichet."]},
+};

@@ -51,7 +51,8 @@ test('invocations de Nécroposteurs à 66 % et 33 % de PV (Héroïque et plus), 
 });
 
 test('Citation en Chaîne : rebondit sur les joueurs proches du marqué, épargne ceux qui s\'écartent', () => {
-  const {w, ps, boss} = donjon(2, 5, 3);
+  const {w, ps, boss, D} = donjon(2, 5, 3);
+  D.mobs = [boss]; // seul le boss : aucun autre monstre ne vient blesser le joueur écarté
   const [a, b, c] = ps;
   place(a, boss.x - 2, boss.y); place(b, boss.x - 2, boss.y + 2); place(c, boss.x + 6, boss.y);
   boss.b.cd.mur = 99; boss.b.cd.chaine = 0;
@@ -68,7 +69,8 @@ test('Citation en Chaîne : rebondit sur les joueurs proches du marqué, épargn
 test('Topic Verrouillé (Sans Douche) : la zone rétrécit, ceux qui restent dehors souffrent ; absent en Mythique', () => {
   assert.equal(donjon(2).boss.zone, null);
   const m = donjon(2); m.boss.hp = m.boss.mhp * .2; run(m.w, 1); assert.equal(m.boss.zone, null);
-  const {w, ps, boss} = donjon(3, 5, 2);
+  const {w, ps, boss, D} = donjon(3, 5, 2);
+  D.mobs = [boss];
   Object.assign(boss.b.done, {'necros0.66': 1, 'necros0.33': 1});
   boss.hp = boss.mhp * .29; tick(w, .05);
   assert.ok(boss.zone && boss.zone.r === 7);

@@ -53,7 +53,7 @@ export function bossUpcoming(m){
   for(const a of BOSSES[m.type].abilities){
     if(m.diff<a.diffMin||!a.n)continue;
     if(a.recharge)out.push({n:a.n,t:Math.max(0,Math.ceil(B.cd[a.id]??a.ouverture)),k:a.type});
-    else if(a.type==='enrage'){if(!B.done[a.id])out.push({n:a.n,t:Math.max(0,Math.ceil(a.apres-B.t)),k:a.type})}
+    else if(a.apres!=null){if(!B.done[a.id])out.push({n:a.n,t:Math.max(0,Math.ceil(a.apres-B.t)),k:a.type})}
     else for(const th of a.seuilsPV||[a.seuilPV])if(!B.done[a.id+th])out.push({n:a.n,pct:Math.round(th*100),k:a.type});
   }
   return out;
@@ -66,7 +66,7 @@ export function statsDeMob(type,L){
   return{hp:Math.round((10+18*L)*(d.hpM||1)),atk:[Math.round((1+1.5*L)*am),Math.round((3+2*L)*am)],xp:Math.round((4+12*L)*(d.boss?8:1)),g:d.boss?[30*L,40*L]:[L,L*2]};
 }
 
-export function rollArt(ti,rnd){const w=DIFFS[ti].w,{pick}=rngTools(rnd);let tot=0;for(const k in w)tot+=w[k];let r=rnd()*tot;for(const k in w){r-=w[k];if(r<=0)return pick(ART_POOL[k])}return pick(ART_POOL.common)}
+export function rollArt(ti,rnd,pool=ART_POOL){const w=DIFFS[ti].w,{pick}=rngTools(rnd);let tot=0;for(const k in w)tot+=w[k];let r=rnd()*tot;for(const k in w){r-=w[k];if(r<=0)return pick(pool[k])}return pick(pool.common)}
 
 export const CMP_KEYS=[['atk','Attaque','Att'],['arm','Protection','Prot'],['hp','PV','PV']];
 export function statsWith(S,slot,q,drunk){const keep=S.eq[slot];S.eq[slot]=q;const st=stats(S,drunk);S.eq[slot]=keep;return st}

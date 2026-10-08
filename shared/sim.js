@@ -1,7 +1,7 @@
 // Simulation pure : ni DOM, ni Math.random, aucun import du client.
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
-import {BOTS,BOT_LINES,BOT_REPLIES,DIFFS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
+import {ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
 import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
@@ -22,6 +22,8 @@ const burst=(w,mapId,x,y,col,n,spd)=>toMap(w,mapId,{t:'burst',x,y,col,n,spd});
 const say=(e,txt,dur)=>{e.say=txt;e.sayT=dur||3.8};
 // Lien d'objet dans un message : [[id]] pour une pile, [[id:rareté:nObj]] pour une instance d'équipement.
 const link=x=>x.rarete?`[[${x.id}:${x.rarete}:${x.nObj}]]`:`[[${x.id}]]`;
+// Difficulté d'un donjon : DIFFS (packs, poids des raretés…) surchargé par les niveaux, l'XP et l'or propres au donjon.
+const dgDiff=(dgId,ti)=>({...DIFFS[ti],...((DUNGEONS[dgId].diffs||[])[ti])});
 const nid=(w,p)=>p+(w.nextId++);
 const later=(w,delay,fn)=>w.later.push({at:w.time+delay,fn});
 
@@ -36,12 +38,12 @@ export function createWorld({seed=20111,rng,bots=false}={}){
 const newBoss=()=>({t:0,cd:{},done:{},summons:[]});
 function mkMob(w,type,x,y,L,id,diff=0){
   const d=MOBS[type];L=L||d.l;const{hp,atk,xp,g}=statsDeMob(type,L),{rr}=w.r;
-  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
+  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
 }
 
 function spawnOver(w){
   const map=w.maps.over,{rr,pick}=w.r,spot=(...a)=>randSpot(map,w.rnd,...a);
-  const avoid=(x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='cuisine'||z==='arene'||(x>9&&x<28&&y>11&&y<25)};
+  const avoid=(x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='cuisine'||z==='arene'||(x>9&&x<28&&y>11&&y<25)||NPCS.some(n=>Math.hypot(n.x-x,n.y-y)<4)};
   for(const [type,n,x0,x1,y0,y1] of SPAWNS)for(let i=0;i<n;i++){const p=spot(x0,x1,y0,y1,avoid);map.mobs.push(mkMob(w,type,p.x,p.y))}
   map.mobs.push(mkMob(w,'maman',8.5,31));
   if(!w.bots)return;
@@ -169,7 +171,7 @@ function pickTarget(m,valid){
   const cur=valid.find(p=>p.id===m.target);if(cur)return cur;
   const n=nearest(m,valid);return n&&dist(m,n.P)<m.d.ag?n:null;
 }
-const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.mark=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
+const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
 
 function aggro(w,map,m,pl){
   if(m.st==='chase')return;
@@ -190,6 +192,7 @@ function hitMob(w,map,m,dmg,crit,src,pl){
     m.threat[pl.id]=(m.threat[pl.id]||0)+full;
     if(!m.tag)m.tag=pl.id;
     if(!m.hitters.includes(pl.id))m.hitters.push(pl.id);
+    if(m.cast>0&&m.castA&&m.castA.interrupt!=null){m.castDmg+=full;if(m.castDmg>=m.castA.interrupt*m.mhp)interruptCast(w,map,m,pl)}
   }
   if(m.st==='chase'){if(pl)m.target=pl.id}else if(pl)aggro(w,map,m,pl);
   if(m.hp<=0)killMob(w,map,m);
@@ -201,7 +204,7 @@ function killMob(w,map,m){
     m.revived=1;m.hp=Math.round(m.mhp*.3);m.dots=[];float(w,map.id,m.x,m.y-m.hgt-.3,'Nécroposté !','#c9a8ff',true);burst(w,map.id,m.x,m.y-m.hgt*.5,'#c9a8ff',14);return;
   }
   const inDg=map.id!=='over';
-  m.alive=false;m.hp=0;m.dieT=.7;m.rt=inDg||m.summoned?Infinity:(m.d.boss?75:14);m.dots=[];m.cast=0;m.mark=null;m.zone=null;m.target=null;m.threat={};
+  m.alive=false;m.hp=0;m.dieT=.7;m.rt=inDg||m.summoned?Infinity:(m.d.boss?75:14);m.dots=[];m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.threat={};
   // Les invocations n'ont ni butin ni XP ; elles disparaissent avec leur invocateur.
   if(m.b)for(const o of map.mobs)if(m.b.summons.includes(o.id)){o.alive=false;o.hp=0;o.dieT=.3;o.rt=Infinity}
   if(m.summoned){m.hitters=[];m.tag=null;for(const o of onMap(w,map.id))if(o.P.target===m.id){o.P.target=null;o.P.auto=false}return}
@@ -213,7 +216,7 @@ function killMob(w,map,m){
   for(const o of onMap(w,map.id))if(o.P.target===m.id){o.P.target=null;o.P.auto=false}
   if(!group.length)return;
   rewardKill(w,map,m,group,tagger);
-  if(m.type==='archiviste')dungeonDone(w,map,group);
+  if(inDg&&m.d.boss)dungeonDone(w,map,group);
   for(const p of new Set([...group,tagger]))ev(w,p.id,{t:'self'});
 }
 
@@ -232,7 +235,7 @@ function rewardKill(w,map,m,group,T){
   // Le butin d'équipement prend le niveau du monstre comme niveau d'objet.
   const drop=lid=>{if(!addItem(w,T,lid,1,m.l))return;const q=ITEMS[lid].t==='eq'?T.S.inv[T.S.inv.length-1]:null;msg(w,T.id,'loot',`Vous recevez le butin : ${q?link(q):`[[${lid}]]`}${q&&cmpInfo(T.S,q).better?'[[up]]':''}.`)};
   for(const [lid,p] of (m.d.loot||[]))if(w.rnd()<p)drop(lid);
-  if(inDg&&!m.d.boss){if(w.rnd()<.14+.04*map.ti)drop(rollArt(map.ti,w.rnd));if(w.rnd()<.18)drop('chips')}
+  if(inDg&&!m.d.boss){if(w.rnd()<.14+.04*map.ti)drop(rollArt(map.ti,w.rnd,ART_POOLS[map.dg]));if(w.rnd()<.18)drop('chips')}
   if(T.S.gold>=100)ach(w,T,'rich');
   for(const pl of group){
     const {S}=pl,id=pl.id,q=QUESTS[S.q.i];
@@ -242,14 +245,14 @@ function rewardKill(w,map,m,group,T){
 }
 
 function dungeonDone(w,map,group){
-  const df=DIFFS[map.ti],boss=map.mobs.find(x=>x.type==='archiviste');map.done=true;
-  map.objs.push({id:nid(w,'o'),kind:'obj',type:'chest',n:'Coffre des Archives',x:boss.x,y:boss.y,hgt:.9,openedBy:[]});
-  toMap(w,map.id,{t:'banner',title:'Archives terminées',sub:`Difficulté ${df.n} · Ouvrez le Coffre des Archives.`,cls:'dg'});
-  toMap(w,map.id,{t:'msg',cls:'sys',text:`Le Grand Archiviste est vaincu. Les Archives (${df.n}) sont terminées.`});
+  const dg=DUNGEONS[map.dg],df=dgDiff(map.dg,map.ti),boss=map.mobs.find(x=>x.d.boss);map.done=true;
+  map.objs.push({id:nid(w,'o'),kind:'obj',type:'chest',n:dg.coffre,x:boss.x,y:boss.y,hgt:.9,openedBy:[]});
+  toMap(w,map.id,{t:'banner',title:dg.fini,sub:`Difficulté ${df.n} · Ouvrez le ${dg.coffre.replace(/^Coffre (de la |de l'|du |des |de )/,'coffre ')}.`,cls:'dg'});
+  toMap(w,map.id,{t:'msg',cls:'sys',text:`${boss.d.n} est vaincu. ${dg.fini} (${df.n}).`});
   for(const pl of group){
     const {S}=pl;
     gainXP(w,pl,df.bonus,null);S.dg=(S.dg||0)+1;ach(w,pl,'dungeon');if(map.ti===3)ach(w,pl,'mythic');
-    const q=QUESTS[S.q.i];if(q&&S.q.st==='active'&&q.dg!=null&&map.ti>=q.dg){S.q.n=1;S.q.st='ready';ev(w,pl.id,{t:'toast',kicker:'Objectif terminé',title:q.n,sub:'Retournez voir le Gardien des Archives.'})}
+    const q=QUESTS[S.q.i];if(q&&S.q.st==='active'&&q.dg!=null&&map.ti>=q.dg&&(q.dgn||'archives')===map.dg){S.q.n=1;S.q.st='ready';ev(w,pl.id,{t:'toast',kicker:'Objectif terminé',title:q.n,sub:`Retournez voir ${npcById(q.g).n}.`})}
   }
 }
 
@@ -288,7 +291,7 @@ function die(w,pl){
 function respawn(w,pl){
   const {S,P}=pl,st=stats(S,P.drunk),over=pl.mapId==='over';
   S.hp=st.maxhp;S.caf=st.maxcaf;respawnAt(w,pl);P.dead=false;P.target=null;
-  msg(w,pl.id,'sys',over?'Vous vous réveillez au Sous-Sol. Quelqu\'un a mangé vos chips.':'Vous vous réveillez à l\'entrée des Archives, couvert de vieux papiers.');
+  msg(w,pl.id,'sys',over?'Vous vous réveillez au Sous-Sol. Quelqu\'un a mangé vos chips.':'Vous vous réveillez à l\'entrée du donjon, couvert de poussière. Quelqu\'un a pris vos affaires. Non, finalement non.');
   ev(w,pl.id,{t:'respawned'});
 }
 
@@ -362,7 +365,7 @@ const SELF={
     const map=w.maps[pl.mapId];
     for(const m of mobsAround(w,pl,sk.r)){
       // Les boss sont immunisés à l'étourdissement : on les ralentit seulement.
-      if(m.d.boss){m.slow=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Ralenti','#7fb6ff')}
+      if(m.d.boss){m.slow=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Ralenti','#7fb6ff');interruptCast(w,map,m,pl)}
       else if(m.affix==='modere')float(w,map.id,m.x,m.y-m.hgt-.3,'Insensible','#ffd84a');
       else{m.stun=3;float(w,map.id,m.x,m.y-m.hgt-.3,'Banni','#ffd84a')}
       aggro(w,map,m,pl);
@@ -410,7 +413,7 @@ function strike(w,pl,t,sk,st,crit,mul){
       {const {S}=pl;P.tipT=.45;S.tips++;if(S.tips%4===1)float(w,pl.mapId,P.x,P.y-1.9,'M\'lady.','#ede1c5');if(S.tips>=50)ach(w,pl,'mlady');hit(roll(st.atk*mul),crit,sk.n)}
       break;
     case 'enfait':
-      say(P,pick(ENFAIT),2.4);if(t.kind==='mob'){const immune=t.d.boss||t.affix==='modere';if(!immune)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,immune?'Insensible':'Étourdi','#ffd84a')}hit(roll(st.atk*1.5*mul),crit,sk.n);
+      say(P,pick(ENFAIT),2.4);if(t.kind==='mob'){const immune=t.d.boss||t.affix==='modere';if(t.d.boss)interruptCast(w,w.maps[pl.mapId],t,pl);if(!immune)t.stun=2.5;float(w,pl.mapId,t.x,t.y-t.hgt-.3,immune?'Insensible':'Étourdi','#ffd84a')}hit(roll(st.atk*1.5*mul),crit,sk.n);
       break;
     case 'copypasta':
       say(P,'*colle 4 000 caractères*',1.8);
@@ -786,33 +789,34 @@ function mkDgMob(w,D,type,x,y,l,spec={}){
   return m;
 }
 
-function enterDungeon(w,pl,ti){
-  const df=DIFFS[ti],g=groupOf(w,pl);
-  if(!df||pl.mapId!=='over'||!nearNpc(pl,'gardien'))return;
-  if(g&&g.leader!==pl.id){err(w,pl.id,'Seul le chef de groupe peut lancer les Archives.');return}
+function enterDungeon(w,pl,ti,dgId='archives'){
+  const dg=DUNGEONS[dgId],df=dg&&DIFFS[ti]&&dgDiff(dgId,ti),g=groupOf(w,pl);
+  if(!df||pl.mapId!=='over'||!nearNpc(pl,dg.npc))return;
+  if(g&&g.leader!==pl.id){err(w,pl.id,`Seul le chef de groupe peut lancer ${dg.court}.`);return}
   if(pl.S.lvl<df.rl){err(w,pl.id,`Niveau ${df.rl} requis pour la difficulté ${df.n}.`);return}
-  // Le groupe descend ensemble : tous les membres présents au Bourg-Forum, sauf ceux qui n'ont pas le niveau.
-  const crew=(g?g.members.map(id=>w.players[id]):[pl]).filter(p=>p.mapId==='over'&&zoneAt(w.maps.over,p.P.x,p.P.y)==='bourg');
+  // Le groupe descend ensemble : tous les membres présents dans la zone de l'entrée, sauf ceux qui n'ont pas le niveau.
+  const zone=zoneAt(w.maps.over,npcById(dg.npc).x,npcById(dg.npc).y);
+  const crew=(g?g.members.map(id=>w.players[id]):[pl]).filter(p=>p.mapId==='over'&&zoneAt(w.maps.over,p.P.x,p.P.y)===zone);
   const ready=crew.filter(p=>p.S.lvl>=df.rl);
-  for(const p of crew)if(!ready.includes(p))msg(w,p.id,'sys',`Niveau ${df.rl} requis pour la difficulté ${df.n} : vous restez au Bourg-Forum.`);
-  let D=g&&Object.values(w.maps).find(m=>m.gid===g.id&&!m.done);
+  for(const p of crew)if(!ready.includes(p))msg(w,p.id,'sys',`Niveau ${df.rl} requis pour la difficulté ${df.n} : vous restez à l'entrée.`);
+  let D=g&&Object.values(w.maps).find(m=>m.gid===g.id&&!m.done&&m.dg===dgId);
   if(!D){
-    const seed=(w.rnd()*2**32)>>>0;D=genDungeon(seed,ti);
-    if(!D){err(w,pl.id,'Les Archives sont en maintenance. Réessayez.');return}
+    const seed=(w.rnd()*2**32)>>>0;D=genDungeon(seed,ti,{L:df.L,kinds:dg.kinds,boss:dg.boss});
+    if(!D){err(w,pl.id,`${dg.n} est en maintenance. Réessayez.`);return}
     const scale=1+.6*(ready.length-1);
-    D.id='dg'+(++w.instN);D.seed=seed;D.gid=g?g.id:null;D.done=false;D.npcs=[];D.bots=[];
+    D.id='dg'+(++w.instN);D.seed=seed;D.dg=dgId;D.gid=g?g.id:null;D.done=false;D.npcs=[];D.bots=[];
     D.scale=scale;
     D.mobs=D.spawns.map(s=>{
-      const elite=ti>=2&&s.type!=='archiviste'&&w.rnd()<(ti===2?.15:.25);
+      const elite=ti>=2&&s.type!==dg.boss&&w.rnd()<(ti===2?.15:.25);
       return mkDgMob(w,D,s.type,s.x,s.y,s.l,{elite,affix:elite?w.r.pick(Object.keys(AFFIXES)):null,patrol:s.patrol});
     });
-    D.objs=[{id:nid(w,'o'),kind:'obj',type:'portal',n:'Sortie des Archives',x:D.portal.x,y:D.portal.y,hgt:.9}];
+    D.objs=[{id:nid(w,'o'),kind:'obj',type:'portal',n:dg.sortie,x:D.portal.x,y:D.portal.y,hgt:.9}];
     w.maps[D.id]=D;
   }
   for(const p of ready){
     dismount(w,p);p.mapId=D.id;p.P.target=null;p.P.auto=false;p.P.cast=null;dropAggro(w,p);
     teleport(w,p,D.sx,D.sy);
-    msg(w,p.id,'sys',`Vous descendez dans les Archives Oubliées (${DIFFS[D.ti].n}). L'air sent le vieux papier et le topic verrouillé.`);
+    msg(w,p.id,'sys',`Vous descendez dans ${dg.n} (${DIFFS[D.ti].n}). ${dg.arrivee}`);
   }
 }
 
@@ -821,9 +825,10 @@ function destroyIfEmpty(w,mapId){if(mapId!=='over'&&!onMap(w,mapId).length)delet
 function leaveDungeon(w,pl){
   const {P}=pl,from=pl.mapId;
   if(from==='over')return;
+  const dg=DUNGEONS[w.maps[from].dg];
   pl.mapId='over';P.target=null;P.auto=false;P.cast=null;
-  teleport(w,pl,BOURG.x,BOURG.y);
-  msg(w,pl.id,'sys','Vous remontez au Bourg-Forum. La lumière du jour vous agresse un peu.');
+  teleport(w,pl,dg.exit.x,dg.exit.y);
+  msg(w,pl.id,'sys',dg.retour);
   destroyIfEmpty(w,from);
 }
 
@@ -832,15 +837,17 @@ function openChest(w,pl,id){
   if(!o||dist(P,o)>2.5)return;
   if(o.openedBy.includes(pl.id)){err(w,pl.id,'Le coffre est vide. Comme votre agenda.');return}
   o.openedBy.push(pl.id);
-  const df=DIFFS[map.ti],got=[];
-  for(let i=0;i<df.arts;i++){const aid=rollArt(map.ti,w.rnd);if(addItem(w,pl,aid,1))got.push(aid)}
-  if(df.grim&&w.rnd()<df.grim&&addItem(w,pl,'grimoire',1,df.L))got.push('grimoire');
+  const dg=DUNGEONS[map.dg],df=dgDiff(map.dg,map.ti),got=[];
+  for(let i=0;i<df.arts;i++){const aid=rollArt(map.ti,w.rnd,ART_POOLS[map.dg]);if(addItem(w,pl,aid,1))got.push(aid)}
+  // Équipement légendaire du donjon : le grimoire des Archives (DIFFS.grim), ou l'objet unique du donjon à thème.
+  const rare=dg.unique?{item:dg.unique.item,p:dg.unique.chance[map.ti]}:{item:'grimoire',p:df.grim};
+  if(rare.p&&w.rnd()<rare.p&&addItem(w,pl,rare.item,1,df.L))got.push(rare.item);
   const extra=w.rnd()<.6&&addItem(w,pl,'chouffe',2);
   S.gold+=df.gold;burst(w,pl.mapId,o.x,o.y-.5,'#f0d070',24,3);
-  for(const g of got)msg(w,pl.id,'loot',`Vous recevez le butin : [[${g}]].`);
+  for(const g of got)msg(w,pl.id,'loot',`Vous recevez le butin : ${ITEMS[g].t==='eq'?link(S.inv[S.inv.length-1]):`[[${g}]]`}.`);
   msg(w,pl.id,'loot',`Vous ramassez ${df.gold} po.`);
-  if(!map.objs.some(x=>x.type==='portal'&&x.exit))map.objs.push({id:nid(w,'o'),kind:'obj',type:'portal',exit:true,n:'Sortie des Archives',x:o.x+1.6,y:o.y,hgt:.9});
-  ev(w,pl.id,{t:'chest',ti:map.ti,got,extra,gold:df.gold});
+  if(!map.objs.some(x=>x.type==='portal'&&x.exit))map.objs.push({id:nid(w,'o'),kind:'obj',type:'portal',exit:true,n:dg.sortie,x:o.x+1.6,y:o.y,hgt:.9});
+  ev(w,pl.id,{t:'chest',ti:map.ti,dg:map.dg,got,extra,gold:df.gold});
   if(S.gold>=100)ach(w,pl,'rich');
 }
 
@@ -864,7 +871,7 @@ export function handleAction(w,id,a){
     case 'sellAll':sellAll(w,pl,a.kind);break;
     case 'acceptQuest':acceptQuest(w,pl);break;
     case 'completeQuest':completeQuest(w,pl);break;
-    case 'enterDungeon':enterDungeon(w,pl,a.ti);break;
+    case 'enterDungeon':enterDungeon(w,pl,a.ti,a.dg||'archives');break;
     case 'leaveDungeon':leaveDungeon(w,pl);break;
     case 'openChest':openChest(w,pl,a.id);break;
     case 'tradeOffer':tradeOffer(w,pl,a);break;
@@ -933,7 +940,7 @@ export function handleChat(w,id,text){
   ev(w,id,{t:'self'});
 }
 
-const zoneName=(map,P)=>{const z=zoneAt(map,P.x,P.y);return z==='dungeon'?`Archives Oubliées, ${DIFFS[map.ti].n}`:ZONES[z].n};
+const zoneName=(map,P)=>{const z=zoneAt(map,P.x,P.y);return z==='dungeon'?`${DUNGEONS[map.dg].n}, ${DIFFS[map.ti].n}`:ZONES[z].n};
 
 // w.saves() est fourni par le serveur (toutes les sauvegardes, hors-ligne compris) ; la sim seule ne connaît que les connectés.
 const TOPS=[['Niveau',S=>S.lvl,(a,b)=>b.xp-a.xp],['Archives terminées',S=>S.dg||0],['Chouffes bues',S=>S.chouffes||0],['Duels',S=>S.duelWins||0,null,S=>`${S.duelWins||0}V/${S.duelLosses||0}D`]];
@@ -979,6 +986,8 @@ function tickBots(w,dt){
 const bossAbilities=m=>BOSSES[m.type].abilities.filter(a=>m.diff>=a.diffMin);
 const yell=(w,map,m,text,dur)=>{say(m,text,dur||3.5);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${m.d.yn}] crie : ${text}`})};
 const bossMult=m=>(m.hard?m.hardMult:1);
+// hitF peut contenir {n} : une note sur 20 tirée au hasard (Correcteur de Philo).
+const hitText=(w,a)=>a.hitF.replace('{n}',w.r.ri(0,8));
 
 // Phases déclenchées par un seuil de PV ou un délai.
 const PHASE={
@@ -994,6 +1003,11 @@ const PHASE={
     }
   },
   shrink(w,map,m,a){m.zone={x:m.hx,y:m.hy,r:a.r0,t:0,acc:0,a};yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${a.n} : la zone de combat rétrécit !`})},
+  // Le rideau tombe : tout le groupe sort du donjon, qui se détruit ; le boss repart à zéro à la prochaine descente.
+  eject(w,map,m,a){
+    yell(w,map,m,a.say);toMap(w,map.id,{t:'banner',title:a.n,sub:a.msg,cls:'dg'});toMap(w,map.id,{t:'msg',cls:'sys',text:a.msg});
+    for(const p of onMap(w,map.id))leaveDungeon(w,p);
+  },
   enrage(w,map,m,a){m.hard=1;m.hardMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} n'a plus de patience !`})},
 };
 
@@ -1005,8 +1019,14 @@ function startCast(w,map,m,a,here){
     if(!cands.length)return false;
     m.mark=pick(cands).id;
   }
-  m.cast=m.castMax=a.cast;m.castN=a.n;m.castK=a.type;m.castR=a.type==='aoe'?a.r:a.jump;m.castA=a;
-  if(a.shout)yell(w,map,m,pick(a.shout),2.6);
+  if(a.type==='spots'){
+    // Un cercle sous chacun des joueurs tirés au hasard (le même joueur peut en recevoir plusieurs) : il faut bouger pendant l'incantation.
+    const cands=here.filter(p=>!p.P.dead&&dist(m,p.P)<14);
+    if(!cands.length)return false;
+    m.spots=Array.from({length:a.count},()=>{const p=pick(cands).P;return{x:p.x+w.r.rr(-.8,.8),y:p.y+w.r.rr(-.8,.8)}});
+  }
+  m.cast=m.castMax=a.cast;m.castN=a.n;m.castK=a.type;m.castR=a.type==='aoe'?a.r:a.type==='spots'?a.r:a.jump;m.castA=a;m.castDmg=0;
+  if(a.shout)yell(w,map,m,pick(a.shout),2.6);else if(a.say)yell(w,map,m,a.say,2.6);
   toMap(w,map.id,{t:'err',text:a.warn});
   return true;
 }
@@ -1014,9 +1034,21 @@ const FINISH={
   aoe(w,map,m,a,here){
     for(const p of here){
       if(p.P.dead)continue;
-      if(dist(m,p.P)<a.r){hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,a.hitF,'#ec5a4c',true);burst(w,map.id,p.P.x,p.P.y-.6,'#ec5a4c',16,4)}
+      if(dist(m,p.P)<a.r){hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,hitText(w,a),'#ec5a4c',true);burst(w,map.id,p.P.x,p.P.y-.6,'#ec5a4c',16,4)}
       else if(m.threat[p.id]||m.target===p.id){msg(w,p.id,'sys',a.dodge);float(w,map.id,p.P.x,p.P.y-1.9,a.dodgeF,'#7fb6ff')}
     }
+  },
+  spots(w,map,m,a,here){
+    for(const p of here){
+      if(p.P.dead||!m.spots.some(q=>Math.hypot(p.P.x-q.x,p.P.y-q.y)<a.r))continue;
+      hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,hitText(w,a),'#ec5a4c',true);
+    }
+    m.spots=null;
+  },
+  // Non interrompue, « Revenez demain » renvoie tout le groupe dans la salle de départ.
+  recall(w,map,m,a,here){
+    toMap(w,map.id,{t:'msg',cls:'sys',text:a.msg});toMap(w,map.id,{t:'err',text:a.msg});
+    for(const p of here)if(!p.P.dead){teleport(w,p,map.sx,map.sy);burst(w,map.id,p.P.x,p.P.y-.6,'#cfc7b4',10)}
   },
   // Le coup part du joueur marqué puis saute au plus proche non encore touché, à moins de `jump` cases : seul, on n'en prend qu'un.
   chain(w,map,m,a,here){
@@ -1027,9 +1059,19 @@ const FINISH={
       const last=hit[hit.length-1].P,next=here.filter(p=>!p.P.dead&&!hit.includes(p)&&dist(last,p.P)<=a.jump).sort((x,y)=>dist(last,x.P)-dist(last,y.P))[0];
       if(!next)break;hit.push(next);
     }
-    hit.forEach((p,i)=>{hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*(1+.25*i)*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,a.hitF,'#c9a8ff',true);burst(w,map.id,p.P.x,p.P.y-.6,'#c9a8ff',12,3)});
+    hit.forEach((p,i)=>{hurtPlayer(w,p,Math.round(m.atk[1]*a.dmg*(1+.25*i)*bossMult(m)),m,a.hit);float(w,map.id,p.P.x,p.P.y-1.9,hitText(w,a),'#c9a8ff',true);burst(w,map.id,p.P.x,p.P.y-.6,'#c9a8ff',12,3)});
   },
 };
+
+// Interrompre une incantation interruptible : étourdissement (« En fait… », Ban) ou assez de dégâts pendant la barre.
+function interruptCast(w,map,m,by){
+  const a=m.castA;
+  if(!(m.cast>0)||!a||a.interrupt==null)return;
+  m.cast=0;m.mark=null;m.spots=null;
+  m.b.cd[a.id]=w.r.rr(a.recharge[0],a.recharge[1]);
+  float(w,map.id,m.x,m.y-m.hgt-.3,'Interrompu !','#7be37b',true);
+  toMap(w,map.id,{t:'msg',cls:'sys',text:`${by?by.S.name:'Quelqu\'un'} interrompt « ${a.n} ».`});
+}
 
 function bossTick(w,map,m,dt,here){
   const B=m.b,{rr}=w.r,abs=bossAbilities(m);
@@ -1043,7 +1085,7 @@ function bossTick(w,map,m,dt,here){
   }
   const ratio=m.hp/m.mhp;
   for(const a of abs){
-    if(a.type==='enrage'){if(!B.done[a.id]&&B.t>=a.apres){B.done[a.id]=1;PHASE.enrage(w,map,m,a)}continue}
+    if(a.apres!=null){if(!B.done[a.id]&&B.t>=a.apres){B.done[a.id]=1;PHASE[a.type](w,map,m,a)}continue}
     for(const th of a.seuilsPV||(a.seuilPV!=null?[a.seuilPV]:[])){
       const k=a.id+th;
       if(ratio<=th&&!B.done[k]){B.done[k]=1;PHASE[a.type](w,map,m,a)}
