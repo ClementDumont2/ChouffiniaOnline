@@ -109,7 +109,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #log .yell{color:#ff6b5a;font-weight:700}
 #log .wsp{color:var(--wsp)}
 #log .me .who{color:#fff}
-#log[data-f="gen"] .cb{display:none}
+#log .hf{color:#f0d070} #log .join{color:#9fd0ff} #log .ann{color:#ffd84a;font-weight:700} #log .cmd{color:var(--sys)}
+/* Général : seulement les joueurs (chat, guilde, MP, arrivées, annonces, hauts faits) et les réponses à ses propres commandes ; le reste est dans Tout. */
+#log[data-f="gen"] .m:not(.gen):not(.guild):not(.wsp):not(.join):not(.ann):not(.hf):not(.cmd){display:none}
 #log[data-f="combat"] .m:not(.cb):not(.loot):not(.xpm){display:none}
 #chatf{position:relative;display:flex;border-top:1px solid var(--gold-dim)}
 #cmdlist{position:absolute;left:0;bottom:100%;width:max-content;max-width:min(420px,calc(100vw - 24px));max-height:180px;overflow-y:auto;z-index:6;font-size:13px}

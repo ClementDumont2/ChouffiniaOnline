@@ -18,7 +18,7 @@ export function suggest(text,pl,online=[]){
   const c=findCommand(parts[0]);
   if(!c||!canUse(pl,c))return[];
   const i=parts.length-2,cur=parts[i+1];
-  const opts=c.args[i]==='joueur'?online:c.args[i]==='lieu'?(pl.S.tp||[]):null;
+  const opts=c.args[i]==='joueur'?online:c.args[i]==='destination'?[...(pl.S.tp||[]),...online]:null;
   if(!opts)return[];
   return opts.filter(n=>n.toLowerCase().startsWith(cur.toLowerCase())).slice(0,8).map(n=>({fill:text.slice(0,text.length-cur.length)+n+(i+1<c.args.length?' ':''),label:n,desc:''}));
 }

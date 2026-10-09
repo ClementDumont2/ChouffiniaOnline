@@ -7,7 +7,7 @@ import {clamp,npcById,skillsOf,stats,xpNeed} from '../shared/rules.js';
 import {$,esc,fmt} from './util.js';
 import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
 import {H,MINI_S,TS,W,cam} from './render.js';
-import {openPortal,renderCharStats,togglePanel} from './panels.js';
+import {closeAll,openPortal,renderCharStats,togglePanel} from './panels.js';
 import {keyOf,label} from './keys.js';
 import {P,S,WD,me,online,send,targetEnt,world} from './state.js';
 
@@ -67,7 +67,7 @@ const npcCol=n=>{const q=QUESTS[S.q.i];return q&&q.g===n.id&&S.q.st!=='active'?'
 function wrapText(txt,max){const lines=[];for(const wd of txt.split(' ')){const l=lines.length?lines[lines.length-1]+' '+wd:wd;if(lines.length&&mctx.measureText(l).width<=max)lines[lines.length-1]=l;else lines.push(wd)}return lines}
 let zoneLbl=[];
 export function setMini(){miniC.width=WD.w*MINI_S;miniC.height=WD.h*MINI_S;zoneLbl=WD.id==='over'?zoneLabels(WD).map(l=>({...l,n:ZONES[l.z].n})):[]}
-miniC.onclick=()=>mapbox.classList.toggle('big');
+miniC.onclick=()=>{if(!mapbox.classList.contains('big'))closeAll();mapbox.classList.toggle('big')};
 // Infobulle native sur le PNJ le plus proche du curseur (carte agrandie surtout).
 miniC.onmousemove=e=>{
   const r=miniC.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*WD.w,y=(e.clientY-r.top)/r.height*WD.h;

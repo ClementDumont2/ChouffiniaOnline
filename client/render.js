@@ -57,7 +57,8 @@ function paintTile(g,map,x,y){
     case T.STAIRS:stone();R(2,2,28,28,'#0c0a0e');for(let i=0;i<4;i++)R(4+i*2,6+i*6,24-i*4,3,'#2e2a36');R(2,2,28,2,'#5a3a8a');break;
     case T.SWAMP:swamp();break;
     case T.MURK:R(0,0,32,32,'#1f2f2b');R(Math.floor(Hh(1)*20),Math.floor(Hh(2)*26),10,2,'#2c423b');R(Math.floor(Hh(3)*22),Math.floor(Hh(4)*26),7,1,'#2c423b');break;
-    case T.DTREE:swamp();R(14,10,4,20,'#4a4038');R(8,10,7,2,'#4a4038');R(18,6,7,2,'#4a4038');R(8,6,2,5,'#4a4038');R(23,3,2,4,'#4a4038');break;
+    // Arbre mort : obstacle plein, donc tronc épais et sombre avec une ombre au sol pour qu'il ressorte sur le marais.
+    case T.DTREE:swamp();g.fillStyle='rgba(0,0,0,.35)';g.beginPath();g.ellipse(X+16,Y+29,11,3,0,0,7);g.fill();R(12,7,8,23,'#1c1510');R(13,7,2,23,'#5e4c3a');R(4,10,9,3,'#1c1510');R(19,5,9,3,'#1c1510');R(4,4,3,7,'#1c1510');R(25,0,3,6,'#1c1510');R(5,10,7,1,'#5e4c3a');R(20,5,7,1,'#5e4c3a');break;
     case T.SALT:salt();break;
     case T.CRYSTAL:salt();g.fillStyle='#f4f1ea';g.beginPath();g.moveTo(X+10,Y+28);g.lineTo(X+14,Y+6);g.lineTo(X+18,Y+28);g.fill();g.fillStyle='#e6c9d0';g.beginPath();g.moveTo(X+16,Y+28);g.lineTo(X+22,Y+12);g.lineTo(X+26,Y+28);g.fill();g.fillStyle='#ffffff';g.fillRect(X+13,Y+10,1,10);break;
     case T.METAL:metal();break;

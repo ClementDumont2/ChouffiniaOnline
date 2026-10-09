@@ -1,7 +1,7 @@
 import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SLOTS,STOCK} from '../shared/data.js';
 // Difficulté d'un donjon : DIFFS surchargé par les niveaux propres au donjon (même règle que le serveur).
 const dgDiffs=id=>DIFFS.map((d,i)=>({...d,...((DUNGEONS[id].diffs||[])[i])}));
-import {FUSE_PER_LEVEL,buyPrice,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
+import {BAG,FUSE_PER_LEVEL,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
@@ -14,7 +14,9 @@ import {P,S,WD,send} from './state.js';
 let dlgNpc=null,dlgRedo=null,trade=null;
 let selItem=-1,selId=null;
 const PANELS={bag:()=>renderBag(),char:()=>renderChar(),opts:()=>renderOpts()};
-export function togglePanel(id){const p=$('#'+id);if(p.hidden){for(const o in PANELS)if(o!==id)$('#'+o).hidden=true;p.hidden=false;PANELS[id]()}else{p.hidden=true;waiting=null}tipEl.hidden=true}
+// Une seule fenêtre ouverte à la fois : sac, perso, options, dialogue (sauf s'il est verrouillé) ou carte agrandie.
+export function closeAll(except){for(const o of ['bag','char','opts','dlg'])if(o!==except&&!$('#'+o).hidden)closePanel(o);$('#mapbox').classList.remove('big')}
+export function togglePanel(id){const p=$('#'+id);if(p.hidden){closeAll(id);p.hidden=false;PANELS[id]()}else{p.hidden=true;waiting=null}tipEl.hidden=true}
 export function closePanel(id){if(id==='opts')waiting=null;if(id==='dlg'){if(dlgLocked)return;if(trade)send({a:'tradeCancel'});dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
 function nearMerchant(){return WD.id==='over'&&['gerard','bernard','tavernier'].some(id=>dist(P,npcById(id))<3.5)}
 function sellValue(s){return s.uid?itemValue(s):ITEMS[s.id].price*s.n}
@@ -98,7 +100,7 @@ export function dialog(title,sub,html,btns,locked,npc){
   dlgLocked=!!locked;dlgNpc=npc||null;dlgRedo=null;$('#dlgT').textContent=title;$('#dlgSub').textContent=sub||'';const body=$('#dlgBody');body.innerHTML='';if(typeof html==='string')body.innerHTML=html;else body.appendChild(html);
   const a=$('#dlgActs');a.innerHTML='';
   for(const [lbl,fn,alt,dis] of btns){const b=document.createElement('button');b.className='btn'+(alt?' alt':'');b.type='button';b.textContent=lbl;b.disabled=!!dis;b.onclick=fn;a.appendChild(b)}
-  $('#dlg').classList.remove('wide');$('#dlg').hidden=false;$('#bag').hidden=true;$('#char').hidden=true;$('#opts').hidden=true;tipEl.hidden=true;
+  $('#dlg').classList.remove('wide');closeAll('dlg');$('#dlg').hidden=false;tipEl.hidden=true;
 }
 function questBlock(n){
   const q=QUESTS[S.q.i];if(!q||q.g!==n.id)return{html:'',btns:[]};
@@ -117,23 +119,22 @@ function showNpc(n){
     if(arts.length)html+=`<p class="rw">Artéfacts dans votre sac : ${arts.map(s=>itemLink(s.id)+(s.n>1?' ×'+s.n:'')).join(', ')}.</p>`;
     btns.push([`Vendre tous les artéfacts (${fmt(av)} po)`,()=>send({a:'sellAll',kind:'art'}),false,!av]);
     btns.push([`Vendre le bric-à-brac (${jv} po)`,()=>send({a:'sellAll',kind:'junk'}),true,!jv]);
-    btns.push(['Acheter des Chips au Fromage Orange (5 po)',()=>send({a:'buy',id:'chips',n:1}),true,S.gold<5]);
+    btns.push(['Acheter des Chips au Fromage Orange (5 po)',()=>send({a:'buy',id:'chips',n:1}),true,S.gold<5||!canHold(S,'chips')]);
   }
   if(n.id==='tavernier'){
-    btns.push(['Acheter une Chouffe (12 po)',()=>send({a:'buy',id:'chouffe',n:1}),false,S.gold<12]);
-    btns.push(['Acheter 5 Chouffes (55 po, le prix du khey)',()=>send({a:'buy',id:'chouffe',n:5}),true,S.gold<55]);
+    btns.push(['Acheter une Chouffe (12 po)',()=>send({a:'buy',id:'chouffe',n:1}),false,S.gold<12||!canHold(S,'chouffe')]);
+    btns.push(['Acheter 5 Chouffes (55 po, le prix du khey)',()=>send({a:'buy',id:'chouffe',n:5}),true,S.gold<55||!canHold(S,'chouffe')]);
   }
   const stock=STOCK[n.id]||[];
-  if(stock.some(id=>ITEMS[id].t==='eq')){
-    btns.unshift(["Voir l'armurerie",()=>openShop(n)]);
-    for(const id of stock.filter(id=>ITEMS[id].t==='use'))btns.push([`Acheter : ${ITEMS[id].n} (${buyPrice(id)} po)`,()=>send({a:'buy',id,n:1}),true,S.gold<buyPrice(id)]);
-  }
+  if(stock.some(id=>ITEMS[id].t==='eq'))btns.unshift(["Voir l'armurerie",()=>openShop(n)]);
+  // Gérard et le Tavernier ont leurs propres boutons (et le lot de 5 Chouffes).
+  if(!['gerard','tavernier'].includes(n.id))for(const id of stock.filter(id=>ITEMS[id].t==='use'))btns.push([`Acheter : ${ITEMS[id].n} (${buyPrice(id)} po)`,()=>send({a:'buy',id,n:1}),true,S.gold<buyPrice(id)||!canHold(S,id)]);
   if(n.dungeon)btns.unshift([`Entrer : ${DUNGEONS[n.dungeon].n}`,()=>openDungeonMenu(n)])
   if(n.id==='otaku'){
     for(const id of STOCK.otaku){
       const it=ITEMS[id];
       html+=`<p class="rw"><b class="q-${it.r}">${esc(it.n)}</b> · ${fmt(it.buy)} po<br><span class="ty">${esc(it.d)}</span></p>`;
-      btns.push([`Acheter : ${it.n} (${fmt(it.buy)} po)`,()=>send({a:'buy',id,n:1}),true,S.gold<it.buy]);
+      btns.push([`Acheter : ${it.n} (${fmt(it.buy)} po)`,()=>send({a:'buy',id,n:1}),true,S.gold<it.buy||!canHold(S,id)]);
     }
   }
   if(n.id==='kevin'){
@@ -154,7 +155,7 @@ let shopSel=null,shopUp=false;
 function openShop(n){
   const sc=$('#dlg').hidden?0:$('#dlg').scrollTop;
   const wrap=document.createElement('div');
-  wrap.innerHTML=`<p class="greet">« Tout est garanti 30 jours. Ou 30 minutes. Je ne me souviens plus. »</p><div class="shopbar"><span class="goldv">Votre or : ${fmt(S.gold)} po</span><label class="chk"><input type="checkbox" id="shopUp" ${shopUp?'checked':''}> Améliorations seulement</label></div><p class="ty">Chaque objet est comparé à ce que vous portez. Touchez une ligne pour le détail.</p>`;
+  wrap.innerHTML=`<p class="greet">« Tout est garanti 30 jours. Ou 30 minutes. Je ne me souviens plus. »</p><div class="shopbar"><span class="goldv">Votre or : ${fmt(S.gold)} po${S.inv.length<BAG?'':' · <span class="down">Sac plein</span>'}</span><label class="chk"><input type="checkbox" id="shopUp" ${shopUp?'checked':''}> Améliorations seulement</label></div><p class="ty">Chaque objet est comparé à ce que vous portez. Touchez une ligne pour le détail.</p>`;
   const eq=STOCK[n.id].filter(id=>ITEMS[id].t==='eq');
   for(const [cat,ids] of [['Armes · augmentent l\'Attaque',eq.filter(id=>ITEMS[id].s==='arme')],['Armures · augmentent la Protection',eq.filter(id=>ITEMS[id].s!=='arme')]]){
     if(!ids.length)continue;
@@ -164,7 +165,7 @@ function openShop(n){
       const row=document.createElement('div');row.className='srow q-'+it.r+(own?' own':'')+(shopSel===id?' sel':'');row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-expanded',shopSel===id?'true':'false');
       const ic=document.createElement('span');ic.className='ic';ic.appendChild(iconCanvas(id,64));if(c.better)ic.insertAdjacentHTML('beforeend','<span class="upb" title="Amélioration">▲</span>');row.appendChild(ic);
       row.insertAdjacentHTML('beforeend',`<div class="in"><b class="q-${it.r}">${esc(it.n)}</b><small>${SLOTS[it.s]} · niveau ${it.rl} · ${statLine(pv)}${own?' · déjà possédé':''}</small><span class="dl">${deltaLine(pv)}</span>${!lv&&short>0?`<small class="down">Il vous manque ${fmt(short)} po</small>`:''}</div>`);
-      const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=lv?`Niv ${it.rl}`:`${fmt(buyPrice(id))} po`;b.disabled=lv||S.gold<buyPrice(id);
+      const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=lv?`Niv ${it.rl}`:`${fmt(buyPrice(id))} po`;b.disabled=lv||S.gold<buyPrice(id)||!canHold(S,id);
       b.onclick=e=>{e.stopPropagation();if(S.gold>=buyPrice(id))send({a:'buy',id,n:1})};
       const toggle=()=>{shopSel=shopSel===id?null:id;openShop(n)};
       row.onclick=toggle;row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};

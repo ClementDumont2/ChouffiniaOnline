@@ -1,7 +1,7 @@
 import {WHISPERS} from '../shared/data.js';
 import {dist,moveSpeed} from '../shared/rules.js';
 import {findEnt} from '../shared/sim.js';
-import {moveEnt} from '../shared/map.js';
+import {findPath,moveEnt} from '../shared/map.js';
 import {$,esc,pick} from './util.js';
 import {TS,cam,cv,setMarker} from './render.js';
 import {chat} from './hud.js';
@@ -11,7 +11,7 @@ import {P,S,WD,me,running,send,sendChat,sendMove,world} from './state.js';
 
 export const keys={};
 // Déplacement : le client calcule sa position et la propose ; la sim ne fait que la valider.
-export const nav={goal:null,follow:null,stuck:0};
+export const nav={goal:null,follow:null,stuck:0,path:null};
 // Les flèches restent toujours actives en plus de la touche configurée.
 const ARROWS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'},MOVES=['up','down','left','right'];
 const actionFor=code=>ARROWS[code]||actionOf(code);
@@ -63,6 +63,9 @@ export function updControl(dt,t){
   if(dx||dy){nav.goal=null;nav.follow=null}
   else if(nav.follow){const e=findEnt(world,WD.id,nav.follow);if(!e||(e.kind==='mob'&&!e.alive)){nav.follow=null}else{const d=dist(P,e),need=e.kind==='mob'?1.35:e.kind==='obj'?1.3:1.7;if(d<need){nav.follow=null;if(e.kind==='npc')openNpc(e);else if(e.kind==='obj')openObj(e)}else{dx=e.x-P.x;dy=e.y-P.y}}}
   else if(nav.goal){dx=nav.goal.x-P.x;dy=nav.goal.y-P.y;if(Math.hypot(dx,dy)<.08){nav.goal=null;dx=dy=0}}
+  // Chemin A* calculé après un blocage : il ne vaut que pour la destination qui l'a demandé.
+  const dest=nav.follow||nav.goal;if(nav.path&&nav.path.for!==dest)nav.path=null;
+  if((dx||dy)&&nav.path&&nav.path.pts.length){const q=nav.path.pts[0];if(Math.hypot(q.x-P.x,q.y-P.y)<.15)nav.path.pts.shift();else{dx=q.x-P.x;dy=q.y-P.y}}
   let L=Math.hypot(dx,dy);
   if(L>0&&(kb||!P.cast)){
     if(P.drunk>0){const a=Math.sin(t*2.7)*.55,c=Math.cos(a),s2=Math.sin(a);const nx=dx*c-dy*s2,ny=dx*s2+dy*c;dx=nx;dy=ny}
@@ -72,7 +75,8 @@ export function updControl(dt,t){
     sendMove(o.x,o.y,Math.abs(dx)>.01?(dx>0?1:-1):0);
     // Le cycle de marche du joueur local est calculé ici : les snapshots ne portent pas sa position.
     if(moved>0){P.x=o.x;P.y=o.y;P.step+=moved*2.7;P.moving=true;P.mvT=.15;if(Math.abs(dx)>.01)P.face=dx>0?1:-1}
-    if((nav.goal||nav.follow)&&moved<s*.15){nav.stuck+=dt;if(nav.stuck>.35){nav.goal=null;nav.follow=null;nav.stuck=0}}else nav.stuck=0;
+    // Bloqué (flaque, arbre, haie) : on contourne par A* au lieu d'abandonner, sinon on reste planté à « attaquer » une cible hors d'atteinte.
+    if(dest&&moved<s*.15){nav.stuck+=dt;if(nav.stuck>.35){nav.stuck=0;const t=nav.follow?findEnt(world,WD.id,nav.follow):nav.goal,pts=!(nav.path&&nav.path.pts.length)&&t&&findPath(WD,P.x,P.y,t.x,t.y);if(pts&&pts.length)nav.path={for:dest,pts};else{nav.goal=null;nav.follow=null;nav.path=null}}}else nav.stuck=0;
   }
   autoCloseDlg();
 }

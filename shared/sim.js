@@ -1,8 +1,8 @@
 // Simulation pure : ni DOM, ni Math.random, aucun import du client.
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
-import {ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {buyPrice,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
+import {ACH,ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
+import {BAG,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
@@ -11,7 +11,7 @@ import {SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
-const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,DG_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
+const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,DG_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1,EARSHOT=20;
 const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});
@@ -65,6 +65,7 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
   msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
   if(!save)msg(w,id,'sys','[Aide] Le Vieux Sage du Forum vous attend dans le sous-sol. Il a un point d\'exclamation au-dessus de la tête. C\'est sa seule expression.');
+  toAll(w,{t:'msg',cls:'join',text:`**${S.name}** a rejoint Chouffinia.`});
   announceOnline(w);
   later(w,1.2,()=>{if(w.players[id]&&S.q.i===0&&S.q.st==='avail')say(w.maps.over.npcs[0],'Psst. Jeune chouffin. Viens par ici.',4)});
   return pl;
@@ -159,16 +160,19 @@ function discover(w,pl,z){
   pl.S.tp.push(z);
   ev(w,pl.id,{t:'toast',kicker:'Sanctuaire découvert',title:ZONES[z].n,sub:`Voyage depuis n'importe quel sanctuaire : /tp ${z}`});ev(w,pl.id,{t:'self'});
 }
-// Voyage entre sanctuaires découverts, au départ d'un sanctuaire seulement : pas de fuite en plein combat.
+// Voyage vers un sanctuaire découvert ou un joueur de la carte du monde, au départ d'un sanctuaire seulement : pas de fuite en plein combat.
 function travel(w,pl,to){
   const {S,P}=pl,list=S.tp.map(z=>`${z} (${ZONES[z].n})`).join(', ');
-  if(!to){msg(w,pl.id,'sys',`Sanctuaires découverts : ${list}. Voyage : /tp <lieu>, depuis un sanctuaire.`);return}
-  const z=S.tp.find(k=>k===to.toLowerCase());
-  if(!z){err(w,pl.id,`Sanctuaire inconnu ou pas encore découvert. Découverts : ${S.tp.join(', ')}.`);return}
+  if(!to){msg(w,pl.id,'sys',`Sanctuaires découverts : ${list}. Voyage : /tp <lieu ou joueur>, depuis un sanctuaire.`);return}
+  const z=S.tp.find(k=>k===to.toLowerCase()),o=!z&&byName(w,to);
+  if(!z&&!o){err(w,pl.id,`Ni sanctuaire découvert ni joueur connecté : ${to}. Sanctuaires : ${S.tp.join(', ')}.`);return}
+  if(o===pl){err(w,pl.id,'Vous êtes déjà là. Physiquement, du moins.');return}
+  if(o&&o.mapId!=='over'){err(w,pl.id,`${o.S.name} est dans un donjon : demandez-lui un /inviter.`);return}
   if(pl.mapId!=='over'||P.dead||!isSafe(w.maps.over,P.x,P.y)){err(w,pl.id,'On ne voyage que depuis un sanctuaire.');return}
   P.cast=null;P.target=null;P.auto=false;
-  teleport(w,pl,SAFE[z].x,SAFE[z].y);
-  msg(w,pl.id,'sys',`Vous voyagez jusqu'à ${ZONES[z].n}. Le trajet a duré une seconde. Votre mère aurait mis vingt minutes à se garer.`);
+  const dest=o?o.P:SAFE[z];teleport(w,pl,dest.x,dest.y);
+  msg(w,pl.id,'sys',`Vous voyagez jusqu'à ${o?o.S.name:ZONES[z].n}. Le trajet a duré une seconde. Votre mère aurait mis vingt minutes à se garer.`);
+  if(o)msg(w,o.id,'sys',`${S.name} se téléporte à côté de vous. Sans prévenir. Comme un cousin.`);
 }
 
 function teleport(w,pl,x,y){const {P}=pl;P.x=x;P.y=y;P.mt=w.time;ev(w,pl.id,{t:'tp',x,y})}
@@ -318,13 +322,13 @@ function respawn(w,pl){
   ev(w,pl.id,{t:'respawned'});
 }
 
-function ach(w,pl,id){if(pl.S.ach[id])return;pl.S.ach[id]=1;ev(w,pl.id,{t:'ach',id})}
+function ach(w,pl,id){if(pl.S.ach[id])return;pl.S.ach[id]=1;ev(w,pl.id,{t:'ach',id});toAll(w,{t:'msg',cls:'hf',text:`[Haut fait] **${pl.S.name}** a obtenu **${ACH[id][0]}**.`})}
 
 function addItem(w,pl,id,n,nObj,rarete){
   const {S}=pl;
-  if(stackable(id)){const st=S.inv.find(s=>s.id===id);if(st){st.n+=n;return true}}
-  if(S.inv.length>=BAG){err(w,pl.id,'Sac plein. Comme votre historique de navigation.');return false}
-  S.inv.push(stackable(id)?{id,n}:withUid(S,newItem(id,nObj,rarete)));return true;
+  if(!canHold(S,id)){err(w,pl.id,'Sac plein. Comme votre historique de navigation.');return false}
+  const st=stackable(id)&&S.inv.find(s=>s.id===id);
+  if(st)st.n+=n;else S.inv.push(stackable(id)?{id,n}:withUid(S,newItem(id,nObj,rarete)));return true;
 }
 
 function equip(w,pl,idx){
@@ -979,15 +983,17 @@ const RUN={
     const text=v.replace(/^\S+\s*/,'');
     if(!text){msg(w,pl.id,'sys','Usage : /annonce <texte>');return}
     toAll(w,{t:'announce',who:pl.S.name,text});
-    toAll(w,{t:'msg',cls:'yell',text:`[Annonce] ${pl.S.name} : ${text}`});
+    toAll(w,{t:'msg',cls:'ann',text:`[Annonce] ${pl.S.name} : ${text}`});
   },
   douche:(w,pl)=>msg(w,pl.id,'sys','Vous cherchez la douche. Erreur 404 : salle de bain introuvable.'),
 };
 function runCommand(w,pl,v){
   const word=v.split(/\s+/)[0],cmd=findCommand(word.slice(1));
   // Sans le droit, la commande doit être indiscernable d'une commande qui n'existe pas.
-  if(cmd&&canUse(pl,cmd))RUN[cmd.nom](w,pl,v);
-  else msg(w,pl.id,'sys',`Commande inconnue : ${word}.`);
+  if(!cmd||!canUse(pl,cmd)){msg(w,pl.id,'cmd',`Commande inconnue : ${word}.`);return}
+  // Les réponses d'une commande restent dans l'onglet Général (qui ne montre plus les messages système) : le joueur les a demandées.
+  const n0=w.events.length;RUN[cmd.nom](w,pl,v);
+  for(const e of w.events.slice(n0))if(e.to===pl.id&&e.t==='msg'&&e.cls==='sys')e.cls='cmd';
 }
 
 export function handleChat(w,id,text){
@@ -1050,14 +1056,16 @@ function tickBots(w,dt){
 
 // ---- Moteur de boss : lit shared/data/bosses.js, ne connaît aucun boss en particulier ----
 const bossAbilities=m=>BOSSES[m.type].abilities.filter(a=>m.diff>=a.diffMin);
-const yell=(w,map,m,text,dur)=>{say(m,text,dur||3.5);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${m.d.yn}] crie : ${text}`})};
+// Sur la carte du monde, un boss ne parle qu'aux joueurs à portée de voix : sinon ses cris envahissent le chat de toute la carte.
+const bossTo=(w,map,m,e)=>{for(const p of onMap(w,map.id))if(map.id!=='over'||dist(p.P,m)<=EARSHOT)ev(w,p.id,e)};
+const yell=(w,map,m,text,dur)=>{say(m,text,dur||3.5);bossTo(w,map,m,{t:'msg',cls:'yell',text:`[${m.d.yn}] crie : ${text}`})};
 const bossMult=m=>(m.hard?m.hardMult:1);
 // hitF peut contenir {n} : une note sur 20 tirée au hasard (Correcteur de Philo).
 const hitText=(w,a)=>a.hitF.replace('{n}',w.r.ri(0,8));
 
 // Phases déclenchées par un seuil de PV ou un délai.
 const PHASE={
-  rage(w,map,m,a){m.enr=1;m.enrMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} devient enragé${m.d.fem?'e':''} !`})},
+  rage(w,map,m,a){m.enr=1;m.enrMult=a.mult;yell(w,map,m,a.say);bossTo(w,map,m,{t:'err',text:`${m.d.yn} devient enragé${m.d.fem?'e':''} !`})},
   summon(w,map,m,a){
     yell(w,map,m,a.say);
     const spots=[[-1.8,0],[1.8,0],[0,1.8],[0,-1.8]].map(([dx,dy])=>({x:m.x+dx,y:m.y+dy})).filter(q=>canStand(map,q.x,q.y));
@@ -1068,13 +1076,13 @@ const PHASE={
       map.mobs.push(c);m.b.summons.push(c.id);burst(w,map.id,q.x,q.y-.5,'#c9a8ff',8);
     }
   },
-  shrink(w,map,m,a){m.zone={x:m.hx,y:m.hy,r:a.r0,t:0,acc:0,a};yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${a.n} : la zone de combat rétrécit !`})},
+  shrink(w,map,m,a){m.zone={x:m.hx,y:m.hy,r:a.r0,t:0,acc:0,a};yell(w,map,m,a.say);bossTo(w,map,m,{t:'err',text:`${a.n} : la zone de combat rétrécit !`})},
   // Le rideau tombe : tout le groupe sort du donjon, qui se détruit ; le boss repart à zéro à la prochaine descente.
   eject(w,map,m,a){
-    yell(w,map,m,a.say);toMap(w,map.id,{t:'banner',title:a.n,sub:a.msg,cls:'dg'});toMap(w,map.id,{t:'msg',cls:'sys',text:a.msg});
+    yell(w,map,m,a.say);bossTo(w,map,m,{t:'banner',title:a.n,sub:a.msg,cls:'dg'});bossTo(w,map,m,{t:'msg',cls:'sys',text:a.msg});
     for(const p of onMap(w,map.id))leaveDungeon(w,p);
   },
-  enrage(w,map,m,a){m.hard=1;m.hardMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} n'a plus de patience !`})},
+  enrage(w,map,m,a){m.hard=1;m.hardMult=a.mult;yell(w,map,m,a.say);bossTo(w,map,m,{t:'err',text:`${m.d.yn} n'a plus de patience !`})},
 };
 
 // Incantations : le début annonce (barre nommée, zone au sol), la fin applique.
@@ -1093,7 +1101,7 @@ function startCast(w,map,m,a,here){
   }
   m.cast=m.castMax=a.cast;m.castN=a.n;m.castK=a.type;m.castR=a.type==='aoe'?a.r:a.type==='spots'?a.r:a.jump;m.castA=a;m.castDmg=0;
   if(a.shout)yell(w,map,m,pick(a.shout),2.6);else if(a.say)yell(w,map,m,a.say,2.6);
-  toMap(w,map.id,{t:'err',text:a.warn});
+  bossTo(w,map,m,{t:'err',text:a.warn});
   return true;
 }
 const FINISH={
@@ -1117,7 +1125,7 @@ const FINISH={
   },
   // Non interrompue, « Revenez demain » renvoie tout le groupe dans la salle de départ.
   recall(w,map,m,a,here){
-    toMap(w,map.id,{t:'msg',cls:'sys',text:a.msg});toMap(w,map.id,{t:'err',text:a.msg});
+    bossTo(w,map,m,{t:'msg',cls:'sys',text:a.msg});bossTo(w,map,m,{t:'err',text:a.msg});
     for(const p of here)if(!p.P.dead){teleport(w,p,map.sx,map.sy);burst(w,map.id,p.P.x,p.P.y-.6,'#cfc7b4',10)}
   },
   // Le coup part du joueur marqué puis saute au plus proche non encore touché, à moins de `jump` cases : seul, on n'en prend qu'un.
@@ -1140,7 +1148,7 @@ function interruptCast(w,map,m,by){
   m.cast=0;m.mark=null;m.spots=null;
   m.b.cd[a.id]=w.r.rr(a.recharge[0],a.recharge[1]);
   float(w,map.id,m.x,m.y-m.hgt-.3,'Interrompu !','#7be37b',true);
-  toMap(w,map.id,{t:'msg',cls:'sys',text:`${by?by.S.name:'Quelqu\'un'} interrompt « ${a.n} ».`});
+  bossTo(w,map,m,{t:'msg',cls:'sys',text:`${by?by.S.name:'Quelqu\'un'} interrompt « ${a.n} ».`});
 }
 
 function bossTick(w,map,m,dt,here){

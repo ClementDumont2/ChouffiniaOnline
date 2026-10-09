@@ -88,7 +88,11 @@ La référence est l'en-tête de `shared/protocol.js` ; résumé :
 ## Systèmes de jeu (où regarder)
 
 - **Monde** : carte 160×60. Sanctuaires (pas de monstres) : `base` (Sous-Sol de Maman, spawn 7.5, 8.5), `bourg` (Bourg-Forum, marchands, retour de donjon 21.5, 20.4), `arene` (duels), puis un par zone de l'est : `preau` (Parking, Surveillant → donjon du Bac), `accueil`, `attente`, `vestiaire`, `cafet` — rectangles et points d'arrivée dans `SAFE` (data/zones.js), chacun avec un marchand d'équipement de sa zone (`STOCK`, prix `buyPrice` = `buy` ou 3 × `price`). Zones par niveau : plaine 1–2 → … → datacenter 10, puis parking 15–25, supermarché 25–40, pôle 40–55, convention 55–75, diiage 75–100. Découpage dans `zoneAt` (map.js).
-- **Sanctuaires / voyage** : entrer dans un sanctuaire le débloque (`S.tp`) ; `/tp <lieu>` téléporte entre sanctuaires débloqués, au départ d'un sanctuaire seulement.
+- **Sanctuaires / voyage** : entrer dans un sanctuaire le débloque (`S.tp`) ; `/tp <lieu ou joueur>` téléporte vers un sanctuaire débloqué ou à côté d'un joueur de la carte du monde, au départ d'un sanctuaire seulement. Chaque sanctuaire a un marchand (Petit Frère au sous-sol, Buvette à l'arène).
+- **Sac** : 24 places (`BAG`), `canHold` (rules.js) décide côté serveur et grise les achats côté client.
+- **Fenêtres** : une seule ouverte à la fois (`closeAll`, panels.js), carte agrandie comprise.
+- **Chat** : l'onglet Général ne montre que les classes `gen`, `guild`, `wsp`, `join` (arrivées), `ann` (/annonce), `hf` (hauts faits, diffusés à tous) et `cmd` (réponses aux commandes du joueur, reclassées dans `runCommand`) ; tout le reste (`sys`, `loot`, `cb`, cris de boss `yell`…) est dans Tout. Filtre en CSS (`#log[data-f]`, index.html).
+- **Déplacement au clic** : bloqué plus de 0,35 s, le client calcule un A* (`findPath`) vers la destination avant d'abandonner.
 - **Boss de zone** : un par zone du monde (données dans mobs.js `bossZone`, capacités `bossMonde` dans bosses.js, apparition dans `NEW_SPAWNS`) ; `look` = sprite du monstre de zone repris et agrandi.
 - **IA** : poursuite en ligne droite, A* (`findPath`, map.js) dès qu'un mur bloque ; les monstres ne traversent jamais un sanctuaire.
 - **Fin** : seule la quête finale (niveau 100, `fin:true`) déclenche `campaignEnd`.

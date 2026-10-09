@@ -22,6 +22,9 @@ export const skillsOf=S=>classOf(S).skills.map(id=>({id,...SKILL_DEFS[id]}));
 export function stats(S,drunk=0){const bs=baseStats(S.lvl);let atk=bs.atk,hp=bs.hp,arm=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:bs.caf,arm,red:arm/(arm+45),spd:m.spd}}
 
 export const stackable=id=>ITEMS[id].t!=='eq';
+// Le sac : 24 emplacements. Une pile déjà présente accueille toujours plus du même objet. Le client s'en sert pour griser les achats, le serveur pour trancher.
+export const BAG=24;
+export const canHold=(S,id)=>(stackable(id)&&S.inv.some(s=>s.id===id))||S.inv.length<BAG;
 
 // Un équipement est une instance { uid, id, nObj, rarete } : ITEMS donne les stats d'un objet à nObj = rl et rareté d'origine,
 // et on les met à l'échelle × (1 + nObj/10) × multiplicateur de rareté. Les piles (consommables, artéfacts) restent { id, n }.
@@ -122,8 +125,7 @@ export function normalizeSave(sv){
     const id=typeof x==='string'?x:x&&x.id;
     return ITEMS[id]&&ITEMS[id].t==='eq'?withUid(S,newItem(id)):null;
   };
-  // Un sac ne contient jamais plus de 24 emplacements (BAG dans sim.js).
-  S.inv=rawInv.map(x=>ITEMS[x&&x.id]&&ITEMS[x.id].t!=='eq'?{id:x.id,n:int(x.n,1,1,9999)}:inst(x)).filter(Boolean).slice(0,24);
+  S.inv=rawInv.map(x=>ITEMS[x&&x.id]&&ITEMS[x.id].t!=='eq'?{id:x.id,n:int(x.n,1,1,9999)}:inst(x)).filter(Boolean).slice(0,BAG);
   for(const k in S.eq)S.eq[k]=inst(S.eq[k]);
   if(!CLASSES[S.cls])S.cls=DEFAULT_CLASS;
   S.mounts=(Array.isArray(sv.mounts)?sv.mounts:[]).filter(id=>MOUNTS[id]);

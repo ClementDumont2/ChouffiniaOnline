@@ -54,7 +54,7 @@ test('/tp : sanctuaire découvert en y entrant, voyage seulement depuis un sanct
   const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'});
   assert.deepEqual(p.S.tp, ['base', 'bourg']);
   handleChat(w, 'p1', '/tp preau');
-  assert.ok(takeEvents(w, 'p1').some(e => e.t === 'err' && /pas encore découvert/.test(e.text)));
+  assert.ok(takeEvents(w, 'p1').some(e => e.t === 'err' && /Ni sanctuaire découvert/.test(e.text)));
   // Entrée à pied dans le préau.
   place(p, 79.5, 12.5); p.P.mt = -99;
   assert.ok(movePlayer(w, 'p1', 80.5, 12.5));
@@ -112,4 +112,62 @@ test('un boss de zone par zone de la carte du monde, à son niveau, avec ses cap
   assert.ok(m.enr && m.b.summons.length === 2, 'colère et renforts');
   m.hp = 1; p.P.cd = {}; handleAction(w, 'p1', {a: 'skill', i: 0});
   assert.ok(!m.alive && p.S.inv.some(s => s.id === 'chouffe'));
+});
+
+test('chaque sanctuaire a un marchand', () => {
+  const map = createWorld({seed: 1}).maps.over;
+  const vendeurs = NPCS.filter(n => STOCK[n.id]).map(n => zoneAt(map, n.x, n.y));
+  for (const z of [...Object.keys(SAFE), 'arene']) assert.ok(vendeurs.includes(z), z);
+});
+
+test('sac plein : achat refusé sans débit, sauf sur une pile déjà présente', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), c = npc('cantine');
+  p.S.gold = 5000; p.S.lvl = 20; place(p, c.x + 1, c.y + .3);
+  p.S.inv = [{id: 'chips', n: 1}, ...Array.from({length: 23}, (_, i) => ({uid: 'x' + i, id: 'regle', nObj: 1, rarete: 'common'}))];
+  for (const id of ['gilet', 'chouffe']) handleAction(w, 'p1', {a: 'buy', id, n: 1});
+  assert.equal(p.S.gold, 5000);
+  assert.ok(takeEvents(w, 'p1').some(e => e.t === 'err' && /Sac plein/.test(e.text)));
+  handleAction(w, 'p1', {a: 'buy', id: 'chips', n: 1});
+  assert.deepEqual([p.S.gold, p.S.inv[0].n, p.S.inv.length], [4995, 2, 24]);
+});
+
+test('/tp <joueur> : à côté d\'un joueur de la carte du monde, pas dans un donjon', () => {
+  const w = createWorld({seed: 1}), a = addPlayer(w, 'a', {name: 'Alice'}), b = addPlayer(w, 'b', {name: 'Bob'});
+  place(b, 100.5, 10.5);
+  handleChat(w, 'a', '/tp bob');
+  assert.deepEqual([a.P.x, a.P.y], [100.5, 10.5]);
+  assert.ok(takeEvents(w, 'b').some(e => /se téléporte à côté de vous/.test(e.text || '')));
+  place(a, SAFE.bourg.x, SAFE.bourg.y); b.mapId = 'dg9';
+  handleChat(w, 'a', '/tp Bob');
+  assert.ok(takeEvents(w, 'a').some(e => e.t === 'err' && /donjon/.test(e.text)));
+  handleChat(w, 'a', '/tp personne');
+  assert.ok(takeEvents(w, 'a').some(e => e.t === 'err' && /Ni sanctuaire/.test(e.text)));
+});
+
+test('un boss de zone ne crie qu\'aux joueurs à portée de voix', () => {
+  const w = createWorld({seed: 1}), map = w.maps.over, m = map.mobs.find(x => x.type === 'modo_supreme');
+  const pres = addPlayer(w, 'p', {name: 'Pres'}), loin = addPlayer(w, 'l', {name: 'Loin'});
+  pres.S.lvl = 30; place(pres, m.x + 1, m.y);
+  handleAction(w, 'p', {a: 'target', id: m.id}); handleAction(w, 'p', {a: 'skill', i: 0});
+  run(w, 8);
+  const cris = id => takeEvents(w, id).filter(e => e.cls === 'yell').length;
+  assert.ok(cris('p') > 0);
+  assert.equal(cris('l'), 0);
+});
+
+test('chat Général : arrivées, hauts faits et réponses de commande ont leur classe ; le reste reste « sys »', () => {
+  const w = createWorld({seed: 1}), a = addPlayer(w, 'a', {name: 'Alice'});
+  takeEvents(w, 'a');
+  const b = addPlayer(w, 'b', {name: 'Bob'});
+  assert.ok(takeEvents(w, 'a').some(e => e.cls === 'join' && /Bob/.test(e.text)));
+  handleChat(w, 'b', '/khey'); takeEvents(w, 'b');
+  handleChat(w, 'b', '/qui');
+  const rep = takeEvents(w, 'b').filter(e => e.t === 'msg');
+  assert.ok(rep.length && rep.every(e => e.cls === 'cmd'), 'réponse de /qui');
+  handleChat(w, 'b', '/nimporte');
+  assert.equal(takeEvents(w, 'b').find(e => e.t === 'msg').cls, 'cmd');
+  // Haut fait de Bob : Alice le voit passer.
+  b.S.ach = {}; handleAction(w, 'b', {a: 'target', id: null});
+  place(b, npc('tavernier').x + 1, npc('tavernier').y); handleAction(w, 'b', {a: 'talk', id: 'tavernier'});
+  assert.ok(takeEvents(w, 'a').some(e => e.cls === 'hf' && /Bob/.test(e.text)));
 });

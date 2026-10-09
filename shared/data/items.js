@@ -160,4 +160,6 @@ Object.assign(STOCK,{
   sauvette:['chips','chouffe','tampon','gants_tampon'],
   goodies:['chips','chouffe','perruque','gants_manga','hakama'],
   bde:['chips','chouffe','sweat_diiage','badge_diiage','jean_rendu'],
+  petit_frere:['chips','chouffe','regle','sweat','jogging'],
+  buvette:['chips','chouffe'],
 });

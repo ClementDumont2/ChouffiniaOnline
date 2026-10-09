@@ -58,4 +58,7 @@ export const NEW_NPCS=[
   npc('sauvette',"Le Vendeur à la Sauvette","Ventes non déclarées",'Marchand · Équipement du Pôle Emploi (niveaux 40–55)',104.5,44.6,"Psst. Vous attendez depuis combien de temps ? Trois ans ? J'ai ce qu'il vous faut. Pas un emploi, non. Un tampon. C'est presque pareil."),
   npc('goodies',"La Vendeuse de Goodies","Stand de goodies",'Marchande · Équipement de la Convention (niveaux 55–75)',127.5,51.8,"Tout est officiel. Sauf ce qui ne l'est pas. Les perruques sont certifiées résistantes au feu, aux larmes et aux critiques de fans."),
   npc('bde',"Le Président du BDE","Bureau des Étudiants",'Marchand · Équipement du DIIAGE (niveaux 75–100)',135.5,30.4,"Salut ! Le BDE vend des sweats, des badges et des jeans de rendu. Les bénéfices financent la soirée d'intégration de 2019, qui n'a toujours pas eu lieu."),
+  // Les deux sanctuaires d'origine sans marchand : le Sous-Sol et l'Arène.
+  npc('petit_frere',"Le Petit Frère","Revente au marché noir",'Marchand · Revend les affaires de la maison (niveaux 1–5)',3.5,9.4,"Je vends tout ce que j'ai trouvé dans la maison. Les chips sont à Maman, la règle est à moi, le jogging est à toi. Je te le revends quand même. C'est ça, le capitalisme."),
+  npc('buvette',"La Buvette de l'Arène","Rafraîchissements",'Marchande · De quoi tenir un débat (chips, Chouffes)',31.5,17.4,"Chips, Chouffes. Rien d'autre. Ici, on débat, on perd, on boit. Dans cet ordre, ou dans un autre, personne n'a jamais gagné de toute façon."),
 ];

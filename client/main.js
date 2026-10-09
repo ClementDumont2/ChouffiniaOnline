@@ -47,7 +47,7 @@ hooks.event=e=>{
     case 'burst':burst(e.x,e.y,e.col,e.n,e.spd);break;
     case 'puff':for(let k=0;k<6;k++)parts.push({x:e.x+rr(-.4,.4),y:e.y,vx:rr(-.8,.8),vy:rr(-2,-.5),t:0,life:rr(.6,1),col:'#ede1c5',sz:.12});break;
     case 'lvlup':sfx('lvlup');buildBar();for(let i=0;i<26;i++)parts.push({x:e.x+rr(-.6,.6),y:e.y,vx:rr(-.3,.3),vy:rr(-3.5,-1.5),t:0,life:rr(.7,1.3),col:pick(['#f0d070','#ffe9a8','#d4ad60']),sz:rr(.06,.12)});break;
-    case 'ach':toast('Haut fait débloqué',ACH[e.id][0],ACH[e.id][1]);chat('sys',`[Haut fait] ${esc(S.name)} a obtenu <b>${esc(ACH[e.id][0])}</b>.`);break;
+    case 'ach':toast('Haut fait débloqué',ACH[e.id][0],ACH[e.id][1]);break;
     case 'died':nav.goal=nav.follow=null;showDeath();sfx('died');break;
     case 'respawned':unlockDlg();break;
     case 'tp':case 'stop':nav.goal=nav.follow=null;break;
