@@ -169,7 +169,7 @@ export function findPath(map,x0,y0,x1,y1,avoid,max=400){
 }
 
 // Les monstres ne sont pas créés ici (ils portent de l'état d'exécution) : la carte rend seulement où et quoi faire apparaître.
-// opts : {L, packs, kinds, boss} d'un donjon à thème ; sans eux, les Archives. Les tuiles ne dépendent que de la graine : le client les régénère sans opts.
+// opts : {L, packs, kinds, boss, mobs} d'un donjon à thème (mobs : nombre exact de monstres répartis dans toutes les salles sauf l'entrée, sans boss) ; sans eux, les Archives. Les tuiles ne dépendent que de la graine : le client les régénère sans opts.
 export function genDungeon(seed,ti,opts={}){
   const df={...DIFFS[ti],...opts},rnd=mulberry32(seed),{ri,pick}=rngTools(rnd);
   for(let attempt=0;attempt<20;attempt++){
@@ -189,7 +189,8 @@ export function genDungeon(seed,ti,opts={}){
     D.portal={x:Math.floor(st.cx)+.5,y:Math.floor(st.cy)-.2};
     D.rooms=rooms;
     const kinds=df.kinds||['spam','necro','fantome','pave'];
-    for(let i=1;i<order.length-1;i++){
+    if(df.mobs)for(let k=0;k<df.mobs;k++){const r=order[1+k%(order.length-1)],p=randSpot(D,rnd,r.x+1,r.x+r.w-2,r.y+1,r.y+r.h-2);D.spawns.push({type:pick(kinds),x:p.x,y:p.y,l:df.L})}
+    else for(let i=1;i<order.length-1;i++){
       const r=order[i],n=ri(df.packs[0],df.packs[1]);
       // Patrouille : le monstre suit le couloir en L qui relie sa salle à la suivante (mêmes points que le creusement ci-dessus). Héroïque et plus, environ un monstre sur huit.
       const a=order[i],b=order[i+1],ax=Math.floor(a.cx),ay=Math.floor(a.cy),bx=Math.floor(b.cx),by=Math.floor(b.cy);
@@ -200,7 +201,7 @@ export function genDungeon(seed,ti,opts={}){
       }
     }
     // Plusieurs boss (le Jury de la Soutenance) : côte à côte au centre de la dernière salle.
-    const br=order[order.length-1],bosses=[].concat(df.boss||'archiviste');
+    const br=order[order.length-1],bosses=df.mobs?[]:[].concat(df.boss||'archiviste');
     bosses.forEach((type,i)=>D.spawns.push({type,x:Math.floor(br.cx)+.5+(i-(bosses.length-1)/2)*2.2,y:Math.floor(br.cy)+.5,l:df.L+1}));
     return D;
   }

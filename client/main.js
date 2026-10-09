@@ -4,9 +4,9 @@ import {zoneAt} from '../shared/map.js';
 import {cleanName} from '../shared/protocol.js';
 import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
-import {burst,floater,paintWorld,parts,render,resize,updFx} from './render.js';
-import {countdown,announce,banner,buildBar,syncBar,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
-import {refreshDialog,renderBag,renderChar,setBoard,showChest,showDeath,showDuelInvite,showEnd,showTrade,unlockDlg} from './panels.js';
+import {burst,floater,shoot,paintWorld,parts,render,resize,updFx} from './render.js';
+import {countdown,announce,banner,buildBar,syncBar,syncUpgrade,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
+import {closeMap,refreshDialog,renderBag,renderChar,setBoard,showChest,showDeath,showDuelInvite,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
 import {music,sfx,wheels} from './sound.js';
@@ -19,7 +19,7 @@ const lastName=()=>{try{return localStorage.getItem(LAST)}catch(e){return null}}
 const rememberName=()=>{try{localStorage.setItem(LAST,S.name)}catch(e){}};
 
 let lastWD=null,curZone='';
-function syncView(){if(WD!==lastWD){lastWD=WD;if(!WD.c)paintWorld(WD);curZone='';setMini();renderQuest()}}
+function syncView(){if(WD!==lastWD){lastWD=WD;closeMap();if(!WD.c)paintWorld(WD);curZone='';setMini();renderQuest()}}
 function updZone(){
   const z=zoneAt(WD,P.x,P.y);if(z===curZone)return;
   curZone=z;const Z=z==='dungeon'?{n:DUNGEONS[WD.dg].n,s:`Difficulté ${DIFFS[WD.ti].n} · ${DIFFS[WD.ti].sub}`}:ZONES[z];
@@ -27,7 +27,7 @@ function updZone(){
 }
 // Couleur du texte flottant → bruitage : coup reçu, soin, critique ; tout le reste est un coup donné.
 const FLOAT_FX={'#ff5a4a':'hurt','#ec5a4c':'hurt','#6cff7a':'heal','#ffd84a':'crit'};
-const refreshUI=()=>{renderBag();renderChar();renderQuest();updTarget();drawPortrait()};
+const refreshUI=()=>{renderBag();renderChar();syncUpgrade();renderQuest();updTarget();drawPortrait()};
 
 const joinMsg=t=>{const e=$('#joinerr');e.textContent=t||'';e.hidden=!t};
 hooks.refused=joinMsg;
@@ -44,6 +44,7 @@ hooks.event=e=>{
     case 'toast':toast(e.kicker,e.title,e.sub);sfx('ding');break;
     case 'banner':banner(e.title,e.sub,e.cls);break;
     case 'float':floater(e.x,e.y,e.txt,e.col,e.big);sfx(FLOAT_FX[e.col]||'hit');break;
+    case 'proj':shoot(e.x,e.y,e.tx,e.ty);break;
     case 'burst':burst(e.x,e.y,e.col,e.n,e.spd);break;
     case 'puff':for(let k=0;k<6;k++)parts.push({x:e.x+rr(-.4,.4),y:e.y,vx:rr(-.8,.8),vy:rr(-2,-.5),t:0,life:rr(.6,1),col:'#ede1c5',sz:.12});break;
     case 'lvlup':sfx('lvlup');buildBar();for(let i=0;i<26;i++)parts.push({x:e.x+rr(-.6,.6),y:e.y,vx:rr(-.3,.3),vy:rr(-3.5,-1.5),t:0,life:rr(.7,1.3),col:pick(['#f0d070','#ffe9a8','#d4ad60']),sz:rr(.06,.12)});break;

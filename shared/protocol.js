@@ -4,7 +4,7 @@
 //   {t:'join', name, hat, cls}     une seule fois par connexion (cls : classe, ignorée si la sauvegarde existe) ; le pseudo désigne la sauvegarde saves/<pseudo>.json
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
-//                                  acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn,
+//                                  acceptQuest, completeQuest, enterDungeon, launch {dg, ti} (entrer dans un donjon depuis la fiche de la carte, de n'importe où : refusé si mort, en combat < COMBAT_TP s, duel, échange, déjà en donjon, niveau trop bas), leaveDungeon, openChest, respawn,
 //                                  mount (monter/descendre), selectMount {id}, buyMount {id}, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
 //                                  tradeOffer {items:[{uid} | {id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
 //   {t:'chat', text}
@@ -16,12 +16,15 @@
 //   {t:'ev', list}                 événements du joueur : msg, chat, emote, err, toast, banner, float, burst, puff, lvlup,
 //                                  ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade, online, announce (voir shared/sim.js)
 //                                  board = {tops:[[intitulé, [[pseudo, valeur, guilde], …]], …]} : réponse au 'talk' du Tableau d'Honneur.
+//                                  proj = {x, y, tx, ty} : projectile visuel d'une attaque de base à distance (arme à portée), envoyé à toute la carte ; aucun effet de jeu.
 //                                  announce = {who, text} : bannière dorée pour tous (/annonce, droit « annonce »).
 //                                  online = {names} : pseudos de tous les connectés, à chaque arrivée/départ.
 //                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les
 //                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.
-//                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, crew : autres joueurs du même donjon).
+//                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, crew : autres joueurs du même donjon,
+//                                  etape : {i, n, total, restants, fin} dans un donjon à étapes — compteur « Monstres restants : restants / total »).
+//                                  Coffre d'étape : objet {type:'chest'} dont `opened` est propre à chaque joueur ; événement `chest` {got:[id], gold:0} à son ouverture.
 import {HATS} from './data.js';
 import {CLASSES} from './data/classes.js';
 import {bossUpcoming,stats} from './rules.js';
@@ -42,7 +45,8 @@ function crewRec(w,pl){
 function playerRec(w,pl,mine){
   const {S,P}=pl;
   const rec={id:pl.id,kind:'player',n:P.n,g:S.guilde||'',lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
-  if(mine)rec.priv={hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,crew:crewRec(w,pl)};
+  const D=mine&&w.maps[pl.mapId];
+  if(mine)rec.priv={etape:D&&D.etape?{i:D.etape.i,n:D.etape.n,total:D.etape.total,restants:D.mobs.filter(m=>m.alive).length,fin:D.etape.fin}:undefined,hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,crew:crewRec(w,pl)};
   return rec;
 }
 
