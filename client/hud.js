@@ -55,7 +55,7 @@ export function updTarget(){
   const t=targetEnt(),f=$('#tframe');
   if(!t||(t.kind==='mob'&&!t.alive)){f.hidden=true;return}
   f.hidden=false;const un=$('#tun');
-  if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?'Élite · Gardien de donjon':t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Donjon':'Hostile';$('#thpw').className='bar hp'}
+  if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?(t.d.dg?'Élite · Gardien de donjon':'Élite · Boss de zone'):t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Donjon':'Hostile';$('#thpw').className='bar hp'}
   else if(t.kind==='npc'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='PNJ';$('#tsub').textContent=t.ti;$('#thpw').className='bar npc'}
   else if(t.kind==='obj'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='Objet';$('#tsub').textContent=t.type==='chest'?'Contient des artéfacts':'Portail';$('#thpw').className='bar npc'}
   else if(t.kind==='player'){un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=`${t.g?`<${t.g}> · `:''}${CLASSES[t.cls]?CLASSES[t.cls].nom:'Chouffin'} · Joueur${t.dead?' · Mort':''}`;$('#thpw').className='bar hp'}

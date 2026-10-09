@@ -1,7 +1,7 @@
-import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SHOP,SLOTS,STOCK} from '../shared/data.js';
+import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SLOTS,STOCK} from '../shared/data.js';
 // Difficulté d'un donjon : DIFFS surchargé par les niveaux propres au donjon (même règle que le serveur).
 const dgDiffs=id=>DIFFS.map((d,i)=>({...d,...((DUNGEONS[id].diffs||[])[i])}));
-import {FUSE_PER_LEVEL,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
+import {FUSE_PER_LEVEL,buyPrice,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {iconCanvas} from './sprites.js';
@@ -123,7 +123,11 @@ function showNpc(n){
     btns.push(['Acheter une Chouffe (12 po)',()=>send({a:'buy',id:'chouffe',n:1}),false,S.gold<12]);
     btns.push(['Acheter 5 Chouffes (55 po, le prix du khey)',()=>send({a:'buy',id:'chouffe',n:5}),true,S.gold<55]);
   }
-  if(n.id==='bernard'){btns.unshift(["Voir l'armurerie",()=>openShop(n)])}
+  const stock=STOCK[n.id]||[];
+  if(stock.some(id=>ITEMS[id].t==='eq')){
+    btns.unshift(["Voir l'armurerie",()=>openShop(n)]);
+    for(const id of stock.filter(id=>ITEMS[id].t==='use'))btns.push([`Acheter : ${ITEMS[id].n} (${buyPrice(id)} po)`,()=>send({a:'buy',id,n:1}),true,S.gold<buyPrice(id)]);
+  }
   if(n.dungeon)btns.unshift([`Entrer : ${DUNGEONS[n.dungeon].n}`,()=>openDungeonMenu(n)])
   if(n.id==='otaku'){
     for(const id of STOCK.otaku){
@@ -151,23 +155,25 @@ function openShop(n){
   const sc=$('#dlg').hidden?0:$('#dlg').scrollTop;
   const wrap=document.createElement('div');
   wrap.innerHTML=`<p class="greet">« Tout est garanti 30 jours. Ou 30 minutes. Je ne me souviens plus. »</p><div class="shopbar"><span class="goldv">Votre or : ${fmt(S.gold)} po</span><label class="chk"><input type="checkbox" id="shopUp" ${shopUp?'checked':''}> Améliorations seulement</label></div><p class="ty">Chaque objet est comparé à ce que vous portez. Touchez une ligne pour le détail.</p>`;
-  for(const [cat,ids] of [['Armes · augmentent l\'Attaque',SHOP.armes],['Armures · augmentent la Protection',SHOP.armures]]){
+  const eq=STOCK[n.id].filter(id=>ITEMS[id].t==='eq');
+  for(const [cat,ids] of [['Armes · augmentent l\'Attaque',eq.filter(id=>ITEMS[id].s==='arme')],['Armures · augmentent la Protection',eq.filter(id=>ITEMS[id].s!=='arme')]]){
+    if(!ids.length)continue;
     const box=document.createElement('div');box.className='shop';box.innerHTML=`<h4>${cat}</h4>`;let shown=0;
-    for(const id of ids){const it=ITEMS[id],pv=newItem(id),c=cmpInfo(S,pv),own=(S.eq[it.s]&&S.eq[it.s].id===id)||S.inv.some(s=>s.id===id),lv=S.lvl<it.rl,short=it.buy-S.gold;
+    for(const id of ids){const it=ITEMS[id],pv=newItem(id),c=cmpInfo(S,pv),own=(S.eq[it.s]&&S.eq[it.s].id===id)||S.inv.some(s=>s.id===id),lv=S.lvl<it.rl,short=buyPrice(id)-S.gold;
       if(shopUp&&!(c.cls==='up'||(c.cls==='mix'&&c.net>0)))continue;shown++;
       const row=document.createElement('div');row.className='srow q-'+it.r+(own?' own':'')+(shopSel===id?' sel':'');row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-expanded',shopSel===id?'true':'false');
       const ic=document.createElement('span');ic.className='ic';ic.appendChild(iconCanvas(id,64));if(c.better)ic.insertAdjacentHTML('beforeend','<span class="upb" title="Amélioration">▲</span>');row.appendChild(ic);
       row.insertAdjacentHTML('beforeend',`<div class="in"><b class="q-${it.r}">${esc(it.n)}</b><small>${SLOTS[it.s]} · niveau ${it.rl} · ${statLine(pv)}${own?' · déjà possédé':''}</small><span class="dl">${deltaLine(pv)}</span>${!lv&&short>0?`<small class="down">Il vous manque ${fmt(short)} po</small>`:''}</div>`);
-      const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=lv?`Niv ${it.rl}`:`${fmt(it.buy)} po`;b.disabled=lv||S.gold<it.buy;
-      b.onclick=e=>{e.stopPropagation();if(S.gold>=it.buy)send({a:'buy',id,n:1})};
+      const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=lv?`Niv ${it.rl}`:`${fmt(buyPrice(id))} po`;b.disabled=lv||S.gold<buyPrice(id);
+      b.onclick=e=>{e.stopPropagation();if(S.gold>=buyPrice(id))send({a:'buy',id,n:1})};
       const toggle=()=>{shopSel=shopSel===id?null:id;openShop(n)};
       row.onclick=toggle;row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};
       row.appendChild(b);box.appendChild(row);
       if(shopSel===id){const d=document.createElement('div');d.className='sdet';d.innerHTML=compareHTML(pv)+`<div class="fl">« ${esc(it.d)} »</div>`;box.appendChild(d)}
     }
-    if(!shown)box.insertAdjacentHTML('beforeend','<p class="ty">Rien de mieux ici pour vous. Bernard est vexé.</p>');
+    if(!shown)box.insertAdjacentHTML('beforeend',`<p class="ty">Rien de mieux ici pour vous.${n.id==='bernard'?' Bernard est vexé.':''}</p>`);
     wrap.appendChild(box)}
-  dialog('Armurerie de Bernard',"Armes et armures de convention · Un achat s'équipe tout seul s'il est meilleur",wrap,[['Retour',()=>{shopSel=null;showNpc(n)},true]],false,n);
+  dialog(n.id==='bernard'?'Armurerie de Bernard':n.n,`${n.id==='bernard'?'Armes et armures de convention':n.tag} · Un achat s'équipe tout seul s'il est meilleur`,wrap,[['Retour',()=>{shopSel=null;showNpc(n)},true]],false,n);
   dlgRedo=()=>openShop(n);
   $('#dlg').classList.add('wide');$('#dlg').scrollTop=sc;
   $('#shopUp').onchange=e=>{shopUp=e.target.checked;openShop(n)};
@@ -242,9 +248,8 @@ export function showDeath(){
   const inDg=WD.id!=='over';
   dialog('Vous êtes mort',inDg?`Esprit errant · ${DUNGEONS[WD.dg].n}`:'Esprit errant · Sous-sol le plus proche : 1',`<p>${esc(pick(DEATH))}</p><p class="rw">Un Rôliste à proximité peut vous ressusciter avec un Joker MJ. Morts au total : ${S.deaths}. Aucune perte d'objet. La perte de dignité, elle, est permanente.</p>`,inDg?[["Réapparaître à l'entrée du donjon",()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true],['Abandonner et sortir du donjon',()=>{send({a:'respawn'});send({a:'leaveDungeon'})},true]]:[['Réapparaître au Sous-Sol',()=>send({a:'respawn'})],['Attendre un Joker MJ',unlockDlg,true]],true);
 }
-export function showEnd(final){
-  if(final)return dialog('Diplômé (enfin)','Fin de la campagne · Le farm continue',`<p>Du Sous-Sol de Maman à la Soutenance : vous avez tout terminé.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Le Vieux Sage du Forum a lu votre dernier message. Il est ému. Il vous demande d'aller vous doucher, par pitié.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
-  dialog('Chouffinia est sauvée','Fin de la campagne · Le farm continue',`<p>Vous avez terminé Chouffinia Online.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Il reste la difficulté Sans Douche des Archives, au niveau 13, puis un Parking, un Supermarché, un Pôle Emploi, une Convention, un DIIAGE. Par pitié le khey, vas-y.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
+export function showEnd(){
+  dialog('Diplômé (enfin)','Fin de la campagne · Le farm continue',`<p>Du Sous-Sol de Maman à la Soutenance : vous avez tout terminé.</p><p class="rw">Temps de jeu : ${Math.round(S.played/60)} min · Ennemis vaincus : ${fmt(S.kills)} · M'lady prononcés : ${fmt(S.tips)} · Chouffes bues : ${fmt(S.chouffes||0)} · Douches prises : 0.</p><p>Le Vieux Sage du Forum a lu votre dernier message. Il est ému. Il vous demande d'aller vous doucher, par pitié.</p>`,[['Continuer à farmer',()=>closePanel('dlg')]]);
 }
 
 // Fenêtre d'échange : l'état vient entièrement du serveur ({with, mine, theirs}) ; chaque clic renvoie l'offre complète.

@@ -59,7 +59,7 @@ hooks.event=e=>{
     case 'count':countdown(e.text);break;
     case 'announce':announce(e.who,e.text);break;
     case 'online':online.splice(0,online.length,...e.names);break;
-    case 'campaignEnd':setTimeout(()=>showEnd(e.final),900);break;
+    case 'campaignEnd':setTimeout(showEnd,900);break;
   }
 };
 

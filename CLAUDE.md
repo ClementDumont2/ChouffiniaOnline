@@ -87,7 +87,11 @@ La référence est l'en-tête de `shared/protocol.js` ; résumé :
 
 ## Systèmes de jeu (où regarder)
 
-- **Monde** : carte 160×60. Sanctuaires (pas de monstres) : `base` (Sous-Sol de Maman, spawn 7.5, 8.5), `bourg` (Bourg-Forum, marchands, retour de donjon 21.5, 20.4), `arene` (duels). Zones par niveau : plaine 1–2 → … → datacenter 10, puis parking 15–25, supermarché 25–40, pôle 40–55, convention 55–75, diiage 75–100. Découpage dans `zoneAt` (map.js).
+- **Monde** : carte 160×60. Sanctuaires (pas de monstres) : `base` (Sous-Sol de Maman, spawn 7.5, 8.5), `bourg` (Bourg-Forum, marchands, retour de donjon 21.5, 20.4), `arene` (duels), puis un par zone de l'est : `preau` (Parking, Surveillant → donjon du Bac), `accueil`, `attente`, `vestiaire`, `cafet` — rectangles et points d'arrivée dans `SAFE` (data/zones.js), chacun avec un marchand d'équipement de sa zone (`STOCK`, prix `buyPrice` = `buy` ou 3 × `price`). Zones par niveau : plaine 1–2 → … → datacenter 10, puis parking 15–25, supermarché 25–40, pôle 40–55, convention 55–75, diiage 75–100. Découpage dans `zoneAt` (map.js).
+- **Sanctuaires / voyage** : entrer dans un sanctuaire le débloque (`S.tp`) ; `/tp <lieu>` téléporte entre sanctuaires débloqués, au départ d'un sanctuaire seulement.
+- **Boss de zone** : un par zone du monde (données dans mobs.js `bossZone`, capacités `bossMonde` dans bosses.js, apparition dans `NEW_SPAWNS`) ; `look` = sprite du monstre de zone repris et agrandi.
+- **IA** : poursuite en ligne droite, A* (`findPath`, map.js) dès qu'un mur bloque ; les monstres ne traversent jamais un sanctuaire.
+- **Fin** : seule la quête finale (niveau 100, `fin:true`) déclenche `campaignEnd`.
 - **Combat** : compétences par classe (`SKILL_DEFS`, comportement dans `sim.js` : objets `SELF`, `ALLY`, `useSkill`). XP partagée entre ceux qui ont frappé à ≤ 15 cases ; or et butin au premier frappeur.
 - **Classes** : chouffin, roliste, speedrunner, modo (`data/classes.js`), changement au Conseiller d'Orientation (50 po × niveau).
 - **Objets** : piles `{id, n}` (consommables, artéfacts) ou instances d'équipement `{uid, id, nObj, rarete}` ; stats = base × (1 + nObj/10) × rareté. Sac de 24. Fusion chez la Fanfiqueuse.
@@ -126,7 +130,7 @@ Exceptions au « tout par les données » : une nouvelle **zone** demande aussi 
 
 ## Sauvegarde (`saves/<pseudo>.json`)
 
-Forme donnée par `newSave` et réparée par `normalizeSave` (rules.js) : name, hat, cls, lvl (≤ 100), xp, gold, hp, caf, inv, eq, q, ach, compteurs (kills, deaths, chouffes, dg, duelWins…), mounts, mount, concede, guilde, titre?, droits?. Tout champ ajouté doit avoir sa valeur par défaut dans `newSave` et sa validation dans `normalizeSave`.
+Forme donnée par `newSave` et réparée par `normalizeSave` (rules.js) : name, hat, cls, lvl (≤ 100), xp, gold, hp, caf, inv, eq, q, ach, compteurs (kills, deaths, chouffes, dg, duelWins…), mounts, mount, concede, guilde, tp (sanctuaires débloqués), titre?, droits?. Tout champ ajouté doit avoir sa valeur par défaut dans `newSave` et sa validation dans `normalizeSave`.
 
 ## Conventions
 

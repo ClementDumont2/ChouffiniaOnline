@@ -152,3 +152,12 @@ Object.assign(ART_POOLS,{
   dedicaces:{common:['art_dedicace','art_pins'],unc:['art_tome','art_pins'],rare:['art_cell','art_poster_manga'],epic:['art_edition','art_manuscrit'],leg:['art_planche']},
   soutenance:{common:['art_slide','art_cafe'],unc:['art_rapport','art_cafe'],rare:['art_maquette','art_commit'],epic:['art_cahier','art_note'],leg:['art_diplome_dev']},
 });
+// Lot 10 : marchands des sanctuaires. Équipement de leur zone (hors récompenses de quête et légendaires, qui restent à gagner) + consommables.
+// Prix d'achat : buy s'il existe, sinon 3 × price (buyPrice dans rules.js).
+Object.assign(STOCK,{
+  cantine:['chips','chouffe','gilet','jeans_craie'],
+  chef_rayon:['chips','chouffe','blouse','casquette_promo','pantalon_stock'],
+  sauvette:['chips','chouffe','tampon','gants_tampon'],
+  goodies:['chips','chouffe','perruque','gants_manga','hakama'],
+  bde:['chips','chouffe','sweat_diiage','badge_diiage','jean_rendu'],
+});

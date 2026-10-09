@@ -1,5 +1,6 @@
 // Pas de DOM ni de Math.random ici : le serveur et le client régénèrent la même carte depuis la graine.
 import {DIFFS} from './data.js';
+import {SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 
 export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31,ASPHALT:32,LINE:33,CAR:34,LAMP:35,SFLOOR:36,AISLE:37,CASH:38,CART:39,CARPET:40,GUICHET:41,PLANT:42,HALL:43,BOOTH:44,BANNER:45,LABFLOOR:46,PCDESK:47,BOARD:48};
@@ -84,6 +85,8 @@ function genEast(map,seed){
   rect(82,42,117,57,T.WALL);rect(83,43,116,56,T.CARPET);rect(99,42,100,42,T.CARPET);rect(99,40,100,41,T.DIRT);
   for(const [x0,x1] of [[86,96],[103,113]])rect(x0,47,x1,47,T.GUICHET);
   for(const [x,y] of [[84,44],[115,44],[84,55],[115,55],[98,55],[101,55]])setT(x,y,T.PLANT);
+  // Préau : sanctuaire dallé à l'entrée ouest du parking, sur l'allée centrale (rien d'aléatoire n'y tombe).
+  rect(80,8,91,12,T.STONE);
 }
 
 // Lot 9, x 120–159 : Convention Manga/Anime (y 40–59, reliée à la porte est du Pôle Emploi) puis DIIAGE (y 0–39, par la porte nord de la Convention).
@@ -114,6 +117,7 @@ export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
 
 export function zoneAt(map,x,y){
   if(map.id!=='over')return'dungeon';
+  for(const k in SAFE){const r=SAFE[k].r;if(r&&x>=r[0]&&x<r[2]+1&&y>=r[1]&&y<r[3]+1)return k}
   if(x>=120)return y<40?'diiage':'convention';
   if(x>=80)return y<20?'parking':y<40?'supermarche':'pole';
   if(x<14&&y<12)return'base';
@@ -139,7 +143,30 @@ export function zoneLabels(map){
   const acc={};for(let i=0;i<w*h;i++){const a=acc[z[i]]??={r:0,x:0,y:0,n:0};if(d[i]>a.r)Object.assign(a,{r:d[i],x:0,y:0,n:0});if(d[i]===a.r){a.x+=i%w+.5;a.y+=(i/w|0)+.5;a.n++}}
   return Object.entries(acc).map(([k,a])=>({z:k,x:a.x/a.n,y:a.y/a.n,r:a.r}));
 }
-export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='arene'};
+export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='arene'||!!SAFE[z]};
+
+// A* sur les tuiles, 8 directions sans couper les coins. avoid(x, y) : cases interdites en plus des murs (les sanctuaires pour un monstre).
+// Renvoie les centres de cases à suivre jusqu'à la case d'arrivée, ou null si elle n'est pas atteinte en `max` cases explorées.
+// ponytail: file ouverte parcourue linéairement (O(n²) sur max = 400) ; tas binaire si max ou le nombre de poursuivants grossit.
+export function findPath(map,x0,y0,x1,y1,avoid,max=400){
+  const w=map.w,gx=Math.floor(x1),gy=Math.floor(y1),start=Math.floor(y0)*w+Math.floor(x0),goal=gy*w+gx;
+  const free=(x,y)=>x>=0&&y>=0&&x<w&&y<map.h&&!isSolid(map,x,y)&&!(avoid&&avoid(x+.5,y+.5));
+  const h=i=>{const dx=Math.abs(i%w-gx),dy=Math.abs((i/w|0)-gy);return Math.max(dx,dy)+.41*Math.min(dx,dy)};
+  const g=new Map([[start,0]]),from=new Map(),shut=new Set(),open=[start];
+  while(open.length&&shut.size<max){
+    let b=0;for(let k=1;k<open.length;k++)if(g.get(open[k])+h(open[k])<g.get(open[b])+h(open[b]))b=k;
+    const c=open[b];open[b]=open[open.length-1];open.pop();
+    if(c===goal){const path=[];for(let i=c;i!==start;i=from.get(i))path.push({x:i%w+.5,y:(i/w|0)+.5});return path.reverse()}
+    if(shut.has(c))continue;shut.add(c);
+    const cx=c%w,cy=c/w|0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!(dx||dy)||!free(cx+dx,cy+dy)||(dx&&dy&&(!free(cx+dx,cy)||!free(cx,cy+dy))))continue;
+      const n=(cy+dy)*w+cx+dx,ng=g.get(c)+(dx&&dy?1.41:1);
+      if(ng<(g.get(n)??Infinity)){g.set(n,ng);from.set(n,c);open.push(n)}
+    }
+  }
+  return null;
+}
 
 // Les monstres ne sont pas créés ici (ils portent de l'état d'exécution) : la carte rend seulement où et quoi faire apparaître.
 // opts : {L, packs, kinds, boss} d'un donjon à thème ; sans eux, les Archives. Les tuiles ne dépendent que de la graine : le client les régénère sans opts.

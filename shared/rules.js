@@ -3,6 +3,7 @@ import {rngTools} from './rng.js';
 import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
 import {MOUNTS} from './data/mounts.js';
 import {BOSSES} from './data/bosses.js';
+import {SAFE} from './data/zones.js';
 
 export const clamp=(v,a,b)=>v<a?a:v>b?b:v,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 // Niveaux 1 à 15 : courbe d'origine (les parties existantes ne changent pas). Au-delà : XP d'un monstre du niveau × nombre de monstres à tuer pour monter,
@@ -28,6 +29,7 @@ export const newItem=(id,nObj,rarete)=>{const it=ITEMS[id];return{id,nObj:Math.m
 export const withUid=(S,x)=>({uid:'i'+(S.nextUid=(S.nextUid||0)+1),...x});
 const scaleOf=q=>{const it=ITEMS[q.id];return(1+q.nObj/10)*RARITY_MULT[q.rarete]/((1+(it.rl||1)/10)*RARITY_MULT[it.r])};
 export const itemStats=q=>{const it=ITEMS[q.id],f=scaleOf(q);return{atk:Math.round((it.atk||0)*f),hp:Math.round((it.hp||0)*f),arm:Math.round((it.arm||0)*f)}};
+export const buyPrice=id=>ITEMS[id].buy??ITEMS[id].price*3;
 export const itemValue=q=>Math.max(1,Math.round(ITEMS[q.id].price*scaleOf(q)));
 export const RARITY_ORDER=['common','unc','rare','epic','leg'];
 // Fusion de deux équipements du même emplacement (fonction pure : le client s'en sert pour l'aperçu, le serveur pour trancher).
@@ -90,7 +92,7 @@ export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
-export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null});
+export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null,tp:['base','bourg']});
 // Les sauvegardes viennent d'un fichier (parfois édité à la main, parfois abîmé) : on les remet d'aplomb sans jamais lever d'exception.
 // Entier borné ; une valeur absente donne `def`, une valeur absurde (texte, NaN, négatif) donne `min`.
 const int=(v,def,min=0,max=1e12)=>v===undefined?def:Number.isFinite(+v)&&v!==null&&v!==''?Math.min(max,Math.max(min,Math.floor(+v))):min;
@@ -108,6 +110,7 @@ export function normalizeSave(sv){
   S.q={i:int(isObj(sv.q)?sv.q.i:0,0,0,QUESTS.length),st:isObj(sv.q)&&['avail','active','ready'].includes(sv.q.st)?sv.q.st:'avail',n:int(isObj(sv.q)?sv.q.n:0,0)};
   S.concede=typeof sv.concede==='string'?sv.concede:null;
   S.guilde=typeof sv.guilde==='string'&&sv.guilde.trim()?sv.guilde.slice(0,32):null;
+  S.tp=[...new Set([...base.tp,...(Array.isArray(sv.tp)?sv.tp:[]).filter(z=>typeof z==='string'&&SAFE[z])])];
   if(typeof sv.titre!=='string')delete S.titre;
   const rawInv=Array.isArray(sv.inv)?sv.inv:base.inv,rawEq=isObj(sv.eq)?sv.eq:{};
   S.eq=Object.assign(newSave().eq,rawEq);

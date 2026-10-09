@@ -2,11 +2,12 @@
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
+import {buyPrice,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
-import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
+import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
+import {SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
@@ -38,12 +39,12 @@ export function createWorld({seed=20111,rng,bots=false}={}){
 const newBoss=()=>({t:0,cd:{},done:{},summons:[]});
 function mkMob(w,type,x,y,L,id,diff=0){
   const d=MOBS[type];L=L||d.l;const{hp,atk,xp,g}=statsDeMob(type,L),{rr}=w.r;
-  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,gauge:0,gaugeN:'',spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
+  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,gauge:0,gaugeN:'',spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,path:null,pathT:0,yt:5,hgt:d.hgt,blink:2};
 }
 
 function spawnOver(w){
   const map=w.maps.over,{rr,pick}=w.r,spot=(...a)=>randSpot(map,w.rnd,...a);
-  const avoid=(x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='cuisine'||z==='arene'||(x>9&&x<28&&y>11&&y<25)||NPCS.some(n=>Math.hypot(n.x-x,n.y-y)<4)};
+  const avoid=(x,y)=>{return isSafe(map,x,y)||zoneAt(map,x,y)==='cuisine'||(x>9&&x<28&&y>11&&y<25)||NPCS.some(n=>Math.hypot(n.x-x,n.y-y)<4)};
   for(const [type,n,x0,x1,y0,y1] of SPAWNS)for(let i=0;i<n;i++){const p=spot(x0,x1,y0,y1,avoid);map.mobs.push(mkMob(w,type,p.x,p.y))}
   map.mobs.push(mkMob(w,'maman',8.5,31));
   if(!w.bots)return;
@@ -97,6 +98,7 @@ export function movePlayer(w,id,x,y,face){
   // Exception volontaire : la position vient du client ; on ne refuse que murs et vitesse impossible, et on renvoie alors la vraie position.
   if(!canStand(map,x,y)||d>MAX_SPEED*moveSpeed(pl.S,P)*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
   P.step+=d*2.7;P.x=x;P.y=y;P.mt=w.time;
+  if(pl.mapId==='over')discover(w,pl,zoneAt(map,x,y));
   if(d>0){P.mv=.15;P.moving=true}
   if(face)P.face=face>0?1:-1;
   return true;
@@ -152,6 +154,23 @@ function finishCast(w,pl,c){
   msg(w,pl.id,'sys','Alt+F4. Vous êtes en sécurité. Personne n\'a rien vu.');burst(w,pl.mapId,P.x,P.y-.6,'#ec5a4c',14);ach(w,pl,'rq');
 }
 
+function discover(w,pl,z){
+  if(!SAFE[z]||pl.S.tp.includes(z))return;
+  pl.S.tp.push(z);
+  ev(w,pl.id,{t:'toast',kicker:'Sanctuaire découvert',title:ZONES[z].n,sub:`Voyage depuis n'importe quel sanctuaire : /tp ${z}`});ev(w,pl.id,{t:'self'});
+}
+// Voyage entre sanctuaires découverts, au départ d'un sanctuaire seulement : pas de fuite en plein combat.
+function travel(w,pl,to){
+  const {S,P}=pl,list=S.tp.map(z=>`${z} (${ZONES[z].n})`).join(', ');
+  if(!to){msg(w,pl.id,'sys',`Sanctuaires découverts : ${list}. Voyage : /tp <lieu>, depuis un sanctuaire.`);return}
+  const z=S.tp.find(k=>k===to.toLowerCase());
+  if(!z){err(w,pl.id,`Sanctuaire inconnu ou pas encore découvert. Découverts : ${S.tp.join(', ')}.`);return}
+  if(pl.mapId!=='over'||P.dead||!isSafe(w.maps.over,P.x,P.y)){err(w,pl.id,'On ne voyage que depuis un sanctuaire.');return}
+  P.cast=null;P.target=null;P.auto=false;
+  teleport(w,pl,SAFE[z].x,SAFE[z].y);
+  msg(w,pl.id,'sys',`Vous voyagez jusqu'à ${ZONES[z].n}. Le trajet a duré une seconde. Votre mère aurait mis vingt minutes à se garer.`);
+}
+
 function teleport(w,pl,x,y){const {P}=pl;P.x=x;P.y=y;P.mt=w.time;ev(w,pl.id,{t:'tp',x,y})}
 function respawnAt(w,pl){
   const map=w.maps[pl.mapId],over=map.id==='over';
@@ -171,7 +190,7 @@ function pickTarget(m,valid){
   const cur=valid.find(p=>p.id===m.target);if(cur)return cur;
   const n=nearest(m,valid);return n&&dist(m,n.P)<m.d.ag?n:null;
 }
-const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
+const dropMob=m=>{m.taunt=null;m.path=null;m.st='ret';m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
 
 function aggro(w,map,m,pl){
   if(m.st==='chase')return;
@@ -771,18 +790,20 @@ function commitTrade(w,a,b){
 
 const nearNpc=(pl,id)=>{const n=npcById(id);return !!n&&pl.mapId==='over'&&dist(pl.P,n)<NEAR};
 const nearMerchant=pl=>['gerard','bernard','tavernier'].some(id=>nearNpc(pl,id));
-const buyCost=(id,n)=>id==='chouffe'&&n===5?55:ITEMS[id].buy*n;
+const buyCost=(id,n)=>id==='chouffe'&&n===5?55:buyPrice(id)*n;
 
 function buy(w,pl,id,n){
-  const {S}=pl,seller=Object.keys(STOCK).find(k=>STOCK[k].includes(id));
-  if(!seller||!nearNpc(pl,seller)||!Number.isInteger(n)||n<1||n>5)return;
+  // Plusieurs marchands vendent les mêmes consommables : c'est celui d'à côté qui vend.
+  const {S}=pl,seller=Object.keys(STOCK).find(k=>STOCK[k].includes(id)&&nearNpc(pl,k));
+  if(!seller||!Number.isInteger(n)||n<1||n>5)return;
   const it=ITEMS[id],cost=buyCost(id,n);
   if(it.t==='eq'&&(n!==1||S.lvl<it.rl)){if(n===1)err(w,pl.id,`Niveau ${it.rl} requis pour équiper cet objet.`);return}
   if(S.gold<cost){err(w,pl.id,'Pas assez d\'or. Personne ne fait crédit depuis l\'incident de 2014.');return}
   const better=it.t==='eq'&&cmpInfo(S,newItem(id)).better;
   if(!addItem(w,pl,id,n))return;
   S.gold-=cost;msg(w,pl.id,'loot',`Vous achetez ${n>1?n+' × ':''}${it.t==='eq'?link(S.inv[S.inv.length-1]):`[[${id}]]`} pour ${cost} po.`);
-  if(seller==='bernard'){ach(w,pl,'shop');if(better)equip(w,pl,S.inv.length-1)}
+  if(seller==='bernard')ach(w,pl,'shop');
+  if(better)equip(w,pl,S.inv.length-1);
 }
 
 function gainGold(w,pl,v,art){
@@ -823,7 +844,6 @@ function completeQuest(w,pl){
   S.q.i++;S.q.st='avail';S.q.n=0;
   gainXP(w,pl,q.xp);ev(w,pl.id,{t:'toast',kicker:'Quête terminée',title:q.n,sub:''});
   if(S.gold>=100)ach(w,pl,'rich');
-  // La fin de campagne marque la dernière quête d'origine (fin:true) : d'autres quêtes lui font suite.
   if(q.fin)ev(w,pl.id,{t:'campaignEnd',final:!!q.final});
 }
 
@@ -947,6 +967,7 @@ const RUN={
   echanger:(w,pl,v)=>requestTrade(w,pl,v.split(/\s+/)[1]),
   duel:(w,pl,v)=>requestDuel(w,pl,v.split(/\s+/)[1]),
   top:(w,pl)=>top(w,pl),
+  tp:(w,pl,v)=>travel(w,pl,v.split(/\s+/)[1]),
   danse:(w,pl)=>{say(pl.P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote(w,pl,'danse maladroitement. Personne ne regarde. Heureusement.')},
   mlady:(w,pl)=>{const {S,P}=pl;P.tipT=.45;S.tips++;say(P,"M'lady.",2);emote(w,pl,'soulève son fedora en direction de personne en particulier.');if(S.tips>=50)ach(w,pl,'mlady')},
   herbe:(w,pl)=>msg(w,pl.id,'sys','Vous tendez la main vers l\'herbe. Votre main refuse. Vous ne pouvez pas toucher l\'herbe pour le moment.'),
@@ -1198,7 +1219,12 @@ function tickMob(w,map,m,dt,here){
     const T=tgt.P,dp=dist(m,T);
     if(d.boss&&bossTick(w,map,m,dt,here))return;
     if(m.type==='lag'){m.blink-=dt;if(m.blink<=0&&dp>2){m.blink=rr(2,3.2);const L=Math.min(1.8,dp-1),nx=m.x+(T.x-m.x)/dp*L,ny=m.y+(T.y-m.y)/dp*L;if(!isSolid(map,nx,ny)){burst(w,map.id,m.x,m.y-.6,'#ff3bd5',6);m.x=nx;m.y=ny;float(w,map.id,m.x,m.y-1.4,'*lag*','#3bf0ff')}}}
-    if(dp>1.1){stepToward(map,m,T.x,T.y,d.sp*(m.slow>0?.5:1),dt)}
+    if(dp>1.1){
+      // Tout droit tant que ça avance ; bloqué par un mur, A* jusqu'à la case de la cible, recalculé chaque seconde tant qu'on le suit (la cible bouge).
+      const sp=d.sp*(m.slow>0?.5:1),plan=()=>{m.path=findPath(map,m.x,m.y,T.x,T.y,over&&((x,y)=>isSafe(map,x,y)))||[];m.pathT=1};m.pathT-=dt;
+      if(m.path&&m.path.length){if(m.pathT<=0)plan();if(m.path.length&&stepToward(map,m,m.path[0].x,m.path[0].y,sp,dt))m.path.shift()}
+      else if(stepToward(map,m,T.x,T.y,sp,dt)&&m.pathT<=0)plan();
+    }
     else{m.moving=false;if(Math.abs(T.x-m.x)>.05)m.face=T.x>m.x?1:-1;if(m.acd<=0){m.acd=d.cd*(m.slow>0?2:1)/(m.hard?1.6:1);let dmg=Math.round(ri(m.atk[0],m.atk[1])*(m.enr?m.enrMult:1)*bossMult(m));hurtPlayer(w,tgt,dmg,m)}}
   }else if(m.st==='ret'){
     m.hp=Math.min(m.mhp,m.hp+m.mhp*.6*dt);

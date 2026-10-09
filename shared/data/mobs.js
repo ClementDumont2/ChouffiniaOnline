@@ -53,3 +53,21 @@ Object.assign(NEW_MOBS,{
   jury_archi:{n:"Jury : L'Architecte",dg:1,boss:1,hpM:2.4,atkM:1,sp:1.9,ag:6,cd:1.9,hgt:2,scale:1.45,yn:"Le Jury d'Architecture",v:"vous dessine un diagramme",
     lines:["Pourquoi pas une Clean Architecture ?","Ce contrôleur fait trois choses. C'est deux de trop.","Je vois dix couches. Il en faudrait douze."]},
 });
+
+// ---- Lot 10 : un boss par zone de la carte du monde, au niveau du haut de sa zone. look : monstre de la zone dont il reprend le sprite (agrandi par scale).
+// Capacités dans bosses.js ; il réapparaît 75 s après sa mort, et son butin d'équipement prend son niveau.
+const bossZone=(n,yn,look,l,hgt,v,lines,loot,fem)=>({n,yn,look,l,boss:1,hpM:4,atkM:1.1,sp:2,ag:5,cd:1.9,hgt,scale:1.7,v,lines,loot:[['chouffe',1],...loot],...(fem?{fem:1}:{})});
+Object.assign(NEW_MOBS,{
+  gazon:bossZone("Le Gazon Anglais Suprême","Le Gazon Suprême",'herbe',3,1.6,"vous interdit de marcher sur la pelouse",["PELOUSE INTERDITE.","Tondu à 4 mm. Toi aussi, bientôt.","Personne ne m'a jamais touché. Personne."],[['katana',.35]]),
+  chad:bossZone("Chad, le Normie Alpha","Chad",'normie',4,2,"vous parle de sa salle de sport",["Tu soulèves combien ?","J'ai couru un semi ce matin. Et toi ?","On va boire un verre avec les collègues, tu viens ? Non ? Normal."],[['casque',.35]]),
+  zenith:bossZone("Le Soleil de Midi Pile","Le Soleil de Midi",'soleil',5,2.2,"vous colle un coup de soleil de niveau 5",["IL EST MIDI.","INDICE UV : 11.","Crème solaire ? Tu n'en as jamais acheté."],[['sabre',.35]]),
+  modo_supreme:bossZone("Le Modo Suprême","Le Modo Suprême",'modo',7,2,"vous bannit de tous les serveurs à la fois",["BAN GLOBAL.","J'ai lu tous vos messages. Tous.","Je modère ce forum depuis 2006. Bénévolement. Pour l'éternité."],[['resine',.3],['clavier',.2]]),
+  lag_ancestral:bossZone("Le Lag Ancestral (9 999 ms)","Le Lag Ancestral",'lag',8,2,"vous renvoie trois secondes en arrière",["…","Ping : oui.","Je suis arrivé avant toi. Tu ne m'as vu qu'après."],[['eva',.3]]),
+  khey_originel:bossZone("Le Khey Originel (Inscrit en 2011)","Le Khey Originel",'khey',10,2,"vous rappelle que c'était mieux avant",["J'ÉTAIS LÀ AVANT TOI, KHEY.","PAR PITIÉ. LE. KHEY.","Le premier « AYAAA », c'était moi."],[['flamme',.3],['art_topic',.2]]),
+  serveur_prod:bossZone("Le Serveur de Prod (Ne Pas Redémarrer)","Le Serveur de Prod",'serveur',12,2.3,"vous déploie un vendredi à 17 h",["UPTIME : 4 012 JOURS.","NE ME REDÉMARREZ PAS.","Qui a lancé un rm -rf ?"],[['heaume',.3],['grimoire',.1]]),
+  proviseur:bossZone("Le Proviseur Adjoint","Le Proviseur Adjoint",'delegue',26,2,"vous convoque dans son bureau",["DANS MON BUREAU. TOUT DE SUITE.","Vos parents seront prévenus.","J'ai votre dossier depuis la 6e."],[['casquette_cpe',.25],['copie_double',.08]]),
+  vigile_chef:bossZone("Le Chef de la Sécurité","Le Chef de la Sécurité",'vigile',41,2.1,"vous retient à la sortie pendant une heure",["Ouvrez votre sac.","Le portique a sonné. Il sonne toujours.","Vingt ans de service. Zéro voleur attrapé. Vous serez le premier."],[['pantalon_stock',.25],['palette_or',.08]]),
+  directeur:bossZone("Le Directeur d'Agence (Introuvable)","Le Directeur d'Agence",'conseillerabs',56,2.1,"vous radie pour absence à un rendez-vous fictif",["Je suis en réunion.","Mon bureau est au fond. Il n'y a pas de fond.","Votre dossier ? Quel dossier ?"],[['pantalon_tailleur',.25],['cerfa_dore',.08]]),
+  cosplay_ultime:bossZone("Le Cosplayeur Ultime (Forme Finale)","Le Cosplayeur Ultime",'cosplayeur',76,2.2,"vous attaque avec sa vraie épée en mousse",["CECI N'EST MÊME PAS MA FORME FINALE.","Six cents heures de couture.","Ne touchez pas à la cape. Personne ne touche à la cape."],[['hakama',.25],['plume_or',.08]]),
+  heisenbug:bossZone("Le Heisenbug","Le Heisenbug",'bug',100,1.8,"disparaît dès qu'on l'observe, puis vous frappe",["Ça marche chez moi.","Je n'apparais qu'en prod.","Ajoutez un console.log. Je disparais."],[['jean_rendu',.25],['diplome_epee',.08]]),
+});

@@ -8,7 +8,7 @@ export const NEW_QUESTS=[
     t:"Chaque mercredi, les scooters débridés font des tours de parking à 80 km/h. Ils ne sont pas à l'heure pour les cours, mais ils le sont pour le bruit. Fais-en taire dix. Les freins sont facultatifs.",
     done:"On n'entend plus que le vent. Et le silence. Et ma retraite qui ne vient pas. Prends ces gants : ils ont servi à beaucoup de cahiers de textes, aucun n'a été rendu."},
   {g:'cpe',n:"Repasser le Bac",dg:0,dgn:'bac',k:1,rl:20,xp:3500,gold:800,item:'casquette_cpe',
-    t:"Le Bac de 2012 n'a jamais été corrigé. La salle d'examen, à l'est du parking, est toujours en épreuve de philo. Va jusqu'au bout. Le correcteur n'a pas dormi depuis. Il te corrigera, toi aussi.",
+    t:"Le Bac de 2012 n'a jamais été corrigé. L'épreuve de philo est toujours en cours : le Surveillant, sous le préau, t'y conduira. Va jusqu'au bout. Le correcteur n'a pas dormi depuis. Il te corrigera, toi aussi.",
     done:"Tu as fini l'épreuve. Tu as une mention ? Non ? Tant pis. Prends ma casquette. Elle n'a jamais quitté ma tête, mais je me sens prêt à la lâcher. C'est la première fois."},
   {g:'caissiere',n:"Retour de Consigne",m:'caddie',k:10,rl:25,xp:3500,gold:900,item:'scanette',
     t:"Les caddies sont devenus fous. Ils ne reviennent plus aux rails. Un euro de consigne par caddie, et personne ne l'a jamais récupéré. Ramène-m'en dix à la raison. Ou à la casse.",
