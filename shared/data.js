@@ -89,7 +89,7 @@ export const QUESTS=[
     done:"La température est redescendue à 61 °C. Un climat agréable pour un chouffin. Prends ce casque de réalité virtuelle : tu pourras voir un paysage sans sortir."},
   {g:'gardien',n:"Les Archives Interdites",dg:2,k:1,rl:10,xp:2200,gold:500,item:'grimoire',
     t:"Il existe un niveau plus profond. Les Archives en Mythique, où dorment les topics que même les modérateurs ont oubliés. Si tu reviens, tu seras une légende. Si tu ne reviens pas, personne ne remarquera.",
-    done:"Tu es revenu. Personne n'avait remarqué. Mais moi, je sais. Prends le Grimoire des Topics Épinglés. Et va prendre une douche, par pitié.",fin:true}
+    done:"Tu es revenu. Personne n'avait remarqué. Mais moi, je sais. Prends le Grimoire des Topics Épinglés. Et va prendre une douche, par pitié."}
 ];
 export const NPCS=[
   {id:'sage',kind:'npc',n:"Le Vieux Sage du Forum",tag:"Membre depuis 2003",ti:"Membre depuis 2003 · 41 000 messages",x:6.5,y:5.6,hgt:1.25,

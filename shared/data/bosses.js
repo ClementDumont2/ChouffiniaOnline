@@ -124,3 +124,20 @@ BOSSES.jury_archi={abilities:juré(
 
 // Affixes des monstres d'élite (Mythique et Sans Douche), affichés sous leur nom.
 export const AFFIXES={modere:'Modéré',epingle:'Épinglé',necroposte:'Nécroposté'};
+
+// ---- Lot 10 : boss de zone de la carte du monde (toujours en difficulté 0) : un coup de zone, une colère à mi-vie, des renforts de leur zone.
+const bossMonde=(sig,summon,say,rage)=>({abilities:[sig,{id:'colere',diffMin:0,type:'rage',seuilPV:.5,mult:1.3,say:rage},{id:'renforts',diffMin:0,type:'summon',n:'Renforts',seuilsPV:[.4],summon,count:2,say}]});
+Object.assign(BOSSES,{
+  gazon:bossMonde(zone('tonte','Tonte Générale','vous tond à ras.','TONDU',['ON NE MARCHE PAS SUR LA PELOUSE !','TONTE !']),'herbe','LES MAUVAISES HERBES, À MOI !','JE REPOUSSE PLUS FORT.'),
+  chad:bossMonde(zone('burpees','Série de Burpees','vous écrase sous sa motivation.','MOTIVÉ',['ALLEZ, ENCORE UNE SÉRIE !','NO PAIN NO GAIN !']),'normie','LES GARS, VENEZ VOIR LE BIZARRE !','TU M\'AS CHERCHÉ, LÀ.'),
+  zenith:bossMonde(zone('canicule','Canicule','vous fait fondre.','BRÛLÉ',['IL FAIT 40 °C !','SORS DE L\'OMBRE !']),'soleil','RAYONS, À MOI !','ZÉNITH !'),
+  modo_supreme:bossMonde(zone('purge','Purge du Salon','vous supprime du salon.','SUPPRIMÉ',['PURGE DU SALON !','RÈGLE N° 1 : JE SUIS LA RÈGLE !']),'modo','MODÉRATEURS, BANNISSEZ-LE !','BAN DÉFINITIF.'),
+  lag_ancestral:bossMonde(zone('desync','Désynchronisation','vous désynchronise.','DÉSYNC',['ROLLBACK !','PAQUETS PERDUS !']),'lag','PICS DE LAG, REJOIGNEZ-MOI !','PING : INFINI.'),
+  khey_originel:bossMonde(zone('ayaaa','AYAAA Originel','vous hurle « AYAAA » à l\'oreille.','AYAAA',['AYAAA !','PAR PITIÉ LE KHEY !']),'khey','LES KHEYS, ON EST LÀ !','C\'EST LA HESS, KHEY.'),
+  serveur_prod:bossMonde(zone('surchauffe','Surchauffe Critique','vous souffle 90 °C.','90 °C',['TEMPÉRATURE CRITIQUE !','ERREUR 500 !']),'serveur','RÉPLICAS, DÉMARREZ !','REDÉMARRAGE FORCÉ.'),
+  proviseur:bossMonde(zone('conseil','Conseil de Discipline','vous exclut trois jours.','EXCLU',['CONSEIL DE DISCIPLINE !','DANS MON BUREAU !']),'delegue','DÉLÉGUÉS, À MOI !','AVERTISSEMENT DE CONDUITE.'),
+  vigile_chef:bossMonde(zone('portique','Portique qui Sonne','vous fait sonner au portique.','BIIIP',['LE PORTIQUE A SONNÉ !','PERSONNE NE SORT !']),'vigile','RENFORTS À L\'ENTRÉE !','J\'APPELLE LA DIRECTION.'),
+  directeur:bossMonde(zone('radiation','Radiation','vous radie des listes.','RADIÉ',['VOUS ÊTES RADIÉ !','DOSSIER CLASSÉ !']),'cerfa','FORMULAIRES, REMPLISSEZ-LE !','JE REVIENS DE RÉUNION. ÇA S\'EST MAL PASSÉ.'),
+  cosplay_ultime:bossMonde(zone('transfo','Transformation','vous aveugle de paillettes.','PAILLETTES',['TRANSFORMATION !','MA FORME FINALE !']),'cosplayeur','MES FANS, À MOI !','CE N\'ÉTAIT PAS ENCORE MA FORME FINALE.'),
+  heisenbug:bossMonde(zone('heisen','Comportement Indéterminé','vous plante sans laisser de trace.','PLANTÉ',['ÇA MARCHE CHEZ MOI !','IMPOSSIBLE À REPRODUIRE !']),'bug','BUGS EN PROD, DÉPLOYEZ-VOUS !','JE NE SUIS PLUS REPRODUCTIBLE.'),
+});

@@ -1,16 +1,17 @@
 // Simulation pure : ni DOM, ni Math.random, aucun import du client.
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
-import {ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
+import {ACH,ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
+import {BAG,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
-import {canStand,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
+import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
+import {SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
 
-const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,DG_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,BAG=24,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1;
+const DUEL_TTL=30,DUEL_COUNT=3,PVP_MULT=.5,DG_MAX=4,INVITE_TTL=60,SHARE_RANGE=15,SPAWN={x:7.5,y:8.5},BOURG={x:21.5,y:20.4},NEAR=3.5,MAX_SPEED=5,SLACK=1,EARSHOT=20;
 const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});
@@ -38,12 +39,12 @@ export function createWorld({seed=20111,rng,bots=false}={}){
 const newBoss=()=>({t:0,cd:{},done:{},summons:[]});
 function mkMob(w,type,x,y,L,id,diff=0){
   const d=MOBS[type];L=L||d.l;const{hp,atk,xp,g}=statsDeMob(type,L),{rr}=w.r;
-  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,gauge:0,gaugeN:'',spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,yt:5,hgt:d.hgt,blink:2};
+  return{id:id||nid(w,'m'),kind:'mob',type,d,l:L,x,y,hx:x,hy:y,hp,mhp:hp,atk,xp,g,alive:true,st:'idle',target:null,tag:null,hitters:[],threat:{},acd:0,wt:rr(0,3),wx:x,wy:y,stun:0,slow:0,taunt:null,dots:[],rt:0,dieT:0,ph:w.rnd()*6,step:0,face:1,moving:false,say:'',sayT:0,cast:0,castMax:2.6,castN:'',castK:'',castR:0,castA:null,castDmg:0,gauge:0,gaugeN:'',spots:null,mark:null,enr:0,enrMult:1,hard:0,hardMult:1,zone:null,b:d.boss?newBoss():null,diff,shield:0,mshield:0,affix:null,elite:0,summoned:false,gone:false,patrol:null,pi:0,pd:1,path:null,pathT:0,yt:5,hgt:d.hgt,blink:2};
 }
 
 function spawnOver(w){
   const map=w.maps.over,{rr,pick}=w.r,spot=(...a)=>randSpot(map,w.rnd,...a);
-  const avoid=(x,y)=>{const z=zoneAt(map,x,y);return z==='base'||z==='bourg'||z==='cuisine'||z==='arene'||(x>9&&x<28&&y>11&&y<25)||NPCS.some(n=>Math.hypot(n.x-x,n.y-y)<4)};
+  const avoid=(x,y)=>{return isSafe(map,x,y)||zoneAt(map,x,y)==='cuisine'||(x>9&&x<28&&y>11&&y<25)||NPCS.some(n=>Math.hypot(n.x-x,n.y-y)<4)};
   for(const [type,n,x0,x1,y0,y1] of SPAWNS)for(let i=0;i<n;i++){const p=spot(x0,x1,y0,y1,avoid);map.mobs.push(mkMob(w,type,p.x,p.y))}
   map.mobs.push(mkMob(w,'maman',8.5,31));
   if(!w.bots)return;
@@ -64,6 +65,7 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
   msg(w,id,'sys','[Patch 1.1] Nouveau : le Bourg-Forum (sanctuaire, juste au sud-est du sous-sol) avec l\'Armurerie de Bernard, la Taverne du 18-25 et l\'entrée des Archives Oubliées. Trois nouvelles zones : Marais du Lag, Désert de Sel du 18-25, Datacenter Abandonné.');
   msg(w,id,'sys','[Aide] Touchez le sol ou utilisez le clavier pour bouger. Touchez un ennemi pour l\'attaquer. Les touches se règlent dans Options (engrenage de la barre d\'action).');
   if(!save)msg(w,id,'sys','[Aide] Le Vieux Sage du Forum vous attend dans le sous-sol. Il a un point d\'exclamation au-dessus de la tête. C\'est sa seule expression.');
+  toAll(w,{t:'msg',cls:'join',text:`**${S.name}** a rejoint Chouffinia.`});
   announceOnline(w);
   later(w,1.2,()=>{if(w.players[id]&&S.q.i===0&&S.q.st==='avail')say(w.maps.over.npcs[0],'Psst. Jeune chouffin. Viens par ici.',4)});
   return pl;
@@ -97,6 +99,7 @@ export function movePlayer(w,id,x,y,face){
   // Exception volontaire : la position vient du client ; on ne refuse que murs et vitesse impossible, et on renvoie alors la vraie position.
   if(!canStand(map,x,y)||d>MAX_SPEED*moveSpeed(pl.S,P)*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
   P.step+=d*2.7;P.x=x;P.y=y;P.mt=w.time;
+  if(pl.mapId==='over')discover(w,pl,zoneAt(map,x,y));
   if(d>0){P.mv=.15;P.moving=true}
   if(face)P.face=face>0?1:-1;
   return true;
@@ -152,6 +155,26 @@ function finishCast(w,pl,c){
   msg(w,pl.id,'sys','Alt+F4. Vous êtes en sécurité. Personne n\'a rien vu.');burst(w,pl.mapId,P.x,P.y-.6,'#ec5a4c',14);ach(w,pl,'rq');
 }
 
+function discover(w,pl,z){
+  if(!SAFE[z]||pl.S.tp.includes(z))return;
+  pl.S.tp.push(z);
+  ev(w,pl.id,{t:'toast',kicker:'Sanctuaire découvert',title:ZONES[z].n,sub:`Voyage depuis n'importe quel sanctuaire : /tp ${z}`});ev(w,pl.id,{t:'self'});
+}
+// Voyage vers un sanctuaire découvert ou un joueur de la carte du monde, au départ d'un sanctuaire seulement : pas de fuite en plein combat.
+function travel(w,pl,to){
+  const {S,P}=pl,list=S.tp.map(z=>`${z} (${ZONES[z].n})`).join(', ');
+  if(!to){msg(w,pl.id,'sys',`Sanctuaires découverts : ${list}. Voyage : /tp <lieu ou joueur>, depuis un sanctuaire.`);return}
+  const z=S.tp.find(k=>k===to.toLowerCase()),o=!z&&byName(w,to);
+  if(!z&&!o){err(w,pl.id,`Ni sanctuaire découvert ni joueur connecté : ${to}. Sanctuaires : ${S.tp.join(', ')}.`);return}
+  if(o===pl){err(w,pl.id,'Vous êtes déjà là. Physiquement, du moins.');return}
+  if(o&&o.mapId!=='over'){err(w,pl.id,`${o.S.name} est dans un donjon : demandez-lui un /inviter.`);return}
+  if(pl.mapId!=='over'||P.dead||!isSafe(w.maps.over,P.x,P.y)){err(w,pl.id,'On ne voyage que depuis un sanctuaire.');return}
+  P.cast=null;P.target=null;P.auto=false;
+  const dest=o?o.P:SAFE[z];teleport(w,pl,dest.x,dest.y);
+  msg(w,pl.id,'sys',`Vous voyagez jusqu'à ${o?o.S.name:ZONES[z].n}. Le trajet a duré une seconde. Votre mère aurait mis vingt minutes à se garer.`);
+  if(o)msg(w,o.id,'sys',`${S.name} se téléporte à côté de vous. Sans prévenir. Comme un cousin.`);
+}
+
 function teleport(w,pl,x,y){const {P}=pl;P.x=x;P.y=y;P.mt=w.time;ev(w,pl.id,{t:'tp',x,y})}
 function respawnAt(w,pl){
   const map=w.maps[pl.mapId],over=map.id==='over';
@@ -171,7 +194,7 @@ function pickTarget(m,valid){
   const cur=valid.find(p=>p.id===m.target);if(cur)return cur;
   const n=nearest(m,valid);return n&&dist(m,n.P)<m.d.ag?n:null;
 }
-const dropMob=m=>{m.taunt=null;m.st='ret';m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
+const dropMob=m=>{m.taunt=null;m.path=null;m.st='ret';m.cast=0;m.mark=null;m.spots=null;m.zone=null;m.target=null;m.tag=null;m.hitters=[];m.threat={}};
 
 function aggro(w,map,m,pl){
   if(m.st==='chase')return;
@@ -299,13 +322,13 @@ function respawn(w,pl){
   ev(w,pl.id,{t:'respawned'});
 }
 
-function ach(w,pl,id){if(pl.S.ach[id])return;pl.S.ach[id]=1;ev(w,pl.id,{t:'ach',id})}
+function ach(w,pl,id){if(pl.S.ach[id])return;pl.S.ach[id]=1;ev(w,pl.id,{t:'ach',id});toAll(w,{t:'msg',cls:'hf',text:`[Haut fait] **${pl.S.name}** a obtenu **${ACH[id][0]}**.`})}
 
 function addItem(w,pl,id,n,nObj,rarete){
   const {S}=pl;
-  if(stackable(id)){const st=S.inv.find(s=>s.id===id);if(st){st.n+=n;return true}}
-  if(S.inv.length>=BAG){err(w,pl.id,'Sac plein. Comme votre historique de navigation.');return false}
-  S.inv.push(stackable(id)?{id,n}:withUid(S,newItem(id,nObj,rarete)));return true;
+  if(!canHold(S,id)){err(w,pl.id,'Sac plein. Comme votre historique de navigation.');return false}
+  const st=stackable(id)&&S.inv.find(s=>s.id===id);
+  if(st)st.n+=n;else S.inv.push(stackable(id)?{id,n}:withUid(S,newItem(id,nObj,rarete)));return true;
 }
 
 function equip(w,pl,idx){
@@ -771,18 +794,20 @@ function commitTrade(w,a,b){
 
 const nearNpc=(pl,id)=>{const n=npcById(id);return !!n&&pl.mapId==='over'&&dist(pl.P,n)<NEAR};
 const nearMerchant=pl=>['gerard','bernard','tavernier'].some(id=>nearNpc(pl,id));
-const buyCost=(id,n)=>id==='chouffe'&&n===5?55:ITEMS[id].buy*n;
+const buyCost=(id,n)=>id==='chouffe'&&n===5?55:buyPrice(id)*n;
 
 function buy(w,pl,id,n){
-  const {S}=pl,seller=Object.keys(STOCK).find(k=>STOCK[k].includes(id));
-  if(!seller||!nearNpc(pl,seller)||!Number.isInteger(n)||n<1||n>5)return;
+  // Plusieurs marchands vendent les mêmes consommables : c'est celui d'à côté qui vend.
+  const {S}=pl,seller=Object.keys(STOCK).find(k=>STOCK[k].includes(id)&&nearNpc(pl,k));
+  if(!seller||!Number.isInteger(n)||n<1||n>5)return;
   const it=ITEMS[id],cost=buyCost(id,n);
   if(it.t==='eq'&&(n!==1||S.lvl<it.rl)){if(n===1)err(w,pl.id,`Niveau ${it.rl} requis pour équiper cet objet.`);return}
   if(S.gold<cost){err(w,pl.id,'Pas assez d\'or. Personne ne fait crédit depuis l\'incident de 2014.');return}
   const better=it.t==='eq'&&cmpInfo(S,newItem(id)).better;
   if(!addItem(w,pl,id,n))return;
   S.gold-=cost;msg(w,pl.id,'loot',`Vous achetez ${n>1?n+' × ':''}${it.t==='eq'?link(S.inv[S.inv.length-1]):`[[${id}]]`} pour ${cost} po.`);
-  if(seller==='bernard'){ach(w,pl,'shop');if(better)equip(w,pl,S.inv.length-1)}
+  if(seller==='bernard')ach(w,pl,'shop');
+  if(better)equip(w,pl,S.inv.length-1);
 }
 
 function gainGold(w,pl,v,art){
@@ -823,7 +848,6 @@ function completeQuest(w,pl){
   S.q.i++;S.q.st='avail';S.q.n=0;
   gainXP(w,pl,q.xp);ev(w,pl.id,{t:'toast',kicker:'Quête terminée',title:q.n,sub:''});
   if(S.gold>=100)ach(w,pl,'rich');
-  // La fin de campagne marque la dernière quête d'origine (fin:true) : d'autres quêtes lui font suite.
   if(q.fin)ev(w,pl.id,{t:'campaignEnd',final:!!q.final});
 }
 
@@ -947,6 +971,7 @@ const RUN={
   echanger:(w,pl,v)=>requestTrade(w,pl,v.split(/\s+/)[1]),
   duel:(w,pl,v)=>requestDuel(w,pl,v.split(/\s+/)[1]),
   top:(w,pl)=>top(w,pl),
+  tp:(w,pl,v)=>travel(w,pl,v.split(/\s+/)[1]),
   danse:(w,pl)=>{say(pl.P,'*danse comme à une soirée où il n\'a pas été invité*',3);emote(w,pl,'danse maladroitement. Personne ne regarde. Heureusement.')},
   mlady:(w,pl)=>{const {S,P}=pl;P.tipT=.45;S.tips++;say(P,"M'lady.",2);emote(w,pl,'soulève son fedora en direction de personne en particulier.');if(S.tips>=50)ach(w,pl,'mlady')},
   herbe:(w,pl)=>msg(w,pl.id,'sys','Vous tendez la main vers l\'herbe. Votre main refuse. Vous ne pouvez pas toucher l\'herbe pour le moment.'),
@@ -958,15 +983,17 @@ const RUN={
     const text=v.replace(/^\S+\s*/,'');
     if(!text){msg(w,pl.id,'sys','Usage : /annonce <texte>');return}
     toAll(w,{t:'announce',who:pl.S.name,text});
-    toAll(w,{t:'msg',cls:'yell',text:`[Annonce] ${pl.S.name} : ${text}`});
+    toAll(w,{t:'msg',cls:'ann',text:`[Annonce] ${pl.S.name} : ${text}`});
   },
   douche:(w,pl)=>msg(w,pl.id,'sys','Vous cherchez la douche. Erreur 404 : salle de bain introuvable.'),
 };
 function runCommand(w,pl,v){
   const word=v.split(/\s+/)[0],cmd=findCommand(word.slice(1));
   // Sans le droit, la commande doit être indiscernable d'une commande qui n'existe pas.
-  if(cmd&&canUse(pl,cmd))RUN[cmd.nom](w,pl,v);
-  else msg(w,pl.id,'sys',`Commande inconnue : ${word}.`);
+  if(!cmd||!canUse(pl,cmd)){msg(w,pl.id,'cmd',`Commande inconnue : ${word}.`);return}
+  // Les réponses d'une commande restent dans l'onglet Général (qui ne montre plus les messages système) : le joueur les a demandées.
+  const n0=w.events.length;RUN[cmd.nom](w,pl,v);
+  for(const e of w.events.slice(n0))if(e.to===pl.id&&e.t==='msg'&&e.cls==='sys')e.cls='cmd';
 }
 
 export function handleChat(w,id,text){
@@ -1029,14 +1056,16 @@ function tickBots(w,dt){
 
 // ---- Moteur de boss : lit shared/data/bosses.js, ne connaît aucun boss en particulier ----
 const bossAbilities=m=>BOSSES[m.type].abilities.filter(a=>m.diff>=a.diffMin);
-const yell=(w,map,m,text,dur)=>{say(m,text,dur||3.5);toMap(w,map.id,{t:'msg',cls:'yell',text:`[${m.d.yn}] crie : ${text}`})};
+// Sur la carte du monde, un boss ne parle qu'aux joueurs à portée de voix : sinon ses cris envahissent le chat de toute la carte.
+const bossTo=(w,map,m,e)=>{for(const p of onMap(w,map.id))if(map.id!=='over'||dist(p.P,m)<=EARSHOT)ev(w,p.id,e)};
+const yell=(w,map,m,text,dur)=>{say(m,text,dur||3.5);bossTo(w,map,m,{t:'msg',cls:'yell',text:`[${m.d.yn}] crie : ${text}`})};
 const bossMult=m=>(m.hard?m.hardMult:1);
 // hitF peut contenir {n} : une note sur 20 tirée au hasard (Correcteur de Philo).
 const hitText=(w,a)=>a.hitF.replace('{n}',w.r.ri(0,8));
 
 // Phases déclenchées par un seuil de PV ou un délai.
 const PHASE={
-  rage(w,map,m,a){m.enr=1;m.enrMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} devient enragé${m.d.fem?'e':''} !`})},
+  rage(w,map,m,a){m.enr=1;m.enrMult=a.mult;yell(w,map,m,a.say);bossTo(w,map,m,{t:'err',text:`${m.d.yn} devient enragé${m.d.fem?'e':''} !`})},
   summon(w,map,m,a){
     yell(w,map,m,a.say);
     const spots=[[-1.8,0],[1.8,0],[0,1.8],[0,-1.8]].map(([dx,dy])=>({x:m.x+dx,y:m.y+dy})).filter(q=>canStand(map,q.x,q.y));
@@ -1047,13 +1076,13 @@ const PHASE={
       map.mobs.push(c);m.b.summons.push(c.id);burst(w,map.id,q.x,q.y-.5,'#c9a8ff',8);
     }
   },
-  shrink(w,map,m,a){m.zone={x:m.hx,y:m.hy,r:a.r0,t:0,acc:0,a};yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${a.n} : la zone de combat rétrécit !`})},
+  shrink(w,map,m,a){m.zone={x:m.hx,y:m.hy,r:a.r0,t:0,acc:0,a};yell(w,map,m,a.say);bossTo(w,map,m,{t:'err',text:`${a.n} : la zone de combat rétrécit !`})},
   // Le rideau tombe : tout le groupe sort du donjon, qui se détruit ; le boss repart à zéro à la prochaine descente.
   eject(w,map,m,a){
-    yell(w,map,m,a.say);toMap(w,map.id,{t:'banner',title:a.n,sub:a.msg,cls:'dg'});toMap(w,map.id,{t:'msg',cls:'sys',text:a.msg});
+    yell(w,map,m,a.say);bossTo(w,map,m,{t:'banner',title:a.n,sub:a.msg,cls:'dg'});bossTo(w,map,m,{t:'msg',cls:'sys',text:a.msg});
     for(const p of onMap(w,map.id))leaveDungeon(w,p);
   },
-  enrage(w,map,m,a){m.hard=1;m.hardMult=a.mult;yell(w,map,m,a.say);toMap(w,map.id,{t:'err',text:`${m.d.yn} n'a plus de patience !`})},
+  enrage(w,map,m,a){m.hard=1;m.hardMult=a.mult;yell(w,map,m,a.say);bossTo(w,map,m,{t:'err',text:`${m.d.yn} n'a plus de patience !`})},
 };
 
 // Incantations : le début annonce (barre nommée, zone au sol), la fin applique.
@@ -1072,7 +1101,7 @@ function startCast(w,map,m,a,here){
   }
   m.cast=m.castMax=a.cast;m.castN=a.n;m.castK=a.type;m.castR=a.type==='aoe'?a.r:a.type==='spots'?a.r:a.jump;m.castA=a;m.castDmg=0;
   if(a.shout)yell(w,map,m,pick(a.shout),2.6);else if(a.say)yell(w,map,m,a.say,2.6);
-  toMap(w,map.id,{t:'err',text:a.warn});
+  bossTo(w,map,m,{t:'err',text:a.warn});
   return true;
 }
 const FINISH={
@@ -1096,7 +1125,7 @@ const FINISH={
   },
   // Non interrompue, « Revenez demain » renvoie tout le groupe dans la salle de départ.
   recall(w,map,m,a,here){
-    toMap(w,map.id,{t:'msg',cls:'sys',text:a.msg});toMap(w,map.id,{t:'err',text:a.msg});
+    bossTo(w,map,m,{t:'msg',cls:'sys',text:a.msg});bossTo(w,map,m,{t:'err',text:a.msg});
     for(const p of here)if(!p.P.dead){teleport(w,p,map.sx,map.sy);burst(w,map.id,p.P.x,p.P.y-.6,'#cfc7b4',10)}
   },
   // Le coup part du joueur marqué puis saute au plus proche non encore touché, à moins de `jump` cases : seul, on n'en prend qu'un.
@@ -1119,7 +1148,7 @@ function interruptCast(w,map,m,by){
   m.cast=0;m.mark=null;m.spots=null;
   m.b.cd[a.id]=w.r.rr(a.recharge[0],a.recharge[1]);
   float(w,map.id,m.x,m.y-m.hgt-.3,'Interrompu !','#7be37b',true);
-  toMap(w,map.id,{t:'msg',cls:'sys',text:`${by?by.S.name:'Quelqu\'un'} interrompt « ${a.n} ».`});
+  bossTo(w,map,m,{t:'msg',cls:'sys',text:`${by?by.S.name:'Quelqu\'un'} interrompt « ${a.n} ».`});
 }
 
 function bossTick(w,map,m,dt,here){
@@ -1198,7 +1227,12 @@ function tickMob(w,map,m,dt,here){
     const T=tgt.P,dp=dist(m,T);
     if(d.boss&&bossTick(w,map,m,dt,here))return;
     if(m.type==='lag'){m.blink-=dt;if(m.blink<=0&&dp>2){m.blink=rr(2,3.2);const L=Math.min(1.8,dp-1),nx=m.x+(T.x-m.x)/dp*L,ny=m.y+(T.y-m.y)/dp*L;if(!isSolid(map,nx,ny)){burst(w,map.id,m.x,m.y-.6,'#ff3bd5',6);m.x=nx;m.y=ny;float(w,map.id,m.x,m.y-1.4,'*lag*','#3bf0ff')}}}
-    if(dp>1.1){stepToward(map,m,T.x,T.y,d.sp*(m.slow>0?.5:1),dt)}
+    if(dp>1.1){
+      // Tout droit tant que ça avance ; bloqué par un mur, A* jusqu'à la case de la cible, recalculé chaque seconde tant qu'on le suit (la cible bouge).
+      const sp=d.sp*(m.slow>0?.5:1),plan=()=>{m.path=findPath(map,m.x,m.y,T.x,T.y,over&&((x,y)=>isSafe(map,x,y)))||[];m.pathT=1};m.pathT-=dt;
+      if(m.path&&m.path.length){if(m.pathT<=0)plan();if(m.path.length&&stepToward(map,m,m.path[0].x,m.path[0].y,sp,dt))m.path.shift()}
+      else if(stepToward(map,m,T.x,T.y,sp,dt)&&m.pathT<=0)plan();
+    }
     else{m.moving=false;if(Math.abs(T.x-m.x)>.05)m.face=T.x>m.x?1:-1;if(m.acd<=0){m.acd=d.cd*(m.slow>0?2:1)/(m.hard?1.6:1);let dmg=Math.round(ri(m.atk[0],m.atk[1])*(m.enr?m.enrMult:1)*bossMult(m));hurtPlayer(w,tgt,dmg,m)}}
   }else if(m.st==='ret'){
     m.hp=Math.min(m.mhp,m.hp+m.mhp*.6*dt);

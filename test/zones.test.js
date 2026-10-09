@@ -14,7 +14,7 @@ const NOUVELLES = {parking: ['delegue', 'scooter', 'souvenir'], supermarche: ['c
 test('la carte fait 160 colonnes, la partie d\'origine est inchangée et les cinq zones existent', () => {
   const map = genOverworld(20111);
   assert.equal(map.w, 160);
-  assert.deepEqual([zoneAt(map, 90, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50), zoneAt(map, 130, 50), zoneAt(map, 130, 20)], ['parking', 'supermarche', 'pole', 'convention', 'diiage']);
+  assert.deepEqual([zoneAt(map, 100, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50), zoneAt(map, 145, 50), zoneAt(map, 130, 20)], ['parking', 'supermarche', 'pole', 'convention', 'diiage']);
   for (const z of ['parking', 'supermarche', 'pole', 'convention', 'diiage']) assert.ok(ZONES[z].n && ZONES[z].s);
   // Empreinte des 64 premières colonnes, relevée avant le Lot 8 : seule la route vers le parking (x ≥ 64, y 12–13) a changé dans l'ancienne carte.
   let h = 0;
@@ -37,7 +37,7 @@ test('chaque zone est accessible à pied depuis le point d\'arrivée, jusqu\'à 
     }
   }
   const atteint = n => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen[Math.floor(n.y + dy) * W + Math.floor(n.x + dx)]);
-  for (const id of ['panneau_parking', 'cpe', 'porte_bac', 'panneau_supermarche', 'caissiere', 'porte_reserve', 'panneau_pole', 'mystique', 'porte_labyrinthe', 'panneau_convention', 'otaku', 'porte_dedicaces', 'panneau_diiage', 'responsable', 'porte_soutenance'])
+  for (const id of ['panneau_parking', 'cpe', 'porte_bac', 'panneau_supermarche', 'caissiere', 'porte_reserve', 'panneau_pole', 'mystique', 'porte_labyrinthe', 'panneau_convention', 'otaku', 'porte_dedicaces', 'panneau_diiage', 'responsable', 'porte_soutenance', 'cantine', 'chef_rayon', 'sauvette', 'goodies', 'bde'])
     assert.ok(atteint(npc(id)), `PNJ ${id} inaccessible`);
   for (const dg of ['bac', 'reserve', 'labyrinthe', 'dedicaces', 'soutenance']) assert.ok(seen[Math.floor(DUNGEONS[dg].exit.y) * W + Math.floor(DUNGEONS[dg].exit.x)], `sortie de ${dg} inaccessible`);
   assert.ok(!isSolid(map, 99.5, 21.5) && !isSolid(map, 99.5, 39.5), 'les portes entre zones sont ouvertes');
@@ -67,7 +67,7 @@ test('chaque PNJ de quête a une chaîne de 2 à 3 quêtes qui se suit, avec ré
     assert.ok(chaine.every((q, i) => i === 0 || q.rl >= chaine[i - 1].rl), 'niveaux croissants');
     assert.ok(chaine.at(-1).dg === 0 && DUNGEONS[chaine.at(-1).dgn], 'la chaîne finit par le donjon de la zone');
   }
-  assert.ok(idx > QUESTS.findIndex(q => q.fin), 'les nouvelles quêtes suivent la campagne d\'origine');
+  assert.ok(idx > QUESTS.findIndex(q => q.n === 'Les Archives Interdites'), 'les nouvelles quêtes suivent la campagne d\'origine');
 });
 
 test('quêtes en chaîne : tuer, rendre, la suivante s\'ouvre', () => {
@@ -114,7 +114,7 @@ test('chaque donjon à thème : entrée par son PNJ, niveaux de la zone, boss pr
   }
   // Mauvaise porte : on n'entre pas.
   const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'});
-  p.S.lvl = 60; place(p, npc('cpe').x + 1, npc('cpe').y);
+  p.S.lvl = 60; place(p, npc('caissiere').x + 1, npc('caissiere').y);
   handleAction(w, 'p1', {a: 'enterDungeon', ti: 0, dg: 'bac'});
   assert.equal(p.mapId, 'over');
   p.S.lvl = 10; place(p, npc('porte_bac').x + 1, npc('porte_bac').y + .3);
@@ -222,13 +222,13 @@ test('chaque boss suit la progression par difficulté (Normal → Sans Douche)',
   assert.ok(noms('labyrinthe', 0).includes('Revenez Demain'));
 });
 
-test('la fin de campagne suit la dernière quête d\'origine (fin), pas la dernière du tableau', () => {
-  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), i = QUESTS.findIndex(q => q.fin);
-  assert.ok(i >= 0 && i < QUESTS.length - 1);
+test('Chouffinia se termine au niveau 100 : les Archives Interdites (niveau 10) ne déclenchent plus la fin de campagne', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), i = QUESTS.findIndex(q => q.n === 'Les Archives Interdites');
+  assert.deepEqual(QUESTS.filter(q => q.fin), [QUESTS.at(-1)]);
   p.S.q = {i, st: 'ready', n: 1}; place(p, npc(QUESTS[i].g).x + 1, npc(QUESTS[i].g).y + .3);
   takeEvents(w, 'p1');
   handleAction(w, 'p1', {a: 'completeQuest'});
-  assert.ok(takeEvents(w, 'p1').some(e => e.t === 'campaignEnd'));
+  assert.ok(!takeEvents(w, 'p1').some(e => e.t === 'campaignEnd'));
   assert.equal(p.S.q.i, i + 1, 'la quête du Parking s\'ouvre ensuite');
 });
 

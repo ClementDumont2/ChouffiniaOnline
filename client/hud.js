@@ -7,7 +7,7 @@ import {clamp,npcById,skillsOf,stats,xpNeed} from '../shared/rules.js';
 import {$,esc,fmt} from './util.js';
 import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
 import {H,MINI_S,TS,W,cam} from './render.js';
-import {openPortal,renderCharStats,togglePanel} from './panels.js';
+import {closeAll,openPortal,renderCharStats,togglePanel} from './panels.js';
 import {keyOf,label} from './keys.js';
 import {P,S,WD,me,online,send,targetEnt,world} from './state.js';
 
@@ -55,7 +55,7 @@ export function updTarget(){
   const t=targetEnt(),f=$('#tframe');
   if(!t||(t.kind==='mob'&&!t.alive)){f.hidden=true;return}
   f.hidden=false;const un=$('#tun');
-  if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?'Élite · Gardien de donjon':t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Donjon':'Hostile';$('#thpw').className='bar hp'}
+  if(t.kind==='mob'){un.className='uname hostile';$('#tname').textContent=t.d.n;$('#tlvl').textContent=t.d.boss?`Boss ${t.l}`:t.l;$('#tsub').textContent=t.d.boss?(t.d.dg?'Élite · Gardien de donjon':'Élite · Boss de zone'):t.elite?`Élite · ${AFFIXES[t.affix]}`:t.d.dg?'Hostile · Donjon':'Hostile';$('#thpw').className='bar hp'}
   else if(t.kind==='npc'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='PNJ';$('#tsub').textContent=t.ti;$('#thpw').className='bar npc'}
   else if(t.kind==='obj'){un.className='uname npcn';$('#tname').textContent=t.n;$('#tlvl').textContent='Objet';$('#tsub').textContent=t.type==='chest'?'Contient des artéfacts':'Portail';$('#thpw').className='bar npc'}
   else if(t.kind==='player'){un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=`${t.g?`<${t.g}> · `:''}${CLASSES[t.cls]?CLASSES[t.cls].nom:'Chouffin'} · Joueur${t.dead?' · Mort':''}`;$('#thpw').className='bar hp'}
@@ -67,7 +67,7 @@ const npcCol=n=>{const q=QUESTS[S.q.i];return q&&q.g===n.id&&S.q.st!=='active'?'
 function wrapText(txt,max){const lines=[];for(const wd of txt.split(' ')){const l=lines.length?lines[lines.length-1]+' '+wd:wd;if(lines.length&&mctx.measureText(l).width<=max)lines[lines.length-1]=l;else lines.push(wd)}return lines}
 let zoneLbl=[];
 export function setMini(){miniC.width=WD.w*MINI_S;miniC.height=WD.h*MINI_S;zoneLbl=WD.id==='over'?zoneLabels(WD).map(l=>({...l,n:ZONES[l.z].n})):[]}
-miniC.onclick=()=>mapbox.classList.toggle('big');
+miniC.onclick=()=>{if(!mapbox.classList.contains('big'))closeAll();mapbox.classList.toggle('big')};
 // Infobulle native sur le PNJ le plus proche du curseur (carte agrandie surtout).
 miniC.onmousemove=e=>{
   const r=miniC.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*WD.w,y=(e.clientY-r.top)/r.height*WD.h;
