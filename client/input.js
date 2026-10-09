@@ -1,16 +1,18 @@
 import {WHISPERS} from '../shared/data.js';
-import {dist,moveSpeed} from '../shared/rules.js';
+import {baseRange,classRange,dist,moveSpeed} from '../shared/rules.js';
 import {findEnt} from '../shared/sim.js';
 import {findPath,moveEnt} from '../shared/map.js';
 import {$,esc,pick} from './util.js';
 import {TS,cam,cv,setMarker} from './render.js';
 import {chat} from './hud.js';
-import {autoCloseDlg,closePanel,openNpc,openPortal,togglePanel} from './panels.js';
+import {autoCloseDlg,closePanel,ficheOpen,hideFiche,mapOpen,openNpc,openPortal,toggleMap,togglePanel} from './panels.js';
 import {actionOf} from './keys.js';
 import {P,S,WD,me,running,send,sendChat,sendMove,world} from './state.js';
 
 export const keys={};
 // Déplacement : le client calcule sa position et la propose ; la sim ne fait que la valider.
+// Distance à laquelle on cesse d'approcher un monstre : 1,35 au corps à corps, un peu en deçà de la portée quand une arme l'allonge.
+const mobNeed=()=>baseRange(S)>classRange(S)?baseRange(S)-.4:1.35;
 export const nav={goal:null,follow:null,stuck:0,path:null};
 // Les flèches restent toujours actives en plus de la touche configurée.
 const ARROWS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'},MOVES=['up','down','left','right'];
@@ -29,9 +31,10 @@ addEventListener('keydown',e=>{
   if(act==='chouffe'||act==='chips'){send({a:'useItem',id:act});e.preventDefault();return}
   if(act==='target'){e.preventDefault();const list=WD.mobs.filter(m=>m.alive&&dist(m,P)<10).sort((a,b)=>dist(a,P)-dist(b,P));if(list.length){const i=list.findIndex(m=>m.id===P.target);send({a:'target',id:list[(i+1)%list.length].id})}return}
   if(act==='bag'||act==='char'||act==='opts'){togglePanel(act);return}
+  if(act==='map'){toggleMap();e.preventDefault();return}
   if(act==='mount'){send({a:'mount'});e.preventDefault();return}
   if(act==='chat'){e.preventDefault();chatIn.focus();return}
-  if(e.code==='Escape'){if(!$('#dlg').hidden)closePanel('dlg');else if(['bag','char','opts'].some(id=>!$('#'+id).hidden)){for(const id of ['bag','char','opts'])$('#'+id).hidden=true}else send({a:'target',id:null})}
+  if(e.code==='Escape'){if(ficheOpen())hideFiche();else if(mapOpen())toggleMap();else if(!$('#dlg').hidden)closePanel('dlg');else if(['bag','char','opts'].some(id=>!$('#'+id).hidden)){for(const id of ['bag','char','opts'])$('#'+id).hidden=true}else send({a:'target',id:null})}
 });
 addEventListener('keyup',e=>{const k=actionFor(e.code);if(MOVES.includes(k))keys[k]=false});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
@@ -44,7 +47,7 @@ export function initInput(){cv.addEventListener('pointerdown',e=>{
   const cands=[...WD.mobs.filter(m=>m.alive),...WD.npcs,...WD.objs,...WD.bots,...Object.values(world.players).filter(p=>p.id!==me).map(p=>p.P)];
   for(const c of cands){const sc=c.kind==='mob'&&c.d.scale?Math.min(1.2,c.d.scale*.75):1;const cy=c.y-c.hgt*sc*.5;const rad=Math.max(.5,c.hgt*sc*.55);const d=Math.hypot(wx-c.x,(wy-cy)*.75);if(d<rad&&d<bd){bd=d;best=c}}
   if(best){
-    if(best.kind==='mob'){send({a:'target',id:best.id,auto:true});nav.goal=null;if(dist(P,best)>1.35)nav.follow=best.id}
+    if(best.kind==='mob'){send({a:'target',id:best.id,auto:true});nav.goal=null;if(dist(P,best)>mobNeed())nav.follow=best.id}
     else if(best.kind==='npc'||best.kind==='obj'){send({a:'target',id:best.id});nav.goal=null;const need=best.kind==='npc'?1.7:1.3;if(dist(P,best)<need){best.kind==='npc'?openNpc(best):openObj(best)}else nav.follow=best.id}
     else if(best.kind==='player')send({a:'target',id:best.id,auto:true});
     else{send({a:'target',id:best.id});chat('wsp',`[${esc(best.n)}] vous chuchote : ${esc(pick(WHISPERS))}`)}
@@ -61,7 +64,7 @@ export function updControl(dt,t){
   let dx=0,dy=0;const kb=keys.up||keys.down||keys.left||keys.right;
   if(keys.up)dy-=1;if(keys.down)dy+=1;if(keys.left)dx-=1;if(keys.right)dx+=1;
   if(dx||dy){nav.goal=null;nav.follow=null}
-  else if(nav.follow){const e=findEnt(world,WD.id,nav.follow);if(!e||(e.kind==='mob'&&!e.alive)){nav.follow=null}else{const d=dist(P,e),need=e.kind==='mob'?1.35:e.kind==='obj'?1.3:1.7;if(d<need){nav.follow=null;if(e.kind==='npc')openNpc(e);else if(e.kind==='obj')openObj(e)}else{dx=e.x-P.x;dy=e.y-P.y}}}
+  else if(nav.follow){const e=findEnt(world,WD.id,nav.follow);if(!e||(e.kind==='mob'&&!e.alive)){nav.follow=null}else{const d=dist(P,e),need=e.kind==='mob'?mobNeed():e.kind==='obj'?1.3:1.7;if(d<need){nav.follow=null;if(e.kind==='npc')openNpc(e);else if(e.kind==='obj')openObj(e)}else{dx=e.x-P.x;dy=e.y-P.y}}}
   else if(nav.goal){dx=nav.goal.x-P.x;dy=nav.goal.y-P.y;if(Math.hypot(dx,dy)<.08){nav.goal=null;dx=dy=0}}
   // Chemin A* calculé après un blocage : il ne vaut que pour la destination qui l'a demandé.
   const dest=nav.follow||nav.goal;if(nav.path&&nav.path.for!==dest)nav.path=null;

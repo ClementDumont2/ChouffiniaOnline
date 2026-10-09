@@ -37,12 +37,14 @@ export function drawChouffin(g,cx,fy,s,o){
     else if(wp==='clavier'){R(12.4,13+b,3.6,1.8,'#111');R(12.8,13.4+b,.6,.6,'#ff4a4a');R(13.6,13.4+b,.6,.6,'#4aff7a');R(14.4,13.4+b,.6,.6,'#4ab8ff');R(15.2,13.4+b,.6,.6,'#f4f04a')}
     else if(wp==='ethernet'){R(13.1,11+b,.6,5.5,'#3d6fc2');R(12.7,16.3+b,1.4,1.2,'#d6e4f0');R(13,17.3+b,.8,.4,'#d4ad60')}
     else if(wp==='flamme'){R(12.2,12.6+b,4,1.4,'#555');R(12.8,14+b,1.4,1.6,'#c0392b');R(16,12.4+b,1,1.6,'#ffb000')}
+    else if(wp==='multiprise_parafoudre'){R(12.4,12.6+b,4,1.6,'#e8e4d6');for(let i=0;i<3;i++)R(12.8+i*1.2,12.9+b,.7,1,'#2a2a30');R(15.6,12.9+b,.5,.5,'#d4301f');R(12.7,14.2+b,.5,3,'#111')}
     else if(wp==='grimoire'){R(12.2,11.6+b,3.4,4.2,'#5a1a3a');R(15.2,11.8+b,.5,3.8,'#e8dfc8');R(13.3,13+b,1.2,1.2,'#d4ad60')}
     if(o.cls==='roliste'){R(2.4,9.6+b,1.5,7,'#5a1f6e');R(12.1,9.6+b,1.5,7,'#5a1f6e');R(3.6,15.2+b,8.8,1.8,'#5a1f6e');R(10.8,13.6+b,2.8,3,'#e8e8f0');R(10.4,14.2+b,3.6,1.8,'#e8e8f0');R(11.6,14.8+b,1.2,.8,'#7a2f2f')}
     else if(o.cls==='speedrunner'){R(4.4,4.7+b,7.2,.8,'#e03a3a');R(11.4,4.9+b,1.8,.5,'#e03a3a');R(4.8,16.9,3.2,1.1,'#f2f2f2');R(8,16.9,3.2,1.1,'#f2f2f2');R(4.8,17.6,3.2,.4,'#e03a3a');R(8,17.6,3.2,.4,'#e03a3a')}
     else if(o.cls==='modo'){R(.9,6.4+b,.9,8,'#6b4a2f');R(-.4,4.8+b,3.5,2.3,'#8a8a96');R(-.4,4.8+b,3.5,.6,'#b8b8c4');R(9.2,10.1+b,2.8,1.7,'#d4ad60');R(9.5,10.5+b,.5,.9,'#222');R(10.4,10.5+b,.5,.9,'#222');R(11.2,10.5+b,.5,.9,'#222')}
     if(o.coatLong){R(3.6,15+b,3.8,2.2,o.coat);R(8.6,15+b,3.8,2.2,o.coat)}
     if(o.armor==='carton'){R(4,9.6+b,8,5.4,'#c49a5a');R(7.6,9.6+b,.8,5.4,'#d8c38a')}
+    else if(o.armor==='tapis_xxl'){R(2.4,9.6+b,1.5,7.8,'#1d2a4a');R(12.1,9.6+b,1.5,7.8,'#1d2a4a');R(3.6,15.6+b,8.8,1.8,'#1d2a4a');R(3.6,17+b,8.8,.5,'#c0392b');R(2.4,9.6+b,.4,7.8,'#c0392b');R(13.2,9.6+b,.4,7.8,'#c0392b')}
     else if(o.armor==='eva'){R(4,9.6+b,8,5.6,'#3a6a8a');R(4.6,10.2+b,6.8,2,'#5a8aaa');R(4,9.6+b,8,.5,'#d4ad60')}
   }});
 }
@@ -73,7 +75,7 @@ export function drawMount(g,cx,fy,s,id,o){
 export function playerLook(S){
   // Soi-même : instances ; autres joueurs : identifiants seuls (voir le snapshot).
   const id=k=>{const q=S.eq[k];return q&&(q.id||q)},t=id('torse'),h=id('tete');
-  return{cls:S.cls,hat:S.hat,coat:t==='trench'?'#1f1c23':t==='tshirt'?'#2d2a33':t==='sweat'?'#4a5a6a':'#4a4552',coatLong:t==='trench',armor:(t==='carton'||t==='eva')?t:null,shirt:t==='tshirt'?'#111':'#161419',logo:t==='tshirt'?'#e07a1f':'#d4ad60',band:h==='bandeau'?'#2b3a8a':'#7a2f2f',wpn:id('arme'),glasses:h!=='heaume',vr:h==='heaume',ears:h==='casque',pants:id('jambes')==='jambieres'?'#5f5e34':id('jambes')==='jogging'?'#2a2a3a':'#25232b'};
+  return{cls:S.cls,hat:S.hat,coat:t==='trench'?'#1f1c23':t==='tshirt'?'#2d2a33':t==='sweat'?'#4a5a6a':'#4a4552',coatLong:t==='trench',armor:(t==='carton'||t==='eva'||t==='tapis_xxl')?t:null,shirt:t==='tshirt'?'#111':'#161419',logo:t==='tshirt'?'#e07a1f':'#d4ad60',band:h==='bandeau'?'#2b3a8a':'#7a2f2f',wpn:id('arme'),glasses:h!=='heaume',vr:h==='heaume',ears:h==='casque',pants:id('jambes')==='jambieres'?'#5f5e34':id('jambes')==='jogging'?'#2a2a3a':'#25232b'};
 }
 export function drawMob(g,m,cx,fy,s,t){
   // Boss de zone : le sprite du monstre de sa zone, agrandi par d.scale.
@@ -227,12 +229,29 @@ export function drawMob(g,m,cx,fy,s,t){
     if(casting){B(-1,-21+bb,2,5,'#8a8a94');B(-3,-17.6+bb,6,1.6,'#c0392b')}
     B(-5.4,-1.8,2,1.8,'#333');B(3.4,-1.8,2,1.8,'#333');return;
   }
+  // ---- Lot 3 : La LAN Party ----
+  if(m.type==='cable'){
+    const bb=Math.abs(Math.sin(t*4+m.ph))*.5;shadow(5);g.lineCap='round';
+    for(const [c,w2,dy] of [['#1c1c24',1.7,0],['#4a4a5c',.5,-.3]]){g.strokeStyle=c;g.lineWidth=u*w2;for(let i=0;i<3;i++){g.beginPath();g.ellipse(cx+(i-1)*2.4*u,fy+(-5.2-bb-(i%2)*1.8+dy)*u,4.2*u,2.8*u,i*.7+Math.sin(t*2+m.ph)*.12,0,7);g.stroke()}}
+    B(f>0?3.6:-6.2,-4.2-bb,2.6,2,'#d8d8d8');B(f>0?6.2:-7.6,-3.8-bb,1.4,.5,'#d4ad60');B(f>0?6.2:-7.6,-2.6-bb,1.4,.5,'#d4ad60');
+    eyes(-8.2-bb);return;
+  }
+  if(m.type==='multiprise'){
+    const bb=Math.abs(Math.sin(t*7+m.ph))*.4;shadow(5.4);
+    B(-3,-3,1.6,3,'#333');B(1.6,-3,1.6,3,'#333');
+    B(-6,-9.4-bb,12,6.4,'#e8e4d6');B(-6,-9.4-bb,12,.8,'#fff');B(4,-8.8-bb,1.4,1,'#d4301f');
+    for(let i=0;i<4;i++){B(-5.2+i*2.7,-5.8-bb,2,2.2,'#2a2a30');B(-4.6+i*2.7,-5.2-bb,.4,.8,'#c8c8c8');B(-3.8+i*2.7,-5.2-bb,.4,.8,'#c8c8c8')}
+    eyes(-8.4-bb,'#fff','#c00');
+    if(Math.floor(t*9+m.ph*10)%3===0){B(-6.8,-10.6-bb,1,1,'#ffe34a');B(5.8,-7.6-bb,1.2,1,'#ffe34a');B(1.6,-11-bb,.8,1.4,'#fff6a0')}
+    B(f>0?-9:6,-3.4,3,.8,'#111');return;
+  }
   const o={face:m.face,moving:m.moving,step:m.step};
   if(m.type==='normie')drawHuman(g,cx,fy,s,{...o,skin:'#f0c39a',top:'#e7b04a',pants:'#3c5a8a',mouth:'#fff',extra:(R,b,f)=>{R(4.4,2.6+b,7.2,2,'#c0392b');R(f>0?10.5:2,4.2+b,3.6,.8,'#a32f23');R(6.6,8+b,2.8,.9,'#fff');R(6.8,10+b,2.4,1.5,'#c99a3a')}});
   else if(m.type==='modo')drawHuman(g,cx,fy,s,{...o,skin:'#d8b896',top:'#5a64d6',pants:'#2a2a3a',eye:'#ff3b3b',extra:(R,b)=>{R(3.6,2.4+b,8.8,1.6,'#4a53b8');R(3.6,2.4+b,1,5,'#4a53b8');R(11.4,2.4+b,1,5,'#4a53b8');R(12.6,7+b,.9,8,'#6b4a2f');R(11,5.8+b,4.2,2.6,'#9aa0a8');R(11,5.8+b,4.2,.6,'#c4c9cf');R(6.5,11+b,3,2,'#fff');R(7,11.5+b,2,1,'#5a64d6')}});
   else if(m.type==='troll')drawHuman(g,cx,fy,s,{...o,wide:true,skin:'#7d9a62',top:'#4b3a5a',pants:'#3a2a24',eye:'#f4e04a',mouth:'#3a2a1a',extra:(R,b)=>{R(6.6,8+b,.8,1.2,'#fff');R(8.6,8+b,.8,1.2,'#fff');R(4.2,2.6+b,7.6,1.4,'#55703f');R(3.6,4+b,1,2,'#7d9a62');R(11.4,4+b,1,2,'#7d9a62');R(5,11+b,6,3,'#3a2c48');R(7.2,11.4+b,1.4,2.2,'#f4e04a')}});
   else if(m.type==='khey')drawHuman(g,cx,fy,s,{...o,skin:'#e89a82',top:'#6a6a72',pants:'#2a2a32',hair:'#2a1a12',eye:'#1a0a0a',extra:(R,b,f)=>{R(4,2.4+b,8,1.6,'#5a5a62');R(3.6,2.8+b,1,5,'#5a5a62');R(11.4,2.8+b,1,5,'#5a5a62');R(6.4+f*.3,7.8+b,3.2,1.6,'#3a1010');R(7+f*.3,8+b,2,.5,'#fff');R(5.6,5+b,1.8,.4,'#2a1a12');R(8.6,5+b,1.8,.4,'#2a1a12');R(12,3.4+b,.8,1.4,'#6ab8ff');R(6,11+b,4,2.4,'#4a4a52');R(6.6,11.6+b,2.8,1,'#f4d03f')}});
   else if(m.type==='delegue')drawHuman(g,cx,fy,s,{...o,skin:'#f0c39a',top:'#2f6fb0',pants:'#2a2a3a',hair:'#5a3a22',extra:(R,b)=>{R(4,9.6+b,8,1.4,'#e0b020');R(11.4,9+b,3.4,4.6,'#8a6a44');R(11.8,9.6+b,2.6,3.4,'#f4f1e6');R(6.6,10.2+b,2.8,1.2,'#d4ad60')}});
+  else if(m.type==='pote')drawHuman(g,cx,fy,s,{...o,skin:'#e8c4a0',top:'#2d6a4f',pants:'#2a2a3a',hair:'#3a2a1a',extra:(R,b,f)=>{R(4.4,2.6+b,7.2,1.8,'#3a2a1a');R(f>0?10.4:-.2,8.2+b,5.8,4.6,'#1a1a22');R(f>0?10.8:.2,8.6+b,5,3.4,'#7fe0ff');R(f>0?12.6:2,12.8+b,1.4,1.2,'#333');R(5.2,6.8+b,.9,.9,'#fff');R(9.4,6.8+b,.9,.9,'#fff')}});
   else if(m.type==='vigile')drawHuman(g,cx,fy,s,{...o,wide:true,skin:'#d8b896',top:'#1a2a4a',pants:'#14203a',eye:'#3a2a3a',extra:(R,b,f)=>{R(4.2,2.4+b,7.6,2.2,'#1a2a4a');R(f>0?9.4:2.2,3.8+b,4.4,.8,'#14203a');R(5.2,6.6+b,2,.5,'#7a6a8a');R(8.4,6.6+b,2,.5,'#7a6a8a');R(4.6,10+b,2.4,1.4,'#d4ad60');R(12.2,11+b,2.2,3,'#efe6d6');R(12.4,11+b,1.8,.6,'#6a4a2a')}});
   else if(m.type==='conseillerabs')drawHuman(g,cx,fy,s,{...o,skin:'#cdb8a0',top:'#3a4a5a',pants:'#22282f',hair:'#6a6a70',extra:(R,b,f)=>{R(5.3+f*.5,5.5+b,2,.4,'#111');R(8.3+f*.5,5.5+b,2,.4,'#111');R(6.6,9.6+b,2.8,5,'#e8e8e0');R(10.4,8.4+b,5,4,'#e8e8e0');R(10.4,8.4+b,5,1,'#c0392b');R(11.2,10+b,3.4,.5,'#555');R(11.2,11+b,2.4,.5,'#555')}});
   else if(m.type==='correcteur'){
@@ -378,6 +397,9 @@ function paintIcon(g,id){
     case 'heaume':r(5,11,22,11,'#e8e8ea');r(7,13,18,7,'#1a1a2a');r(9,15,5,2,'#6ab8ff');r(18,15,5,2,'#6ab8ff');r(2,14,3,4,'#333');r(27,14,3,4,'#333');r(10,8,12,3,'#c8c8ca');break;
     case 'bandeau':r(3,13,26,6,'#2b3a8a');r(10,11,12,10,'#b9c0c8');r(11,12,10,1,'#e0e4e8');r(14,14,4,4,'#555');r(2,18,4,8,'#2b3a8a');break;
     case 'regle':rot(-.7,()=>{r(-14,-3,28,6,'#e8d36a');for(let i=0;i<9;i++)r(-13+i*3,-3,1,i%2?2:3,'#6b5a1a')});break;
+    case 'lance_pierre':r(5,20,16,3,'#6b4a2f');r(5,12,3,10,'#6b4a2f');r(19,12,3,10,'#6b4a2f');r(7,13,13,1.5,'#c0392b');r(12,15,4,3,'#8a8a96');r(24,13,3,3,'#ede1c5');break;
+    case 'pistolet_billes':r(5,9,20,6,'#2f6fb0');r(5,9,20,1.5,'#6ab8ff');r(8,15,5,11,'#8a3434');r(22,7,6,3,'#f0d070');r(14,15,5,2,'#222');g.fillStyle='#e0b020';g.beginPath();g.arc(28,20,2.5,0,7);g.fill();g.fillStyle='#c0392b';g.beginPath();g.arc(23,22,2,0,7);g.fill();break;
+    case 'nerf_garage':r(3,10,24,8,'#e07a1f');r(3,10,24,2,'#f4b060');r(8,18,5,9,'#3a3640');r(21,5,5,5,'#222');r(26,12,4,4,'#f4f04a');r(14,18,8,3,'#5e3b1c');r(5,14,4,2,'#8a8a96');r(16,13,6,1.5,'#3a3640');break;
     case 'katana':rot(-.78,()=>{r(-1.5,-15,3,20,'#d8dde3');r(-1.5,-15,1,20,'#fff');r(-5,5,10,2,'#d4ad60');r(-1.5,7,3,8,'#222')});break;
     case 'sabre':rot(-.78,()=>{r(-2,-15,4,21,'#3fbfff');r(-1,-15,2,21,'#dff7ff');r(-2.5,6,5,9,'#888');r(-2.5,8,5,1,'#333')});break;
     case 'resine':rot(-.78,()=>{r(-2,-15,4,20,'#c9b8a8');r(-1,-15,1,20,'#e6dbd0');r(-6,5,12,2,'#7a4ab0');r(-1.5,7,3,8,'#4a2a1a');r(-2,14,4,2,'#7a4ab0')});break;
@@ -396,6 +418,8 @@ function paintIcon(g,id){
     case 'art_sticker':g.fillStyle='#f4d03f';g.beginPath();g.arc(16,16,11,0,7);g.fill();r(10,11,4,3,'#2a1a0a');r(18,11,4,3,'#2a1a0a');r(10,18,12,5,'#3a1010');r(11,18,10,2,'#fff');r(7,13,2,6,'#6ab8ff');r(23,13,2,6,'#6ab8ff');break;
     case 'art_wifi':g.strokeStyle='#d4ad60';g.lineWidth=3;for(let i=0;i<3;i++){g.beginPath();g.arc(16,24,5+i*5,Math.PI*1.25,Math.PI*1.75);g.stroke()}r(14,22,4,4,'#d4ad60');r(6,27,20,3,'#ede1c5');break;
     case 'art_save':r(9,5,14,22,'#4a4a52');r(11,8,10,9,'#6cc23a');r(13,10,6,2,'#1a3a10');r(13,13,4,2,'#1a3a10');r(11,22,10,3,'#d4ad60');r(9,5,14,1,'#6a6a72');break;
+    case 'multiprise_parafoudre':r(3,12,26,9,'#e8e4d6');r(3,12,26,2,'#fff');for(let i=0;i<5;i++){r(5+i*4.6,15,3,4,'#2a2a30');r(5.8+i*4.6,16,.6,1.6,'#c8c8c8');r(7+i*4.6,16,.6,1.6,'#c8c8c8')}r(24,13,3,1.5,'#d4301f');r(0,19,4,2,'#111');g.fillStyle='#ffe34a';g.beginPath();g.moveTo(17,2);g.lineTo(12,9);g.lineTo(16,9);g.lineTo(14,13);g.lineTo(20,7);g.lineTo(16,7);g.fill();break;
+    case 'tapis_xxl':r(5,5,22,22,'#1d2a4a');r(5,5,22,2,'#c0392b');r(5,25,22,2,'#c0392b');r(8,10,16,12,'#2c3e6e');r(13,13,6,6,'#7fe0ff');r(14,14,4,4,'#1d2a4a');r(21,17,5,3,'#c8c8c8');r(8,22,5,2,'#6cff7a');break;
   default:{
       // Équipements et artéfacts sans icône dessinée à la main (Lot 8) : forme selon l'emplacement, couleurs tirées de l'identifiant.
       const it=ITEMS[id];let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))>>>0;

@@ -99,7 +99,11 @@ export function paintWorld(Wd){
 }
 export function floater(x,y,txt,col,big){floaters.push({x:x+rr(-.2,.2),y,txt,col,big,t:0,life:big?1.4:1.1})}
 export function burst(x,y,col,n,spd){for(let i=0;i<n;i++){const a=rnd()*7,s=rr(.5,1)*(spd||2.5);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1.2,t:0,life:rr(.4,.8),col,sz:rr(.06,.12)})}}
+// Projectile visuel d'une attaque à distance : une bille qui file du tireur vers la cible en 0,22 s (les dégâts, eux, sont déjà décidés par le serveur).
+export const shots=[];
+export function shoot(x,y,tx,ty){shots.push({x,y,tx,ty,t:0})}
 export function updFx(dt){
+  for(const s of shots)s.t+=dt;for(let i=shots.length-1;i>=0;i--)if(shots[i].t>.22)shots.splice(i,1);
   for(const f of floaters)f.t+=dt;floaters=floaters.filter(f=>f.t<f.life);
   for(const p of parts){p.t+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=4*dt}parts=parts.filter(p=>p.t<p.life);
   if(marker){marker.t+=dt;if(marker.t>.6)marker=null}
@@ -167,6 +171,7 @@ export function render(t){
     else if(e.kind==='bot')drawChouffin(ctx,X,Y,S1,{hat:e.hat,coat:e.coat,shirt:e.shirt,face:e.face,moving:e.moving,step:e.step,tip:e.tip});
     else if(e.id){if(e.dead)ctx.globalAlpha=.45;const lean=e.drunk>0?Math.sin(t*2.7)*.12:0;if(lean){ctx.save();ctx.translate(X,Y);ctx.rotate(lean);ctx.translate(-X,-Y)}if(e.mount)drawMount(ctx,X,Y,S1,e.mount,e);drawChouffin(ctx,X,Y-lift(e),S1,{...playerLook(world.players[e.id].S),face:e.face,moving:e.moving,step:e.step,tip:e.tipT});if(lean)ctx.restore();ctx.globalAlpha=1}
   }
+  for(const s of shots){const k=s.t/.22,x=sx(s.x+(s.tx-s.x)*k),y=sy(s.y+(s.ty-s.y)*k);ctx.fillStyle='#fff3b0';ctx.fillRect(x-TS*.07,y-TS*.07,TS*.14,TS*.14);ctx.globalAlpha=.4;ctx.fillRect(x-(s.tx-s.x)*TS*.05-TS*.05,y-(s.ty-s.y)*TS*.05-TS*.05,TS*.1,TS*.1);ctx.globalAlpha=1}
   for(const p of parts){ctx.globalAlpha=1-p.t/p.life;ctx.fillStyle=p.col;ctx.fillRect(sx(p.x),sy(p.y),p.sz*TS,p.sz*TS)}ctx.globalAlpha=1;
   if(WD.id!=='over'){
     const px=sx(P.x),py=sy(P.y)-TS*.5,gr=ctx.createRadialGradient(px,py,TS*2.2,px,py,TS*8.5);gr.addColorStop(0,'rgba(6,4,10,0)');gr.addColorStop(1,'rgba(6,4,10,.8)');ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);

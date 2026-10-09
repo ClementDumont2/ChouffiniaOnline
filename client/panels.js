@@ -1,10 +1,8 @@
 import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SLOTS,STOCK} from '../shared/data.js';
-// Difficulté d'un donjon : DIFFS surchargé par les niveaux propres au donjon (même règle que le serveur).
-const dgDiffs=id=>DIFFS.map((d,i)=>({...d,...((DUNGEONS[id].diffs||[])[i])}));
-import {BAG,FUSE_PER_LEVEL,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,stats,statsWith} from '../shared/rules.js';
+import {BAG,FUSE_PER_LEVEL,activityInfo,dgDiffs,baseRange,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,slotCandidates,stats,statsWith,upgradableSlots} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
-import {iconCanvas} from './sprites.js';
+import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
 import {buildBar,itemLink,tipEl,tipOn} from './hud.js';
 import {MOUNTS} from '../shared/data/mounts.js';
 import {getSound,setSound} from './sound.js';
@@ -15,7 +13,32 @@ let dlgNpc=null,dlgRedo=null,trade=null;
 let selItem=-1,selId=null;
 const PANELS={bag:()=>renderBag(),char:()=>renderChar(),opts:()=>renderOpts()};
 // Une seule fenêtre ouverte à la fois : sac, perso, options, dialogue (sauf s'il est verrouillé) ou carte agrandie.
-export function closeAll(except){for(const o of ['bag','char','opts','dlg'])if(o!==except&&!$('#'+o).hidden)closePanel(o);$('#mapbox').classList.remove('big')}
+export function closeAll(except){for(const o of ['bag','char','opts','dlg'])if(o!==except&&!$('#'+o).hidden)closePanel(o);closeMap()}
+export function closeMap(){$('#mapbox').classList.remove('big');hideFiche()}
+// Carte agrandie : touche Carte et clic sur la minimap.
+export function toggleMap(){const mb=$('#mapbox');if(!mb.classList.contains('big'))closeAll();mb.classList.toggle('big');if(!mb.classList.contains('big'))hideFiche()}
+export const mapOpen=()=>$('#mapbox').classList.contains('big');
+// Fiche d'activité d'un donjon (par-dessus la carte) : contenu calculé par activityInfo, lancement par l'action 'launch' (le serveur arbitre).
+let fiche=null;
+export function hideFiche(){fiche=null;$('#fiche').hidden=true}
+export const ficheOpen=()=>!$('#fiche').hidden;
+export function openFiche(id){const info=activityInfo(id,S.lvl);if(!info)return;fiche={id,info,sel:info.sel};renderFiche();$('#fiche').hidden=false;tipEl.hidden=true}
+function renderFiche(){
+  const {id,info}=fiche,dg=DUNGEONS[id],el=$('#fiche');
+  el.innerHTML=`<button class="x" type="button" aria-label="Fermer" data-fx>✕</button><h3>${esc(info.n)}</h3><p>${esc(info.desc)}</p><p class="rw">Astuce : ${esc(info.astuce)}</p><p>${dg.boss?'<b>Boss :</b> ':''}${info.boss.map(esc).join(', ')}</p><p><b>Monstres :</b> ${info.mobs.map(esc).join(', ')}</p><p><b>Butin notable :</b> ${info.butin.map(i=>itemLink(i)).join(', ')}</p><div class="diff"></div><p class="why"></p><button class="btn" type="button" id="fgo">Lancer l'activité</button>`;
+  const box=el.querySelector('.diff');
+  dgDiffs(id).forEach((df,i)=>{const b=document.createElement('button'),ok=info.diffs[i].ok;b.type='button';b.className='dbtn'+(i===fiche.sel?' sel':'');b.disabled=!ok;
+    b.innerHTML=`<b>${esc(df.n)}</b><span>${esc(df.sub)}</span><em>${ok?`Niveau ${df.rl}+`:`Niveau ${df.rl} requis`}</em>`;b.onclick=()=>{fiche.sel=i;box.querySelectorAll('.dbtn').forEach((x,j)=>x.classList.toggle('sel',j===i));updFiche()};box.appendChild(b)});
+  el.querySelector('[data-fx]').onclick=hideFiche;
+  $('#fgo').onclick=()=>{if(!ficheReason())send({a:'launch',dg:fiche.id,ti:fiche.sel})};
+  updFiche();
+}
+// Raison pour laquelle le lancement est impossible d'après ce que le client sait ; le combat et le duel, il ne les connaît pas : le serveur répond alors par son message.
+function ficheReason(){
+  if(P.dead)return'Impossible maintenant. Vous êtes mort.';if(WD.id!=='over')return'Vous êtes déjà en donjon.';if(trade)return'Impossible maintenant.';
+  if(fiche.sel<0)return`Niveau ${fiche.info.diffs[0].rl} requis.`;return''
+}
+export function updFiche(){if(!fiche||$('#fiche').hidden)return;const why=ficheReason();$('#fiche .why').textContent=why;$('#fgo').disabled=!!why}
 export function togglePanel(id){const p=$('#'+id);if(p.hidden){closeAll(id);p.hidden=false;PANELS[id]()}else{p.hidden=true;waiting=null}tipEl.hidden=true}
 export function closePanel(id){if(id==='opts')waiting=null;if(id==='dlg'){if(dlgLocked)return;if(trade)send({a:'tradeCancel'});dlgNpc=null;$('#dlg').classList.remove('wide')}$('#'+id).hidden=true}
 function nearMerchant(){return WD.id==='over'&&['gerard','bernard','tavernier'].some(id=>dist(P,npcById(id))<3.5)}
@@ -40,7 +63,7 @@ export function renderBag(){
   $('#a2').onclick=()=>send({a:'drop',idx:selItem});
 }
 // q : instance d'équipement (stats mises à l'échelle) ou pile ; l'entrée de ITEMS seule (aperçu boutique) passe par newItem.
-function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);return sts.join(' · ')}
+function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);if(it.rg)sts.push(`Portée : ${it.rg} cases`);return sts.join(' · ')}
 function deltaLine(q){
   const c=cmpInfo(S,q);if(!c)return'';if(c.same)return'<span class="eqd">Équipé actuellement</span>';
   const parts=c.rows.filter(r=>r.d).map(r=>r.d>0?`<span class="up">▲ +${r.d} ${r.sh}</span>`:`<span class="down">▼ −${-r.d} ${r.sh}</span>`);
@@ -54,6 +77,7 @@ function compareHTML(q){
   return`<div class="cmp"><div class="cmph"><span>Comparé à : ${c.cur?`<b class="q-${c.cur.rarete}">${esc(c.curIt.n)}</b> <small>niv. ${c.cur.nObj}</small>`:'<i>emplacement vide</i>'}</span><span class="verdict ${c.cls}">${c.v}</span></div>`+
     `<div class="tw"><table><thead><tr><th></th><th>Équipé</th><th>Celui-ci</th><th>Écart</th></tr></thead><tbody>${c.rows.map(r=>`<tr><th>${r.l}</th><td>${r.a}</td><td>${r.b}</td><td class="${r.d>0?'up':r.d<0?'down':'eqd'}">${r.d>0?'▲ +'+r.d:r.d<0?'▼ −'+(-r.d):'='}</td></tr>`).join('')}</tbody></table></div>`+
     (c.same?'':`<div class="cmpt">Si vous l'équipez : Attaque ${ar(now.atk,after.atk)} · Protection ${ar(now.arm,after.arm)} · Réduction des dégâts ${ar(red(now),red(after),' %')} · PV max ${ar(now.maxhp,after.maxhp)}</div>`)+
+    (c.it.rg?`<div class="cmpt">Portée : ${c.it.rg} cases (attaque de base actuelle : ${baseRange(S)} cases)</div>`:'')+
     (S.lvl<(c.it.rl||1)?`<div class="down">Niveau ${c.it.rl} requis pour l'équiper (vous êtes niveau ${S.lvl}).</div>`:'')+`</div>`;
 }
 function itemHTML(q){const it=ITEMS[q.id],n=q.uid?1:q.n||1,sl=statLine(q);
@@ -76,18 +100,43 @@ function renderMounts(){
   box.insertAdjacentHTML('beforeend',`<p class="ty">${esc(keyLabelHint())} pour monter (1 s immobile). On descend en attaquant, en prenant un coup ou en entrant en donjon.</p>`);
 }
 const keyLabelHint=()=>`Touche ${label(keyOf('mount'))}`;
+// Écran d'équipement : poupée au centre, 5 emplacements autour, volet des candidats du sac (slotCandidates) à côté.
+let eqSel=null,pressT=0;
+const SIDES=[['tete','torse','mains'],['jambes','arme']];
+function showTipAt(el,html){tipEl.innerHTML=html;tipEl.hidden=false;const r=el.getBoundingClientRect(),ar=$('#app').getBoundingClientRect(),tw=tipEl.offsetWidth,th=tipEl.offsetHeight;tipEl.style.left=Math.min(Math.max(r.left-ar.left+r.width/2-tw/2,8),ar.width-tw-8)+'px';tipEl.style.top=Math.max(8,r.top-ar.top-th-8)+'px'}
+// Appui long (≥ 500 ms) au doigt : fiche de l'objet ; le clic qui suit est avalé.
+function longPress(el,fn){el.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;clearTimeout(pressT);pressT=setTimeout(()=>{el.dataset.lp='1';showTipAt(el,fn())},500)});for(const ev of ['pointerup','pointercancel','pointerleave'])el.addEventListener(ev,()=>clearTimeout(pressT));el.addEventListener('click',e=>{if(el.dataset.lp){delete el.dataset.lp;e.stopImmediatePropagation();tipEl.hidden=true}},true)}
+function gapHTML(c){const parts=cmpInfo(S,c.q).rows.filter(r=>r.d).map(r=>r.d>0?`<span class="up">▲ +${r.d} ${r.sh}</span>`:`<span class="down">▼ −${-r.d} ${r.sh}</span>`);return parts.length?parts.join(' '):'<span class="eqd">= identique</span>'}
+function closePick(){if(eqSel===null)return;eqSel=null;renderChar()}
+function openPick(k){eqSel=eqSel===k?null:k;tipEl.hidden=true;renderChar()}
+function renderPick(){
+  const box=$('#eqpick'),k=eqSel;box.hidden=k===null||charTab!=='eq';$('#char').classList.toggle('wide',!box.hidden);if(box.hidden)return;
+  const cur=S.eq[k],cands=slotCandidates(S,k);box.innerHTML=`<h3>${SLOTS[k]}</h3>`;
+  if(cur){const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent='Retirer';b.onclick=()=>send({a:'unequip',slot:k});box.appendChild(b)}
+  if(!cands.length)box.insertAdjacentHTML('beforeend',`<div class="vide">Aucun objet pour cet emplacement dans votre sac.</div>`);
+  for(const c of cands){const it=ITEMS[c.q.id],b=document.createElement('button');b.type='button';b.className='eqc'+(c.ok?'':' ko');b.setAttribute('aria-disabled',c.ok?'false':'true');
+    b.appendChild(iconCanvas(c.q.id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="q-${c.q.rarete}">${esc(it.n)}</span> <small>niv. ${c.q.nObj}</small>${c.ok?gapHTML(c):`<small class="down">Niveau ${it.rl} requis</small>`}</span>`);
+    const uid=c.q.uid;b.onclick=()=>{const idx=S.inv.findIndex(s=>s.uid===uid);if(idx<0||!c.ok)return;send({a:'equip',idx})};
+    tipOn(b,()=>itemHTML(c.q));box.appendChild(b)}
+}
+addEventListener('keydown',e=>{if(e.code==='Escape'&&eqSel!==null&&!$('#char').hidden){e.stopImmediatePropagation();e.preventDefault();closePick()}},true);
+document.addEventListener('pointerdown',e=>{if(eqSel!==null&&!e.target.closest('#eqpick,.eqslot'))closePick()});
 export function renderChar(){
   if($('#char').hidden)return;
-  $('#eqlist').hidden=$('#cstats').hidden=charTab!=='eq';$('#mntlist').hidden=charTab!=='mnt';
+  const eq=charTab==='eq';$('#eqwrap').hidden=$('#cstats').hidden=!eq;$('#mntlist').hidden=charTab!=='mnt';
   document.querySelectorAll('#ctabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===charTab));
-  if(charTab==='mnt'){$('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom}`;renderMounts();return}
-  $('#cname').textContent=S.name;$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · ${S.titre?`<${S.titre}>`:'<Sous-Sol Éternel>'}`;
-  const l=$('#eqlist');l.innerHTML='';
-  for(const k in SLOTS){const q=S.eq[k];const b=document.createElement('button');b.type='button';b.className='eqrow';
-    if(q){const it=ITEMS[q.id];b.appendChild(iconCanvas(q.id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]} · niv. ${q.nObj} · ${statLine(q)} · toucher pour retirer</span><span class="q-${q.rarete}">${esc(it.n)}</span></span>`);b.onclick=()=>send({a:'unequip',slot:k});tipOn(b,()=>itemHTML(q))}
-    else{const c=document.createElement('canvas');c.width=c.height=8;b.appendChild(c);b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]}</span><span style="color:var(--muted);font-weight:400;font-style:italic">Vide · Bernard en vend au Bourg-Forum</span></span>`);b.disabled=true}
-    l.appendChild(b)}
-  renderCharStats();
+  $('#cname').textContent=S.name;
+  if(!eq){$('#char').classList.remove('wide');$('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom}`;renderMounts();return}
+  $('#csub').textContent=`Niveau ${S.lvl} · ${classOf(S).nom} · ${S.titre?`<${S.titre}>`:'<Sous-Sol Éternel>'}`;
+  const l=$('#eqlist');l.innerHTML='';const up=upgradableSlots(S);
+  const col=ks=>{const d=document.createElement('div');d.className='col';for(const k of ks){const q=S.eq[k],b=document.createElement('button');b.type='button';b.className='eqslot'+(q?' q-'+q.rarete:'')+(k===eqSel?' sel':'');b.setAttribute('aria-label',SLOTS[k]);
+    if(q){b.appendChild(iconCanvas(q.id,64));b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]}</span><span class="q-${q.rarete}">${esc(ITEMS[q.id].n)}</span><span class="sl">niv. ${q.nObj}</span></span>`);tipOn(b,()=>itemHTML(q));longPress(b,()=>itemHTML(q))}
+    else{const c=document.createElement('canvas');c.width=c.height=8;b.appendChild(c);b.insertAdjacentHTML('beforeend',`<span class="in"><span class="sl">${SLOTS[k]}</span><span class="vide">Vide</span></span>`)}
+    if(up.includes(k))b.insertAdjacentHTML('beforeend','<span class="upb" title="Amélioration disponible">▲</span>');
+    b.onclick=()=>openPick(k);d.appendChild(b)}return d};
+  const me=document.createElement('div');me.className='me';const cv=document.createElement('canvas');cv.width=160;cv.height=200;const g=cv.getContext('2d');g.imageSmoothingEnabled=false;drawChouffin(g,80,192,160,{...playerLook(S),face:1});me.appendChild(cv);
+  l.append(col(SIDES[0]),me,col(SIDES[1]));
+  renderPick();renderCharStats();
 }
 export function renderCharStats(){
   if(charTab!=='eq')return;
@@ -222,14 +271,14 @@ function confirmClass(n,id){
 }
 function openDungeonMenu(n){
   const dg=DUNGEONS[n.dungeon],wrap=document.createElement('div');
-  wrap.innerHTML=`<p>${esc(dg.desc)} Plus la difficulté est haute, plus les artéfacts sont rares et chers.</p><p class="rw">Astuce : ${esc(dg.astuce)}</p>`;
+  wrap.innerHTML=`<p>${esc(dg.desc)}${dg.etapes?` Butin de l'étape : ${dg.etapes[0].loot.map(id=>esc(ITEMS[id].n)).join(' ou ')}, un par joueur, tiré au sort.`:' Plus la difficulté est haute, plus les artéfacts sont rares et chers.'}</p><p class="rw">Astuce : ${esc(dg.astuce)}</p>`;
   const box=document.createElement('div');box.className='diff';
   wrap.insertAdjacentHTML('beforeend','<p class="rw">Vous entrez seul. Une fois dedans, <b>/inviter &lt;pseudo&gt;</b> fait venir un ami (4 joueurs maximum) ; chaque joueur en plus renforce les ennemis de 60 % de PV.</p>');
   dgDiffs(n.dungeon).forEach((df,i)=>{const b=document.createElement('button');b.type='button';b.className='dbtn';b.disabled=S.lvl<df.rl;
-    const rar=Object.keys(df.w).map(k=>RN[k]).join(', ');
-    b.innerHTML=`<b>${df.n}</b><span>${esc(df.sub)} · Artéfacts : ${rar}</span><em>Niveau ${df.rl}+<br>Ennemis niv. ${df.L}</em>`;b.onclick=()=>{closePanel('dlg');send({a:'enterDungeon',ti:i,dg:n.dungeon})};box.appendChild(b)});
+    const rar=dg.etapes?`Butin ${RN[dg.etapes[0].rarete]}`:`Artéfacts : ${Object.keys(df.w).map(k=>RN[k]).join(', ')}`;
+    b.innerHTML=`<b>${df.n}</b><span>${esc(df.sub)} · ${rar}</span><em>Niveau ${df.rl}+<br>Ennemis niv. ${df.L}</em>`;b.onclick=()=>{closePanel('dlg');send({a:'enterDungeon',ti:i,dg:n.dungeon})};box.appendChild(b)});
   wrap.appendChild(box);
-  dialog(dg.n,'Donjon instancié · 4 difficultés',wrap,[['Retour',()=>showNpc(n),true]],false,n);
+  dialog(dg.n,`Donjon instancié · ${dg.etapes?'Étape 1 sur 3':'4 difficultés'}`,wrap,[['Retour',()=>showNpc(n),true]],false,n);
 }
 export function unlockDlg(){dlgLocked=false;$('#dlg').hidden=true}
 export function autoCloseDlg(){if(dlgNpc&&!$('#dlg').hidden&&dist(P,dlgNpc)>3.2)closePanel('dlg')}
@@ -239,11 +288,11 @@ let board=null;
 export function setBoard(t){board=t;refreshDialog()}
 export function refreshDialog(){if(dlgRedo&&!dlgLocked&&!$('#dlg').hidden)dlgRedo()}
 export function openPortal(){
-  dialog(DUNGEONS[WD.dg].sortie,DUNGEONS[WD.dg].n,`<p>${WD.done?'Le butin est à vous. Gérard rachète tous les artéfacts au Bourg-Forum.':`Vous partez déjà ? ${DUNGEONS[WD.dg].n} n'est pas terminé. Vous ne pourrez pas reprendre cette exploration.`}</p>`,[['Sortir du donjon',()=>{closePanel('dlg');send({a:'leaveDungeon'})}],['Rester',()=>closePanel('dlg'),true]]);
+  dialog(DUNGEONS[WD.dg].sortie,DUNGEONS[WD.dg].n,`<p>${DUNGEONS[WD.dg].etapes?(WD.mobs.some(m=>m.alive)?"Vous partez déjà ? L'installation n'est pas terminée, et personne ne rangera à votre place.":'Un butin non ouvert est perdu en sortant : ouvrez le coffre avant de partir.'):WD.done?'Le butin est à vous. Gérard rachète tous les artéfacts au Bourg-Forum.':`Vous partez déjà ? ${DUNGEONS[WD.dg].n} n'est pas terminé. Vous ne pourrez pas reprendre cette exploration.`}</p>`,[['Sortir du donjon',()=>{closePanel('dlg');send({a:'leaveDungeon'})}],['Rester',()=>closePanel('dlg'),true]]);
 }
 export function showChest(e){
-  const df=DIFFS[e.ti];
-  dialog(DUNGEONS[e.dg].coffre,`Difficulté ${df.n}`,`<div class="loot">${e.got.map(id=>`<div>${itemLink(id)} <span class="ty">· ${RN[ITEMS[id].r]} · revente ${ITEMS[id].price} po</span></div>`).join('')}<div class="goldv">+ ${e.gold} po${e.extra?` · 2 × ${itemLink('chouffe')}`:''}</div></div><p class="rw">Un portail de sortie vient d'apparaître. Gérard rachète les artéfacts au Bourg-Forum.</p>`,[['Fermer',()=>closePanel('dlg')]]);
+  const df={...DIFFS[e.ti],...(DUNGEONS[e.dg].diffs||[])[e.ti]};
+  dialog(DUNGEONS[e.dg].coffre,`Difficulté ${df.n}`,`<div class="loot">${e.got.map(id=>`<div>${itemLink(id)} <span class="ty">· ${RN[ITEMS[id].r]} · revente ${ITEMS[id].price} po</span></div>`).join('')}<div class="goldv">${e.gold?`+ ${e.gold} po`:''}${e.extra?` · 2 × ${itemLink('chouffe')}`:''}</div></div><p class="rw">Un portail de sortie vient d'apparaître. Gérard rachète les artéfacts au Bourg-Forum.</p>`,[['Fermer',()=>closePanel('dlg')]]);
 }
 export function showDeath(){
   const inDg=WD.id!=='over';
