@@ -71,3 +71,13 @@ Object.assign(NEW_MOBS,{
   cosplay_ultime:bossZone("Le Cosplayeur Ultime (Forme Finale)","Le Cosplayeur Ultime",'cosplayeur',76,2.2,"vous attaque avec sa vraie épée en mousse",["CECI N'EST MÊME PAS MA FORME FINALE.","Six cents heures de couture.","Ne touchez pas à la cape. Personne ne touche à la cape."],[['hakama',.25],['plume_or',.08]]),
   heisenbug:bossZone("Le Heisenbug","Le Heisenbug",'bug',100,1.8,"disparaît dès qu'on l'observe, puis vous frappe",["Ça marche chez moi.","Je n'apparais qu'en prod.","Ajoutez un console.log. Je disparais."],[['jean_rendu',.25],['diplome_epee',.08]]),
 });
+
+// ---- Lot 3 : La LAN Party, étape 1 « L'Installation » (niveau 20) ----
+Object.assign(NEW_MOBS,{
+  cable:{n:"Câble Emmêlé",l:20,hpM:1.2,atkM:.7,sp:1.6,ag:4,cd:2,hgt:1,v:"vous fait un nœud aux chevilles",
+    lines:["*noeud*","Je suis sûr que je n'étais pas comme ça en le rangeant.","Débranche-moi. Non, l'autre."],loot:[['chips',.35],['poignee',.3]]},
+  multiprise:{n:"Multiprise Surchargée",l:20,hpM:.8,atkM:1.3,sp:1.8,ag:4.5,cd:1.8,hgt:1,v:"vous envoie un petit courant de reproche",
+    lines:["*bzzzt*","Neuf prises, onze appareils. Je gère.","Ça sent le plastique chaud. C'est normal."],loot:[['chips',.35],['poignee',.3],['chouffe',.1]]},
+  pote:{n:"Pote Sans Sa Tour",l:20,hpM:1,atkM:1,sp:2,ag:4,cd:1.7,hgt:1.2,v:"vous demande si vous avez un écran de rechange",
+    lines:["T'as une prise ? Une souris ? Un écran ?","J'ai ramené mon écran. Pas ma tour.","On peut jouer sur ton PC ? Juste un truc."],loot:[['chips',.35],['poignee',.3],['chouffe',.1]]},
+});

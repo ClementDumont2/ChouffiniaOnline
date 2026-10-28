@@ -61,4 +61,6 @@ export const NEW_NPCS=[
   // Les deux sanctuaires d'origine sans marchand : le Sous-Sol et l'Arène.
   npc('petit_frere',"Le Petit Frère","Revente au marché noir",'Marchand · Revend les affaires de la maison (niveaux 1–5)',3.5,9.4,"Je vends tout ce que j'ai trouvé dans la maison. Les chips sont à Maman, la règle est à moi, le jogging est à toi. Je te le revends quand même. C'est ça, le capitalisme."),
   npc('buvette',"La Buvette de l'Arène","Rafraîchissements",'Marchande · De quoi tenir un débat (chips, Chouffes)',31.5,17.4,"Chips, Chouffes. Rien d'autre. Ici, on débat, on perd, on boit. Dans cet ordre, ou dans un autre, personne n'a jamais gagné de toute façon."),
+  // ---- Lot 3 : entrée de la LAN Party, au Bourg-Forum ----
+  npc('orga_lan',"L'Orga de la LAN","Donjon : La LAN Party",'Donjon · La LAN Party · Étape 1 : L\'Installation',17.5,17.8,"Salut ! C'est moi qui organise. Y'a vingt-trois multiprises, onze écrans et personne n'a pensé aux câbles réseau. Tu viens ? Faut juste tout installer avant que quelqu'un dise « bon, on commence ». Niveau 20 minimum : les potes sans tour ne font pas de cadeaux.",{look:'door',dungeon:'lan'}),
 ];

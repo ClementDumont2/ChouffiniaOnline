@@ -1,3 +1,6 @@
+// Arme à distance : champ optionnel `rg` (portée en cases) sur un objet de slot 'arme'. Équipée, elle porte la portée de l'attaque de base à max(portée de la compétence 1 de la classe, rg) ;
+// au-delà de la portée de la classe, l'attaque de base inflige ARME_DIST_MULT des dégâts. Règle de portée : baseRange(S) dans shared/rules.js.
+export const ARME_RG=5,ARME_DIST_MULT=.8;
 // Équipement : les stats écrites ici sont celles d'un objet de niveau d'objet (nObj) = rl et de sa rareté d'origine r.
 // shared/rules.js les met à l'échelle pour toute autre instance : × (1 + nObj/10) × multiplicateur de rareté.
 export const RARITY_MULT={common:1,unc:1.1,rare:1.25,epic:1.45,leg:1.7};
@@ -10,6 +13,7 @@ export const ITEMS={
   clavier:{n:"Clavier Mécanique RGB",t:'eq',s:'arme',r:'epic',atk:10,hp:15,rl:4,price:70,d:"16,8 millions de couleurs. Les voisins entendent chaque frappe."},
   sabre:{n:"Sabre Laser en Mousse",t:'eq',s:'arme',r:'rare',atk:9,rl:5,buy:160,price:60,d:"Fait « vvvoum » quand vous le dites vous-même. Vous le dites tout le temps."},
   resine:{n:"Épée Bâtarde en Résine",t:'eq',s:'arme',r:'epic',atk:13,rl:7,buy:340,price:120,d:"Achetée en convention. Certifiée « fidèle au lore » par personne."},
+  lance_pierre:{n:"Lance-Pierre à Élastique de Bureau",t:'eq',s:'arme',r:'unc',atk:5,rl:3,rg:ARME_RG,buy:55,price:18,d:"Élastique volé à la compta, gomme de classe en munition. Vous visez le proviseur. Vous touchez le ficus."},
   ethernet:{n:"Câble Ethernet de Maman",t:'eq',s:'arme',r:'leg',atk:18,hp:40,rl:7,price:400,d:"15 mètres. Le seul lien qui vous rattache encore au monde."},
   flamme:{n:"Lance-Flammes à Opinions",t:'eq',s:'arme',r:'epic',atk:17,rl:9,buy:650,price:230,d:"Brûle tout débat constructif dans un rayon de trois mètres."},
   grimoire:{n:"Grimoire des Topics Épinglés",t:'eq',s:'arme',r:'leg',atk:23,hp:30,rl:10,price:900,d:"Contient tous les règlements jamais lus. Pèse 14 kg. Frappe fort."},
@@ -44,6 +48,7 @@ export const ITEMS={
   gants_cahier:{n:"Gants de Cahier de Textes",t:'eq',s:'mains',r:'unc',atk:6,arm:18,rl:17,price:300,d:"Chaque doigt a une date de rendu. Aucun n'est rendu à temps."},
   jeans_craie:{n:"Jean Tagué à la Craie",t:'eq',s:'jambes',r:'rare',arm:24,hp:48,rl:18,price:480,d:"Quelqu'un a écrit « T nul » dans le dos. En fait, c'est vous, en 3e."},
   casquette_cpe:{n:"Casquette du CPE",t:'eq',s:'tete',r:'epic',atk:8,arm:26,hp:62,rl:20,price:900,d:"Elle n'a jamais quitté sa tête. Elle l'a suivie dans la tombe."},
+  pistolet_billes:{n:"Pistolet à Billes de la Fête Foraine",t:'eq',s:'arme',r:'rare',atk:28,hp:15,rl:15,rg:ARME_RG,price:420,d:"Gagné au stand de tir après quarante tickets et une dispute avec le forain. Le canon est tordu, comme l'ambiance."},
   copie_double:{n:"Copie Double Annotée en Rouge",t:'eq',s:'arme',r:'leg',atk:62,hp:70,rl:22,price:1900,d:"« Hors-sujet. » Trois fois. Elle déchire pourtant les ennemis en deux."},
   // ---- Supermarché (rl 25–35) ----
   scanette:{n:"Scanette Qui Bipe Trop",t:'eq',s:'arme',r:'rare',atk:52,hp:40,rl:27,price:900,d:"Un bip, un code-barres, un ennemi en moins. « Article inconnu » : c'est vous."},
@@ -59,6 +64,7 @@ export const ITEMS={
   gants_tampon:{n:"Mitaines de Guichetier",t:'eq',s:'mains',r:'rare',atk:20,arm:40,rl:44,price:1800,d:"Pour tamponner par grand froid. Le froid est permanent, le chauffage « en attente de pièces »."},
   badge_pe:{n:"Badge « Je Suis Là Pour Vous Aider »",t:'eq',s:'tete',r:'epic',atk:12,arm:42,hp:132,rl:45,price:2800,d:"Le « vous » a été effacé à l'usure. Le « aider », depuis longtemps."},
   pantalon_tailleur:{n:"Pantalon de Tailleur Repassé",t:'eq',s:'jambes',r:'epic',arm:58,hp:150,rl:48,price:3200,d:"Un pli parfait, impossible à défaire. Comme le dossier de quelqu'un d'autre."},
+  nerf_garage:{n:"Nerf Modifié en Garage",t:'eq',s:'arme',r:'rare',atk:68,hp:50,rl:40,rg:ARME_RG,price:1500,d:"Ressort renforcé, fléchette limée, garantie annulée. Tire fort, tire loin, tire un avertissement de la mairie."},
   cerfa_dore:{n:"Cerfa Rempli et Validé",t:'eq',s:'arme',r:'leg',atk:140,hp:160,rl:50,price:7500,d:"Aucune case oubliée, aucune rature, tamponné trois fois. Le seul. Le dernier. Il tranche."},
   // ---- Artéfacts de donjon : Le Bac de 2012 ----
   art_copie:{n:"Copie Double Vierge",t:'art',r:'common',price:60,d:"Elle est restée vierge pendant toute l'épreuve. Il fallait bien que quelqu'un le fasse."},
@@ -90,7 +96,7 @@ export const ITEMS={
 };
 export const SLOTS={tete:'Tête',torse:'Torse',mains:'Mains',jambes:'Jambes',arme:'Arme'};
 export const RN={poor:'Médiocre',common:'Commun',unc:'Inhabituel',rare:'Rare',epic:'Épique',leg:'Légendaire'};
-export const SHOP={armes:['regle','katana','sabre','resine','flamme'],armures:['sweat','jogging','gants','pantoufles','casque','carton','eva']};
+export const SHOP={armes:['regle','lance_pierre','katana','sabre','resine','flamme'],armures:['sweat','jogging','gants','pantoufles','casque','carton','eva']};
 export const STOCK={gerard:['chips'],tavernier:['chouffe'],bernard:[...SHOP.armes,...SHOP.armures]};
 export const ART_POOL={common:['art_cle','art_poster'],unc:['art_disquette','art_cle'],rare:['art_carte','art_figurine'],epic:['art_cartouche','art_dvd','art_topic'],leg:['art_sticker','art_wifi','art_save']};
 
@@ -155,11 +161,17 @@ Object.assign(ART_POOLS,{
 // Lot 10 : marchands des sanctuaires. Équipement de leur zone (hors récompenses de quête et légendaires, qui restent à gagner) + consommables.
 // Prix d'achat : buy s'il existe, sinon 3 × price (buyPrice dans rules.js).
 Object.assign(STOCK,{
-  cantine:['chips','chouffe','gilet','jeans_craie'],
+  cantine:['chips','chouffe','gilet','jeans_craie','pistolet_billes'],
   chef_rayon:['chips','chouffe','blouse','casquette_promo','pantalon_stock'],
-  sauvette:['chips','chouffe','tampon','gants_tampon'],
+  sauvette:['chips','chouffe','tampon','gants_tampon','nerf_garage'],
   goodies:['chips','chouffe','perruque','gants_manga','hakama'],
   bde:['chips','chouffe','sweat_diiage','badge_diiage','jean_rendu'],
   petit_frere:['chips','chouffe','regle','sweat','jogging'],
   buvette:['chips','chouffe'],
+});
+
+// ---- Lot 3 : butin exclusif de l'étape 1 de la LAN Party (aucun marchand, aucun tirage ; base epic niveau d'objet 20) ----
+Object.assign(ITEMS,{
+  multiprise_parafoudre:{n:"Multiprise Parafoudre",t:'eq',s:'arme',r:'epic',atk:52,hp:30,rl:20,price:1100,d:"Neuf prises, un interrupteur lumineux et un parafoudre qui n'a jamais servi. Corps à corps uniquement : le câble fait deux mètres, et la loi des multiprises interdit de la brancher en cascade."},
+  tapis_xxl:{n:"Tapis de Souris XXL",t:'eq',s:'torse',r:'epic',atk:4,arm:40,hp:90,rl:20,price:1100,d:"90 × 40 cm de pure surface de glisse, porté en cape. Il a connu trois souris, deux Coca renversés et une rage. Il glisse sur tout, sauf sur vos responsabilités."},
 });

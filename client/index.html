@@ -44,6 +44,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .bar.caf{height:12px} .bar.caf span{line-height:10px;font-size:10.5px}
 #buffs{display:flex;gap:4px;flex-wrap:wrap;min-height:0}
 #buffs span{font-size:10.5px;font-weight:700;padding:0 5px;border:1px solid var(--gold-dim);background:var(--well);color:var(--sys)}
+#dgleft.etape{display:block;font-weight:700;font-size:15px;color:var(--gold);margin:4px 0}
 #party{top:92px;left:12px;display:grid;gap:4px;width:260px}
 #party .pm{padding:4px 8px 5px;display:grid;gap:3px}
 #party .pm.dead{opacity:.5}
@@ -56,6 +57,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 #zone{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--gold);text-align:center;line-height:1.2;min-height:2.4em;display:grid;place-items:center;text-wrap:balance}
 #mini{display:block;width:100%;height:auto;border:1px solid #000;margin-top:4px;image-rendering:pixelated;background:#000}
 #mini{cursor:zoom-in}
+#fiche{position:fixed;top:50%;right:16px;transform:translateY(-50%);width:min(360px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;z-index:9;padding:12px 14px;font-size:14px}
+#fiche[hidden]{display:none}
+#fiche h3{font-family:var(--f-display);color:#c9a8ff;margin:0 22px 6px 0}
+#fiche p{margin:6px 0}
+#fiche .x{position:absolute;top:6px;right:8px;background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px}
+#fiche .why{color:#ff8a7a;font-size:13px;min-height:1.2em}
+#fiche .btn{width:100%}
+#fiche .btn:disabled{opacity:.5;cursor:not-allowed}
+.dbtn.sel{border-color:#c9a8ff;box-shadow:0 0 0 1px #c9a8ff inset}
 #mapbox.big{top:50%;left:50%;right:auto;transform:translate(-50%,-50%);width:min(1000px,calc(100% - 32px));z-index:8}
 #mapbox.big #mini{cursor:zoom-out}
 #maplg{display:none;flex-wrap:wrap;gap:4px 12px;justify-content:center;margin-top:6px;font-size:12px}
@@ -187,6 +197,29 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .eqrow canvas{width:34px;height:34px;flex:none;image-rendering:pixelated;border:1px solid #3a2f24}
 .eqrow .sl{font-size:11.5px;color:var(--muted);display:block}
 .eqrow .in{min-width:0;font-weight:700;font-size:14px}
+#char.wide{width:min(720px,calc(100% - 32px))}
+.eqwrap{display:flex;gap:10px;align-items:flex-start}
+.eqdoll{display:grid;grid-template-columns:1fr 160px 1fr;gap:6px;align-items:start;flex:1;min-width:0}
+.eqdoll .col{display:flex;flex-direction:column;gap:6px}
+.eqdoll .me{align-self:center;background:radial-gradient(circle at 50% 40%,#3a3048,#141016);border:1px solid var(--gold-dim)}
+.eqdoll .me canvas{width:100%;height:auto;display:block;image-rendering:pixelated}
+.eqslot{position:relative;display:flex;align-items:center;gap:6px;background:var(--well);border:1px solid #3a2f24;padding:3px;cursor:pointer;text-align:left;width:100%;min-height:46px}
+.eqslot canvas{width:34px;height:34px;flex:none;image-rendering:pixelated;border:1px solid #3a2f24}
+.eqslot.q-unc canvas{border-color:var(--r-unc)} .eqslot.q-rare canvas{border-color:var(--r-rare)} .eqslot.q-epic canvas{border-color:var(--r-epic)} .eqslot.q-leg canvas{border-color:var(--r-leg)}
+.eqslot.sel{outline:2px solid var(--gold)}
+.eqslot .in{min-width:0;font-weight:700;font-size:12.5px;line-height:1.2}
+.eqslot .sl{font-size:11px;color:var(--muted);display:block;font-weight:400}
+.eqslot .vide{color:var(--muted);font-weight:400;font-style:italic}
+.eqslot .upb{left:auto;right:3px;top:1px}
+.eqpick{width:250px;flex:none;background:var(--well);border:1px solid #3a2f24;padding:6px;display:flex;flex-direction:column;gap:4px}
+.eqpick h3{margin:0 0 2px;font-size:13px;color:var(--gold)}
+.eqpick .vide{color:var(--muted);font-style:italic;font-size:13px}
+.eqc{display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #3a2f24;padding:3px;cursor:pointer;text-align:left;width:100%;font-size:12.5px}
+.eqc canvas{width:30px;height:30px;flex:none;image-rendering:pixelated}
+.eqc .in{min-width:0;font-weight:700;line-height:1.2}
+.eqc small{display:block;font-weight:400;color:var(--muted)}
+.eqc.ko{opacity:.5;cursor:not-allowed}
+@media (max-width:640px){#char.wide{width:calc(100% - 32px)}.eqwrap{flex-direction:column}.eqpick{width:100%}.eqdoll{grid-template-columns:1fr 100px 1fr}}
 .stats{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:12px 0 0;font-size:14px}
 .stats dt{color:var(--muted)} .stats dd{margin:0;font-variant-numeric:tabular-nums}
 .stats dd small{color:var(--muted);font-style:italic}
@@ -356,6 +389,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
       <div id="clock"><span id="clk"></span><span id="pop"></span></div>
     </div>
 
+    <div id="fiche" class="hud frame" hidden></div>
+
     <div id="quests" class="hud frame">
       <h3>Quêtes</h3>
       <div id="qbody"></div>
@@ -392,7 +427,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
       <div class="ph"><h2 id="cname"></h2><button class="x" data-close="char" aria-label="Fermer">×</button></div>
       <div class="charsub" id="csub"></div>
       <div id="ctabs"><button type="button" data-tab="eq" class="on">Équipement</button><button type="button" data-tab="mnt">Montures</button></div>
-      <div class="eqlist" id="eqlist"></div>
+      <div class="eqwrap" id="eqwrap"><div class="eqdoll" id="eqlist"></div><div class="eqpick" id="eqpick" hidden></div></div>
       <dl class="stats" id="cstats"></dl>
       <div class="eqlist" id="mntlist" hidden></div>
     </div>

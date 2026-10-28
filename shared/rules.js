@@ -1,8 +1,9 @@
-import {ITEMS,MOBS,DIFFS,ART_POOL,HATS,MAXLVL,NPCS,QUESTS,RARITY_MULT} from './data.js';
+import {ITEMS,MOBS,DIFFS,DUNGEONS,ART_POOL,HATS,MAXLVL,NPCS,QUESTS,RARITY_MULT,SLOTS} from './data.js';
 import {rngTools} from './rng.js';
 import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
 import {MOUNTS} from './data/mounts.js';
 import {BOSSES} from './data/bosses.js';
+export {ARME_RG,ARME_DIST_MULT} from './data/items.js';
 import {SAFE} from './data/zones.js';
 
 export const clamp=(v,a,b)=>v<a?a:v>b?b:v,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -19,6 +20,9 @@ export function xpNeed(l){
 export const baseStats=l=>{const e=Math.max(0,l-15),n=l-e;return{atk:4+2*(n-1)+Math.round(1.2*e),hp:60+15*(n-1)+11*e,caf:50+8*(n-1)+3*e}};
 export const classOf=S=>CLASSES[S.cls]||CLASSES[DEFAULT_CLASS];
 export const skillsOf=S=>classOf(S).skills.map(id=>({id,...SKILL_DEFS[id]}));
+// Portée de l'attaque de base : celle de la compétence 1 de la classe, allongée par l'arme équipée (champ rg). Même règle côté serveur et client.
+export const classRange=S=>SKILL_DEFS[classOf(S).skills[0]].rg;
+export const baseRange=S=>{const a=S.eq&&S.eq.arme,r=a&&ITEMS[a.id]&&ITEMS[a.id].rg;return Math.max(classRange(S),r||0)};
 export function stats(S,drunk=0){const bs=baseStats(S.lvl);let atk=bs.atk,hp=bs.hp,arm=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:bs.caf,arm,red:arm/(arm+45),spd:m.spd}}
 
 export const stackable=id=>ITEMS[id].t!=='eq';
@@ -90,6 +94,13 @@ export function cmpInfo(S,q){
   return{it,inst:q,cur,curIt,same,rows,v,cls,net,better:!same&&(cls==='up'||(cls==='mix'&&net>0))&&S.lvl>=(it.rl||1)};
 }
 
+// Candidats du sac pour un emplacement : équipables à mon niveau d'abord, du plus fort gain (net) au plus faible, puis ordre du sac.
+export function slotCandidates(S,slot){
+  const r=[];S.inv.forEach((q,idx)=>{const it=q&&q.uid&&ITEMS[q.id];if(!it||it.t!=='eq'||it.s!==slot)return;const c=cmpInfo(S,q);r.push({idx,q,ok:S.lvl>=(it.rl||1),net:c.net,better:c.better})});
+  return r.sort((a,b)=>(b.ok-a.ok)||(b.net-a.net)||(a.idx-b.idx));
+}
+export const upgradableSlots=S=>Object.keys(SLOTS).filter(k=>slotCandidates(S,k).some(c=>c.ok&&c.better));
+
 // Les droits viennent du fichier de sauvegarde ; le serveur est le seul à trancher, le client ne s'en sert que pour l'affichage.
 export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
@@ -142,4 +153,20 @@ export function resetLoot(sv){
   S.hp=Math.min(S.hp,stats(S).maxhp);
   if(!isObj(sv)||!Array.isArray(sv.droits))delete S.droits;
   return S;
+}
+
+// ---- Activités (lot 4) : carte, fiche, lancement ----
+// Délai (s) sans frapper ni être frappé avant de pouvoir lancer une activité depuis la carte.
+export const COMBAT_TP=5;
+// Difficultés d'un donjon : DIFFS surchargé par les niveaux propres au donjon (un donjon à étapes n'a que celles qu'il déclare).
+export const dgDiffs=id=>{const dg=DUNGEONS[id];return dg?DIFFS.slice(0,dg.etapes?dg.diffs.length:DIFFS.length).map((d,i)=>({...d,...((dg.diffs||[])[i])})):[]};
+// Un logo par donjon, à la position de son PNJ d'entrée (carte agrandie du monde).
+export const donjonLogos=()=>Object.keys(DUNGEONS).map(id=>{const n=npcById(DUNGEONS[id].npc);return n&&{id,n:DUNGEONS[id].n,x:n.x,y:n.y,rl:Math.min(...dgDiffs(id).map(d=>d.rl))}}).filter(Boolean);
+// Contenu de la fiche d'activité, calculé depuis les données : butin = objets des étapes, sinon légendaire unique, sinon le grimoire des Archives.
+export function activityInfo(id,lvl){
+  const dg=DUNGEONS[id];if(!dg)return null;
+  const E=dg.etapes&&dg.etapes[0],bosses=[].concat(dg.boss||[]),diffs=dgDiffs(id).map(d=>({i:0,n:d.n,rl:d.rl,ok:lvl>=d.rl}));
+  diffs.forEach((d,i)=>{d.i=i});
+  return{n:dg.n,desc:dg.desc,astuce:dg.astuce,boss:bosses.length?bosses.map(b=>MOBS[b].n):['Aucun boss : nettoyez la salle'],mobs:(E?E.kinds:dg.kinds).map(k=>MOBS[k].n),
+    butin:E?[...E.loot]:[dg.unique?dg.unique.item:'grimoire'],diffs,sel:diffs.reduce((s,d)=>d.ok?d.i:s,-1)};
 }

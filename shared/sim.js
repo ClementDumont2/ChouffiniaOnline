@@ -2,7 +2,7 @@
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {ACH,ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {BAG,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
+import {ARME_DIST_MULT,BAG,COMBAT_TP,dgDiffs,baseRange,classRange,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
@@ -143,7 +143,7 @@ function tickPlayer(w,pl,dt){
   for(const o of P.dots){o.t-=dt;o.acc+=dt;if(o.acc>=1){o.acc-=1;const by=w.players[o.by];if(by&&by.duel&&by.duel.foe===pl.id&&by.duel.phase==='fight')pvpHit(w,by,pl,o.dmg,false,'Copypasta')}}
   P.dots=P.dots.filter(o=>o.t>0);
   const tg=findEnt(w,pl.mapId,P.target),sk0=SKILL_DEFS[classOf(S).skills[0]];
-  if(tg&&attackable(w,pl,tg)&&P.auto&&!P.cast&&dist(P,tg)<=sk0.rg&&(P.cd[classOf(S).skills[0]]||0)<=0)useSkill(w,pl,0,true);
+  if(tg&&attackable(w,pl,tg)&&P.auto&&!P.cast&&dist(P,tg)<=baseRange(S)&&(P.cd[classOf(S).skills[0]]||0)<=0)useSkill(w,pl,0,true);
   for(const k in P.cd)if(P.cd[k]>0)P.cd[k]-=k==='pot'?dt:dt*haste;
 }
 
@@ -239,8 +239,10 @@ function killMob(w,map,m){
   const tagger=first&&first.mapId===map.id?first:group[0];
   m.tag=null;m.hitters=[];
   for(const o of onMap(w,map.id))if(o.P.target===m.id){o.P.target=null;o.P.auto=false}
+  if(group.length)rewardKill(w,map,m,group,tagger);
+  // Donjon à étapes : l'étape finit quand plus rien ne vit (une seule fois, même si deux monstres tombent dans le même tick).
+  if(inDg&&map.etape&&!map.etape.fin&&!map.mobs.some(o=>o.alive))etapeDone(w,map,m);
   if(!group.length)return;
-  rewardKill(w,map,m,group,tagger);
   if(inDg&&m.d.boss&&!map.mobs.some(o=>o.d.boss&&o.alive))dungeonDone(w,map,group);
   for(const p of new Set([...group,tagger]))ev(w,p.id,{t:'self'});
 }
@@ -260,7 +262,7 @@ function rewardKill(w,map,m,group,T){
   // Le butin d'équipement prend le niveau du monstre comme niveau d'objet.
   const drop=lid=>{if(!addItem(w,T,lid,1,m.l))return;const q=ITEMS[lid].t==='eq'?T.S.inv[T.S.inv.length-1]:null;msg(w,T.id,'loot',`Vous recevez le butin : ${q?link(q):`[[${lid}]]`}${q&&cmpInfo(T.S,q).better?'[[up]]':''}.`)};
   for(const [lid,p] of (m.d.loot||[]))if(w.rnd()<p)drop(lid);
-  if(inDg&&!m.d.boss){if(w.rnd()<.14+.04*map.ti)drop(rollArt(map.ti,w.rnd,ART_POOLS[map.dg]));if(w.rnd()<.18)drop('chips')}
+  if(inDg&&!m.d.boss){if(ART_POOLS[map.dg]&&w.rnd()<.14+.04*map.ti)drop(rollArt(map.ti,w.rnd,ART_POOLS[map.dg]));if(w.rnd()<.18)drop('chips')}
   if(T.S.gold>=100)ach(w,T,'rich');
   for(const pl of group){
     const {S}=pl,id=pl.id,q=QUESTS[S.q.i];
@@ -280,6 +282,24 @@ function dungeonDone(w,map,group){
     // Le Jury vaincu en Sans Douche : titre affiché sous le nom.
     if(map.dg==='soutenance'&&map.ti===3){ach(w,pl,'diplome');S.titre='Diplômé (enfin)'}
     const q=QUESTS[S.q.i];if(q&&S.q.st==='active'&&q.dg!=null&&map.ti>=q.dg&&(q.dgn||'archives')===map.dg){S.q.n=1;S.q.st='ready';ev(w,pl.id,{t:'toast',kicker:'Objectif terminé',title:q.n,sub:`Retournez voir ${npcById(q.g).n}.`})}
+  }
+}
+
+// Fin d'une étape : or et XP à chaque joueur présent, un coffre personnel (tirage 50/50 entre les 2 objets de l'étape, pour chacun) là où le dernier monstre est tombé, et la sortie.
+function etapeDone(w,map,last){
+  const dg=DUNGEONS[map.dg],E=dg.etapes[map.etape.i],here=onMap(w,map.id),butin={};
+  map.etape.fin=true;
+  for(const pl of here)butin[pl.id]=newItem(E.loot[w.rnd()<.5?0:1],E.nObj,E.rarete);
+  map.objs.push({id:nid(w,'o'),kind:'obj',type:'chest',n:dg.coffre,x:last.x,y:last.y,hgt:.9,openedBy:[],butin});
+  const [dx,dy]=[[1.6,0],[-1.6,0],[0,1.6],[0,-1.6]].find(([a,b])=>canStand(map,last.x+a,last.y+b))||[0,0];
+  map.objs.push({id:nid(w,'o'),kind:'obj',type:'portal',exit:true,n:dg.sortie,x:last.x+dx,y:last.y+dy,hgt:.9});
+  toMap(w,map.id,{t:'banner',title:`Étape ${map.etape.i+1} terminée : ${E.n}`,sub:'Ouvrez le coffre : votre butin vous attend, et la sortie aussi.',cls:'dg'});
+  toMap(w,map.id,{t:'msg',cls:'sys',text:`Étape ${map.etape.i+1} terminée : ${E.n}. Tout est branché. Personne ne sait comment.`});
+  for(const pl of here){
+    pl.S.gold+=E.gold;msg(w,pl.id,'loot',`Vous ramassez ${E.gold} po.`);
+    gainXP(w,pl,E.xp,null);
+    if(pl.S.gold>=100)ach(w,pl,'rich');
+    ev(w,pl.id,{t:'self'});
   }
 }
 
@@ -469,11 +489,12 @@ function useSkill(w,pl,i,auto){
   const st=stats(S,P.drunk);
   if(sk.self)return SELF[sk.id](w,pl,sk,st);
   if(sk.ally)return ALLY[sk.id](w,pl,sk,st);
+  const rg=i===0?baseRange(S):sk.rg;
   let t=findEnt(w,pl.mapId,P.target);
   const foe=duelFoe(w,pl),pvp=!!(foe&&t&&t.kind==='player'&&t.id===foe.id);
   if(pvp&&pl.duel.phase!=='fight'){if(!auto)err(w,id,'Le duel n\'a pas encore commencé.');return}
-  if(!pvp&&(!t||t.kind!=='mob'||!t.alive)){t=nearestMob(map,P,sk.rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
-  if(dist(P,t)>sk.rg){
+  if(!pvp&&(!t||t.kind!=='mob'||!t.alive)){t=nearestMob(map,P,rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
+  if(dist(P,t)>rg){
     // Les attaques de base s'approchent toutes seules ; les autres demandent de se rapprocher à la main.
     if(!auto){if(i===0){P.auto=true;ev(w,id,{t:'approach',id:t.id})}else err(w,id,'Hors de portée. Rapprochez-vous (physiquement, ce n\'est pas social).')}
     return;
@@ -488,7 +509,10 @@ function useSkill(w,pl,i,auto){
     float(w,pl.mapId,P.x,P.y-1.9,'Skip !','#7fe0ff');burst(w,pl.mapId,P.x,P.y-.8,'#7fe0ff',10);pay(pl,sk);return;
   }
   pay(pl,sk);P.combat=0;P.auto=true;
-  const crit=P.nextCrit||w.rnd()<.12,mul=crit?1.8:1;
+  // Attaque de base tirée au-delà de la portée de la classe (grâce à l'arme) : dégâts réduits, et un projectile purement visuel pour tous les joueurs de la carte.
+  const far=i===0&&dist(P,t)>classRange(S);
+  const crit=P.nextCrit||w.rnd()<.12,mul=(crit?1.8:1)*(far?ARME_DIST_MULT:1);
+  if(far)toMap(w,pl.mapId,{t:'proj',x:P.x,y:P.y-.7,tx:t.x,ty:t.y-(t.hgt||1)*.5});
   P.nextCrit=false;
   strike(w,pl,t,sk,st,crit,mul);
 }
@@ -866,9 +890,26 @@ function enterDungeon(w,pl,ti,dgId='archives'){
   const dg=DUNGEONS[dgId],df=dg&&DIFFS[ti]&&dgDiff(dgId,ti);
   if(!df||pl.mapId!=='over'||!nearNpc(pl,dg.npc))return;
   if(pl.S.lvl<df.rl){err(w,pl.id,`Niveau ${df.rl} requis pour la difficulté ${df.n}.`);return}
-  const seed=(w.rnd()*2**32)>>>0,D=genDungeon(seed,ti,{L:df.L,kinds:dg.kinds,boss:dg.boss});
+  openDungeon(w,pl,dgId,ti,df);
+}
+
+// Lancement depuis la carte (fiche d'activité) : mêmes règles que l'entrée par le PNJ, sans la condition de proximité. Donjon ou difficulté inconnus : ignoré.
+function launchActivity(w,pl,dgId,ti){
+  if(typeof dgId!=='string'||!Object.hasOwn(DUNGEONS,dgId)||!Number.isInteger(ti)||ti<0||ti>=dgDiffs(dgId).length)return;
+  const df=dgDiff(dgId,ti);
+  if(pl.P.dead||pl.duel||pl.trade){err(w,pl.id,'Impossible maintenant.');return}
+  if(pl.mapId!=='over'){err(w,pl.id,'Vous êtes déjà en donjon.');return}
+  if(pl.P.combat<COMBAT_TP){err(w,pl.id,"Impossible en combat. Finissez d'abord votre bagarre.");return}
+  if(pl.S.lvl<df.rl){err(w,pl.id,`Niveau ${df.rl} requis.`);return}
+  openDungeon(w,pl,dgId,ti,df);
+}
+
+function openDungeon(w,pl,dgId,ti,df){
+  const dg=DUNGEONS[dgId];
+  const seed=(w.rnd()*2**32)>>>0,E=dg.etapes&&dg.etapes[0],D=genDungeon(seed,ti,{L:df.L,kinds:E?E.kinds:dg.kinds,boss:dg.boss,mobs:E&&E.mobs});
   if(!D){err(w,pl.id,`${dg.n} est en maintenance. Réessayez.`);return}
   D.id='dg'+(++w.instN);D.seed=seed;D.dg=dgId;D.done=false;D.npcs=[];D.bots=[];D.scale=1;
+  if(E)D.etape={i:0,n:E.n,total:E.mobs,fin:false};
   D.mobs=D.spawns.map(s=>{
     const elite=ti>=2&&![].concat(dg.boss).includes(s.type)&&w.rnd()<(ti===2?.15:.25);
     return mkDgMob(w,D,s.type,s.x,s.y,s.l,{elite,affix:elite?w.r.pick(Object.keys(AFFIXES)):null,patrol:s.patrol});
@@ -897,9 +938,22 @@ function leaveDungeon(w,pl){
   destroyIfEmpty(w,from);
 }
 
+// Coffre d'étape : l'objet tiré à la fin pour ce joueur seul ; sac plein, il reste dans le coffre.
+function openChestEtape(w,pl,o){
+  const {S}=pl,q=o.butin[pl.id];
+  if(o.openedBy.includes(pl.id)){err(w,pl.id,'Le coffre est vide. Comme votre agenda.');return}
+  if(!q){err(w,pl.id,"Ce coffre n'est pas pour vous : il fallait être là à la fin.");return}
+  if(!canHold(S,q.id)){msg(w,pl.id,'sys','Sac plein. Faites de la place puis rouvrez le coffre.');return}
+  S.inv.push(withUid(S,q));delete o.butin[pl.id];o.openedBy.push(pl.id);
+  burst(w,pl.mapId,o.x,o.y-.5,'#f0d070',24,3);
+  msg(w,pl.id,'loot',`Vous recevez le butin : ${link(S.inv[S.inv.length-1])}${cmpInfo(S,S.inv[S.inv.length-1]).better?'[[up]]':''}.`);
+  ev(w,pl.id,{t:'chest',ti:0,dg:pl.mapId&&w.maps[pl.mapId].dg,got:[q.id],extra:false,gold:0});
+}
+
 function openChest(w,pl,id){
   const {S,P}=pl,map=w.maps[pl.mapId],o=map.objs.find(x=>x.id===id&&x.type==='chest');
   if(!o||dist(P,o)>2.5)return;
+  if(o.butin){openChestEtape(w,pl,o);return}
   if(o.openedBy.includes(pl.id)){err(w,pl.id,'Le coffre est vide. Comme votre agenda.');return}
   o.openedBy.push(pl.id);
   const dg=DUNGEONS[map.dg],df=dgDiff(map.dg,map.ti),got=[];
@@ -919,7 +973,7 @@ function openChest(w,pl,id){
 export function handleAction(w,id,a){
   const pl=w.players[id];if(!pl||!a)return;
   const {S,P}=pl;
-  if(P.dead&&a.a!=='respawn')return;
+  if(P.dead&&a.a!=='respawn'&&a.a!=='launch')return;
   switch(a.a){
     case 'target':
       if(a.id==null){P.target=null;P.auto=false;break}
@@ -937,6 +991,7 @@ export function handleAction(w,id,a){
     case 'acceptQuest':acceptQuest(w,pl);break;
     case 'completeQuest':completeQuest(w,pl);break;
     case 'enterDungeon':enterDungeon(w,pl,a.ti,a.dg||'archives');break;
+    case 'launch':launchActivity(w,pl,a.dg,a.ti);break;
     case 'leaveDungeon':leaveDungeon(w,pl);break;
     case 'openChest':openChest(w,pl,a.id);break;
     case 'tradeOffer':tradeOffer(w,pl,a);break;

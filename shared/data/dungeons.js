@@ -3,6 +3,13 @@
 //   boss     type de MOBS ; kinds : monstres ordinaires (ceux de la zone, remis au niveau du donjon)
 //   diffs    surcharges de DIFFS par difficulté (L = niveau des monstres, rl = niveau requis, bonus = XP de fin, gold = or du coffre)
 //   unique   équipement légendaire du coffre : chance par difficulté (les Archives gardent le grimoire de DIFFS.grim)
+//   etapes   (facultatif) donjon à étapes : [{n, mobs, kinds, loot:[id1,id2], rarete, nObj, gold, xp}]. Sans `etapes`, le donjon a un boss et son coffre de boss.
+//            Avec `etapes`, `boss` peut être null. L'instance mémorise l'étape courante (D.etape = {i, fin, total}) ; l'étape 1 commence à l'entrée.
+//              n = nom (bannière « Étape 1 terminée : <n> »), mobs = nombre de monstres à 1 joueur, kinds = types de MOBS (remis au niveau du donjon),
+//              loot = 2 équipements exclusifs : chaque joueur présent à la fin en tire un (50/50) dans un coffre personnel à l'endroit du dernier monstre,
+//              rarete / nObj = rareté et niveau d'objet des instances, gold / xp = récompense donnée à chaque joueur présent à la fin.
+//            V1 : la fin de l'étape déclarée fait apparaître la sortie ; le passage à l'étape suivante n'existe pas encore (étapes 2 et 3 = ajout de données).
+//            Difficulté unique : `diffs` de longueur 1 (le menu d'entrée n'affiche qu'elle).
 export const DUNGEONS={
   archives:{n:"Les Archives Oubliées",desc:"Les Archives se réorganisent à chaque descente. Au fond attend le Grand Archiviste et son coffre d'artéfacts.",astuce:"Quand il prépare un Mur de Texte, sortez de la zone rouge. Les ennemis des Archives attaquent en groupe.",court:"les Archives",fini:'Archives terminées',sortie:'Sortie des Archives',coffre:'Coffre des Archives',retour:'Vous remontez au Bourg-Forum. La lumière du jour vous agresse un peu.',arrivee:"L'air sent le vieux papier et le topic verrouillé.",npc:'gardien',exit:{x:21.5,y:20.4},boss:'archiviste',kinds:['spam','necro','fantome','pave'],unique:null},
   bac:{n:"Le Bac de 2012",desc:"Le Bac de 2012 n'a jamais été corrigé. Au fond de la salle, le Correcteur de Philo attend avec ses copies, son stylo rouge et le sujet.",astuce:"Les copies tombent là où vous êtes : bougez pendant l'incantation. Chaque note est mauvaise, mais personne ne s'attendait à mieux.",court:"le Bac de 2012",fini:'Bac de 2012 terminé',sortie:'Sortie de la salle d\'examen',coffre:'Coffre du Bac de 2012',retour:'Vous ressortez de la salle d\'examen. Il fait jour. Il y a un parking.',arrivee:"Ça sent le sujet photocopié et l'angoisse.",npc:'porte_bac',exit:{x:89.5,y:11.6},boss:'correcteur',kinds:['delegue','scooter','souvenir'],
@@ -24,4 +31,8 @@ export const DUNGEONS={
     npc:'porte_soutenance',exit:{x:139.5,y:9.8},boss:['jury_secu','jury_tests','jury_archi'],kinds:['bug','standup','retard'],
     diffs:[{L:75,rl:75,bonus:22000,gold:6000},{L:83,rl:83,bonus:33000,gold:10000},{L:92,rl:92,bonus:50000,gold:18000},{L:100,rl:100,bonus:80000,gold:35000}],
     unique:{item:'diplome_epee',chance:[0,0,.25,.4]}},
+  lan:{n:"La LAN Party",desc:"Une salle des fêtes, trois étages de multiprises et quelqu'un qui a dit « j'apporte juste mon écran ». Avant de jouer, il faut installer : l'Installation est la première des étapes.",astuce:"Les multiprises sont plus fragiles qu'elles n'en ont l'air, les câbles se défont en tapant dessus. Tuez les potes sans tour avant qu'ils ne vous demandent la vôtre.",court:"la LAN",fini:'Installation terminée',sortie:'Sortie de la LAN Party',coffre:"Coffre de l'Installation",retour:"Vous ressortez de la LAN Party. Il fait jour. Quelqu'un a laissé son écran sur votre canapé.",arrivee:"Ça sent la poussière chaude, le Red Bull tiède et la multiprise de trop.",npc:'orga_lan',exit:{x:18.5,y:18.9},boss:null,kinds:['cable','multiprise','pote'],
+    diffs:[{n:'Installation',sub:"Étape 1 · tout le monde branche, personne ne range",L:20,rl:20,bonus:0,gold:0}],
+    etapes:[{n:"L'Installation",mobs:12,kinds:['cable','multiprise','pote'],loot:['multiprise_parafoudre','tapis_xxl'],rarete:'epic',nObj:20,gold:400,xp:1500}],
+    unique:null},
 };
