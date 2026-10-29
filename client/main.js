@@ -6,7 +6,7 @@ import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
 import {burst,floater,shoot,paintWorld,parts,render,resize,updFx} from './render.js';
 import {countdown,announce,banner,buildBar,syncBar,syncUpgrade,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
-import {closeMap,refreshDialog,renderBag,renderChar,setBoard,showChest,showDeath,showDuelInvite,showEnd,showTrade,unlockDlg} from './panels.js';
+import {closeMap,refreshDialog,renderBag,renderChar,setBoard,setCasino,setPoker,showChest,showDeath,showDuelInvite,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
 import {music,sfx,wheels} from './sound.js';
@@ -58,6 +58,8 @@ hooks.event=e=>{
     case 'approach':nav.follow=e.id;nav.goal=null;break;
     case 'chest':showChest(e);sfx('coin');break;
     case 'board':setBoard(e.tops);break;
+    case 'casino':setCasino(e);sfx(e.net>0?'coin':'pop');break;
+    case 'poker':setPoker(e);break;
     case 'trade':showTrade(e);break;
     case 'duelInvite':showDuelInvite(e);break;
     case 'count':countdown(e.text);break;

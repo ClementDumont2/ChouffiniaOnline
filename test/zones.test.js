@@ -17,10 +17,11 @@ test('la carte fait 200 colonnes, la partie d\'origine est inchangée et les hui
   assert.equal(map.w, 200);
   assert.deepEqual([zoneAt(map, 100, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50), zoneAt(map, 145, 50), zoneAt(map, 130, 20), zoneAt(map, 170, 8), zoneAt(map, 170, 30), zoneAt(map, 170, 50)], ['parking', 'supermarche', 'pole', 'convention', 'diiage', 'startup', 'coloc', 'discord']);
   for (const z of ['parking', 'supermarche', 'pole', 'convention', 'diiage', 'startup', 'coloc', 'discord']) assert.ok(ZONES[z].n && ZONES[z].s);
-  // Empreinte des 64 premières colonnes, relevée avant le Lot 8 : seule la route vers le parking (x ≥ 64, y 12–13) a changé dans l'ancienne carte.
+  // Empreinte des 64 premières colonnes, relevée avant le Lot 8 : seule la route vers le parking (x ≥ 64, y 12–13) a changé dans l'ancienne carte,
+  // puis le Casino (Saison 3) : l'empreinte saute son rectangle (x 33–46, y 22–33), relevée avant lui (1471958823 en comptant ce rectangle).
   let h = 0;
-  for (let y = 0; y < 60; y++) for (let x = 0; x < 64; x++) h = (h * 31 + map.t[y * map.w + x]) >>> 0;
-  assert.equal(h, 1471958823);
+  for (let y = 0; y < 60; y++) for (let x = 0; x < 64; x++) if (!(x >= 33 && x <= 46 && y >= 22 && y <= 33)) h = (h * 31 + map.t[y * map.w + x]) >>> 0;
+  assert.equal(h, 3268697032);
 });
 
 test('chaque zone est accessible à pied depuis le point d\'arrivée, jusqu\'à ses PNJ et à l\'entrée du donjon', () => {

@@ -243,6 +243,21 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .srow .btn{padding:5px 10px;font-size:13px;white-space:nowrap}
 .srow.own{opacity:.6}
 .diff{display:grid;gap:6px;margin-top:6px}
+.cards{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
+.card{display:inline-grid;place-items:center;width:42px;height:58px;border-radius:5px;background:#f4ecd8;color:#1b161d;border:1px solid #3a2f24;font:700 17px var(--f-body);box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.card.r{color:#b02a2a}
+.card.back{background:repeating-linear-gradient(45deg,#6d2230 0 6px,#4a1620 6px 12px);color:#f0d070}
+.cards.pick .card{cursor:pointer;opacity:.55;transform:translateY(4px)}
+.cards.pick .card.keep{opacity:1;transform:none;border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.cards.pick .card:disabled{cursor:default}
+.stake{display:grid;gap:6px;margin:8px 0}
+.stake label,.bet{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+.stake input,.stake select,.bet input,.bet select{background:var(--well);color:var(--parch);border:1px solid #4a3a2a;padding:4px 6px;font:inherit;max-width:100%}
+.stake input,.bet input{width:110px}
+.roul{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;margin:4px auto;font:800 26px var(--f-display);color:#fff;border:3px solid var(--gold)}
+.roul.rouge{background:#b02a2a}.roul.noir{background:#1b1820}.roul.vert{background:#2f7a3a}
+.pkrow{padding:4px 0;border-bottom:1px solid #3a2f24}
+.pkrow.win b{color:var(--gold)}
 .dbtn{display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;background:var(--well);border:1px solid #4a3a5a;padding:8px 10px;cursor:pointer;color:var(--parch)}
 .dbtn:hover:not(:disabled){border-color:#c9a8ff}
 .dbtn b{font-family:var(--f-display);font-size:15px;color:#c9a8ff}

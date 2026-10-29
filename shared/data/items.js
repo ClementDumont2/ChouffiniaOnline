@@ -168,6 +168,7 @@ Object.assign(STOCK,{
   bde:['chips','chouffe','sweat_diiage','badge_diiage','jean_rendu'],
   petit_frere:['chips','chouffe','regle','sweat','jogging'],
   buvette:['chips','chouffe'],
+  barman_casino:['chips','chouffe'],
 });
 
 // ---- Lot 3 : butin exclusif de l'étape 1 de la LAN Party (aucun marchand, aucun tirage ; base epic niveau d'objet 20) ----

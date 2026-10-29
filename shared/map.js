@@ -52,6 +52,9 @@ export function genOverworld(seed){
   rect(13,15,15,15,T.STALLR);rect(18,15,20,15,T.STALLB);setT(12,19,T.BAR);setT(13,19,T.BAR);setT(20,18,T.STAIRS);setT(21,18,T.STAIRS);
   // L'Arène du Débat Stérile : petit enclos à l'est du Bourg, ouvert sur la route par deux cases au sud.
   rect(29,13,38,19,T.FENCE);rect(30,14,37,18,T.STONE);rect(33,19,34,19,T.STONE);
+  // Saison 3 : le Casino, dans la forêt au sud de la route (porte nord). Tables de blackjack, de roulette et de poker, le bar au fond.
+  rect(33,24,46,33,T.WALL);rect(34,25,45,32,T.CARPET);rect(39,22,40,24,T.CARPET);
+  for(const [x,y,t] of [[35,28,T.TABLE],[36,28,T.TABLE],[42,29,T.TABLE],[43,29,T.TABLE],[37,31,T.TABLE],[38,31,T.TABLE],[39,31,T.TABLE],[40,31,T.TABLE],[44,25,T.SHELF],[45,25,T.SHELF],[34,25,T.PLANT],[34,32,T.PLANT],[45,32,T.PLANT]])setT(x,y,t);
   genEast(map,seed);genFar(map,seed);genBeyond(map,seed);
   return map;
 }

@@ -6,6 +6,7 @@ import {ARME_DIST_MULT,BAG,COMBAT_TP,dgDiffs,baseRange,classRange,buyPrice,canHo
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {SKINS} from './data/skins.js';
+import {HANDS,ROUGES,ROUL_BETS,bjValue,cardName,cmpRank,deck,isBlackjack,pokerRank,roulPays} from './casino.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
 import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,regionAt,stepToward,zoneAt} from './map.js';
 import {SAFE} from './data/zones.js';
@@ -78,6 +79,8 @@ export function addPlayer(w,id,{save,name,hat,cls}={}){
 export function removePlayer(w,id){
   const pl=w.players[id];if(!pl)return;
   endTrade(w,pl,`[${pl.S.name}] a quitté l'échange.`);abandonDuel(w,pl);dropAggro(w,pl);
+  // Casino : une main de blackjack en cours est perdue ; au poker, la mise est rendue avant la donne, couchée après.
+  if(w.poker)pkLeave(w,pl);
   for(const k in w.invites)if(k===id||w.invites[k].from===id)delete w.invites[k];
   delete w.players[id];
   announceOnline(w);
@@ -126,7 +129,7 @@ export function tick(w,dt){
     }
   }
   for(const map of Object.values(w.maps))if(map.mobs.some(m=>m.gone))map.mobs=map.mobs.filter(m=>!m.gone);
-  tickBots(w,dt);
+  tickBots(w,dt);tickPoker(w);
   const due=w.later.filter(l=>l.at<=w.time);
   if(due.length){w.later=w.later.filter(l=>l.at>w.time);for(const l of due)l.fn()}
 }
@@ -635,6 +638,124 @@ function wearSkin(w,pl,id){
   if(!nearNpc(pl,'fripier')||(id!==null&&!pl.S.skins.includes(id)))return;
   pl.S.skin=id;
 }
+// ---- Casino : mises en or ou en équipement du sac ; cartes et billes tirées ici, règles dans shared/casino.js. ----
+const CASINO_MAX=1e6,PK_SEATS=6,PK_DRAW=30;
+// La mise quitte le sac (ou la bourse) dès qu'elle est posée : impossible de l'échanger, de la vendre ou de la miser deux fois pendant la partie.
+function takeStake(w,pl,a){
+  const {S}=pl;
+  if(typeof a.uid==='string'){const i=S.inv.findIndex(s=>s.uid===a.uid);if(i<0){err(w,pl.id,'Cet objet n\'est pas dans votre sac.');return null}const q=S.inv.splice(i,1)[0];return{item:q,v:itemValue(q)}}
+  const g=a.gold;
+  if(!Number.isInteger(g)||g<1||g>CASINO_MAX){err(w,pl.id,`Misez entre 1 et ${fmt(CASINO_MAX)} po, ou un équipement du sac.`);return null}
+  if(g>S.gold){err(w,pl.id,'Vous n\'avez pas cet or. La maison ne fait pas crédit. Maman non plus.');return null}
+  S.gold-=g;return{gold:g,v:g};
+}
+const stakeText=st=>st.item?`${ITEMS[st.item.id].n} (${fmt(st.v)} po)`:`${fmt(st.gold)} po`;
+// Sac plein entre-temps (un achat pendant la partie) : l'objet est racheté à sa valeur plutôt que perdu.
+function giveItem(w,pl,q){
+  if(pl.S.inv.length<BAG){pl.S.inv.push(withUid(pl.S,{id:q.id,nObj:q.nObj,rarete:q.rarete}));return}
+  pl.S.gold+=itemValue(q);msg(w,pl.id,'loot',`Sac plein : ${link(q)} vous est racheté ${fmt(itemValue(q))} po.`);
+}
+// mult : ce que rapporte la mise, mise comprise (0 perdue, 1 rendue, 2 doublée…). Un équipement gagnant revient, avec la différence en or. Renvoie le gain net.
+function settle(w,pl,st,mult){
+  if(st.item){if(mult>=1)giveItem(w,pl,st.item);const g=Math.round(st.v*(mult-1));if(g>0)pl.S.gold+=g;return mult>=1?g:-st.v}
+  const g=Math.round(st.gold*mult);pl.S.gold+=g;return g-st.gold;
+}
+const netText=n=>n>0?`vous gagnez ${fmt(n)} po`:n<0?`vous perdez ${fmt(-n)} po`:'mise rendue';
+
+function sendBj(w,pl){
+  const B=pl.bj;
+  ev(w,pl.id,{t:'casino',g:'bj',you:B.you,bank:B.done?B.bank:[B.bank[0]],yv:bjValue(B.you),bv:B.done?bjValue(B.bank):null,done:B.done,mult:B.mult??null,net:B.net??null,stake:stakeText(B.st)});
+}
+function bjEnd(w,pl){
+  const B=pl.bj,yv=bjValue(B.you),bjY=isBlackjack(B.you);
+  // La banque tire jusqu'à 17 seulement si le joueur est encore en jeu sans blackjack.
+  if(yv<=21&&!bjY)while(bjValue(B.bank)<17)B.bank.push(B.d.pop());
+  const bv=bjValue(B.bank),bjB=isBlackjack(B.bank);
+  B.mult=yv>21?0:bjY?(bjB?1:2.5):bjB?0:bv>21||yv>bv?2:yv===bv?1:0;
+  B.done=true;B.net=settle(w,pl,B.st,B.mult);
+  msg(w,pl.id,B.net>0?'loot':'sys',`[Blackjack] Vous : ${yv}${bjY?' (blackjack !)':''} · Banque : ${bv}${bjB?' (blackjack)':''}. ${netText(B.net)}${B.st.item&&B.mult>=1?`, et ${link(B.st.item)} revient dans votre sac`:B.st.item?`. ${link(B.st.item)} reste à la maison`:''}.`);
+}
+function blackjack(w,pl,a){
+  if(!nearNpc(pl,'croupier_bj'))return;
+  const B=pl.bj;
+  if(a.op==='deal'){
+    if(B&&!B.done){err(w,pl.id,'Finissez d\'abord votre main.');return}
+    const st=takeStake(w,pl,a);if(!st)return;
+    const d=deck(w.rnd);pl.bj={st,d,you:[d.pop(),d.pop()],bank:[d.pop(),d.pop()],done:false};
+    if(isBlackjack(pl.bj.you)||isBlackjack(pl.bj.bank))bjEnd(w,pl);
+  }else if(!B||B.done)return;
+  else if(a.op==='hit'){B.you.push(B.d.pop());if(bjValue(B.you)>=21)bjEnd(w,pl)}
+  else if(a.op==='stand')bjEnd(w,pl);
+  else return;
+  sendBj(w,pl);
+}
+
+function roulette(w,pl,a){
+  if(!nearNpc(pl,'croupier_roul'))return;
+  const bet=Object.hasOwn(ROUL_BETS,a.bet)?a.bet:Number.isInteger(a.bet)&&a.bet>=0&&a.bet<=36?a.bet:null;
+  if(bet===null){err(w,pl.id,'Pari inconnu : rouge, noir, pair, impair, manque, passe ou un numéro de 0 à 36.');return}
+  const st=takeStake(w,pl,a);if(!st)return;
+  const n=Math.floor(w.rnd()*37),col=n===0?'vert':ROUGES.has(n)?'rouge':'noir',mult=roulPays(bet,n),net=settle(w,pl,st,mult);
+  ev(w,pl.id,{t:'casino',g:'roul',n,col,bet,mult,net,stake:stakeText(st)});
+  msg(w,pl.id,net>0?'loot':'sys',`[Roulette] ${n} ${col}. Vous aviez joué ${Number.isInteger(bet)?`le ${bet}`:ROUL_BETS[bet]} : ${netText(net)}${st.item&&mult>=1?`, et ${link(st.item)} revient`:st.item?`. ${link(st.item)} reste à la maison`:''}.`);
+}
+
+// Poker Chouffin : une table pour tout le serveur, w.poker = {seats:[{id, n, st, hand, ok, fold}], phase:'wait'|'draw', d, end}.
+// Chacun pose sa mise (or ou équipement), cinq cartes, un seul échange, la meilleure main ramasse tout le pot. Partir pendant la main = se coucher, la mise reste au pot.
+const pkTable=w=>w.poker??={seats:[],phase:'wait'};
+function pkSend(w,extra){
+  const T=pkTable(w),seats=T.seats.map(s=>({n:s.n,stake:stakeText(s.st),ok:s.ok,fold:!!s.fold}));
+  for(const s of T.seats)if(w.players[s.id])ev(w,s.id,{t:'poker',phase:T.phase,left:T.phase==='draw'?Math.max(0,Math.ceil(T.end-w.time)):null,seats,hand:s.hand,ok:s.ok,...extra});
+}
+function pkSay(w,text){for(const s of pkTable(w).seats)if(w.players[s.id])msg(w,s.id,'sys',`[Poker] ${text}`)}
+function pkShowdown(w){
+  const T=w.poker,live=T.seats.filter(s=>!s.fold&&w.players[s.id]),rank=new Map(live.map(s=>[s,pokerRank(s.hand)]));
+  const best=live.reduce((b,s)=>!b||cmpRank(rank.get(s),rank.get(b))>0?s:b,null),win=live.filter(s=>cmpRank(rank.get(s),rank.get(best))===0);
+  const gold=T.seats.reduce((a,s)=>a+(s.st.gold||0),0),items=T.seats.filter(s=>s.st.item);
+  // Égalité : l'or est partagé, chaque gagnant récupère son objet, ceux des perdants vont au premier gagnant.
+  const share=win.length?Math.floor(gold/win.length):0;
+  for(const s of win)w.players[s.id].S.gold+=share;
+  for(const s of items)if(win.length)giveItem(w,w.players[(win.includes(s)?s:win[0]).id],s.st.item);
+  const shown=live.map(s=>({n:s.n,hand:s.hand,main:HANDS[rank.get(s)[0]],win:win.includes(s)}));
+  pkSay(w,win.length?`${win.map(s=>s.n).join(' et ')} ${win.length>1?'se partagent':'remporte'} le pot (${HANDS[rank.get(best)[0]]}) : ${fmt(gold)} po${items.length?` et ${items.map(s=>link(s.st.item)).join(', ')}`:''}.`:'Tout le monde s\'est couché : la maison garde le pot.');
+  pkSend(w,{result:shown});
+  for(const s of T.seats)if(w.players[s.id])ev(w,s.id,{t:'self'});
+  w.poker={seats:[],phase:'wait'};
+}
+function pkLeave(w,pl){
+  const T=pkTable(w),i=T.seats.findIndex(s=>s.id===pl.id);if(i<0)return;
+  const s=T.seats[i];
+  if(T.phase==='wait'){T.seats.splice(i,1);settle(w,pl,s.st,1);pkSay(w,`${s.n} se lève et reprend sa mise.`);msg(w,pl.id,'sys','[Poker] Vous reprenez votre mise.');ev(w,pl.id,{t:'poker',phase:'wait',seats:[],hand:null,ok:false})}
+  else{s.fold=true;pkSay(w,`${s.n} se couche. Sa mise reste au pot.`);if(T.seats.every(o=>o.ok||o.fold))return pkShowdown(w)}
+  pkSend(w);
+}
+function poker(w,pl,a){
+  const T=pkTable(w),me=T.seats.find(s=>s.id===pl.id);
+  if(a.op==='sit'){
+    if(!nearNpc(pl,'croupier_pk'))return;
+    if(me){err(w,pl.id,'Vous êtes déjà assis.');return}
+    if(T.phase!=='wait'){err(w,pl.id,'Une main est en cours. Attendez la suivante.');return}
+    if(T.seats.length>=PK_SEATS){err(w,pl.id,`Table complète (${PK_SEATS} joueurs).`);return}
+    const st=takeStake(w,pl,a);if(!st)return;
+    T.seats.push({id:pl.id,n:pl.S.name,st,hand:null,ok:false});
+    pkSay(w,`${pl.S.name} s'assoit et pose ${stakeText(st)} au pot.`);
+  }else if(!me)return;
+  else if(a.op==='leave')return pkLeave(w,pl);
+  else if(a.op==='start'){
+    if(T.phase!=='wait'||T.seats.length<2){err(w,pl.id,'Il faut au moins deux joueurs assis.');return}
+    T.phase='draw';T.d=deck(w.rnd);T.end=w.time+PK_DRAW;
+    for(const s of T.seats){s.hand=[0,0,0,0,0].map(()=>T.d.pop());s.ok=false}
+    pkSay(w,`${pl.S.name} distribue. Choisissez les cartes à garder : ${PK_DRAW} s pour échanger.`);
+  }else if(a.op==='draw'){
+    if(T.phase!=='draw'||me.ok||me.fold)return;
+    const keep=new Set(Array.isArray(a.keep)?a.keep.filter(i=>Number.isInteger(i)):[]);
+    me.hand=me.hand.map((c,i)=>keep.has(i)?c:T.d.pop());me.ok=true;
+    if(T.seats.every(s=>s.ok||s.fold))return pkShowdown(w);
+  }else return;
+  pkSend(w);
+}
+function tickPoker(w){if(w.poker&&w.poker.phase==='draw'&&w.time>=w.poker.end)pkShowdown(w)}
+
 function mamanKill(w,pl){
   const {S}=pl;
   S.mamanKills=(S.mamanKills||0)+1;
@@ -1023,6 +1144,7 @@ export function handleAction(w,id,a){
     case 'selectMount':if(S.mounts.includes(a.id))S.mount=a.id;break;
     case 'buyMount':buyMount(w,pl,a.id);break;
     case 'buySkin':buySkin(w,pl,a.id);break;
+    case 'casino':if(a.g==='bj')blackjack(w,pl,a);else if(a.g==='roul')roulette(w,pl,a);else if(a.g==='pk')poker(w,pl,a);break;
     case 'wearSkin':wearSkin(w,pl,a.id??null);break;
     case 'fuse':fusion(w,pl,a.x,a.y);break;
     case 'changeClass':changeClass(w,pl,a.cls);break;

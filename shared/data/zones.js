@@ -15,6 +15,7 @@ export const NEW_ZONES={
   startup:{n:"L'Open Space de la Startup",s:"Niveau 100+ · On est une famille. Une famille qui ne paie pas les heures sup."},
   coloc:{n:"La Coloc de 9 m²",s:"Niveau 100+ · 1 400 € charges non comprises. Les toilettes sont dans la cuisine."},
   discord:{n:"Le Discord à 4 h du Matin",s:"Niveau 100+ · Quelqu'un a mis @everyone. Personne ne dort."},
+  casino:{n:"Le Casino du 18-25",s:"Sanctuaire · La maison gagne toujours. La maison, c'est Maman."},
   machine_cafe:{n:"La Machine à Café",s:"Sanctuaire · Le seul endroit où le management ne vient jamais"},
   palier:{n:"Le Palier de la Coloc",s:"Sanctuaire · Zone neutre : personne n'y fait la vaisselle"},
   salon_afk:{n:"Le Salon AFK",s:"Sanctuaire · Micro coupé, caméra coupée, monstres coupés"}
@@ -29,6 +30,7 @@ export const SAFE={
   attente:{x:99.5,y:45.5,r:[92,43,107,46]},
   vestiaire:{x:124.5,y:50.5,r:[123,47,132,52]},
   cafet:{x:139.5,y:31.5,r:[133,29,146,33]},
+  casino:{x:39.5,y:25.8,r:[34,25,45,32]},
   machine_cafe:{x:179.5,y:14.5,r:[175,12,184,15]},
   palier:{x:179.5,y:25.5,r:[175,24,185,27]},
   salon_afk:{x:179.5,y:44.5,r:[175,43,184,46]},
@@ -91,6 +93,11 @@ export const NEW_NPCS=[
   npc('coloc_ancien',"Le Plus Ancien Colocataire","Bail depuis 2009",'Marchand · Équipement de la Coloc (niveau 100)',182.5,25.6,"J'étais là avant tout le monde. Avant le propriétaire, je crois. Je vends ce que les anciens colocs ont laissé : des armes, des fringues, une plante morte. La plante n'est pas à vendre, elle fait partie de la caution."),
   npc('panneau_discord',"Panneau du Discord","#règles",'Discord à 4 h du Matin · Niveau 100+',177.5,41.6,"#RÈGLES : pas de spam, pas de @everyone, pas de vraie vie. Danger : notifications @everyone, admins de serveur, bots musique désynchronisés. Quelqu'un est en vocal depuis 2019. Ne le réveillez pas.",{look:'sign'}),
   npc('modo_afk',"Le Modo AFK","Rôle : Marchand",'Marchand · Équipement du Discord (niveau 100)',182.5,44.6,"*est AFK* … *revient* Ah, salut. Tu veux du stuff ? J'ai tout ce que les membres bannis ont laissé. C'est légal. C'est dans les règles. J'ai écrit les règles."),
+  // ---- Saison 3 : le Casino (règles dans shared/casino.js, actions 'casino' dans sim.js) ----
+  npc('croupier_bj',"La Croupière de Blackjack","Blackjack",'Casino · Blackjack contre la banque (3 pour 2)',36.0,27.8,"Asseyez-vous. La banque tire jusqu'à 17, le blackjack paie 3 pour 2, et vos illusions ne sont pas remboursées. On mise de l'or ou un équipement du sac : perdu, il reste à la maison."),
+  npc('croupier_roul',"Le Croupier de la Roulette","Roulette",'Casino · Roulette européenne (0 à 36)',43.0,28.8,"Faites vos jeux. Rouge, noir, pair, impair, manque, passe : la mise double. Un numéro plein : ×36. Le zéro est à la maison. Comme vous, à 30 ans."),
+  npc('croupier_pk',"Le Donneur de Poker Chouffin","Poker Chouffin",'Casino · Poker à 5 cartes entre joueurs (2 à 6)',39.0,30.8,"Poker Chouffin : chacun met sa mise au pot, cinq cartes, un seul échange, et la meilleure main ramasse tout, or et équipement. Pas de relance : ici on bluffe avec sa mise, pas avec sa bouche."),
+  npc('barman_casino',"Le Barman du Casino","Bar du Casino",'Marchand · De quoi se consoler (chips, Chouffes)',44.9,26.2,"Une Chouffe pour fêter, une Chouffe pour oublier. C'est le même prix. Personne n'a jamais commandé celle pour fêter."),
   npc('fripier',"Le Fripier du Forum","Tenues d'occasion",'Tenues · Changez de look (aucune stat, juste du style)',19.6,21.0,"Tout est vintage. C'est-à-dire usé. Les tenues ne protègent de rien, sauf du ridicule, et encore. Essayez, la cabine est derrière le rideau. Il n'y a pas de rideau."),
   // ---- Lot 3 : entrée de la LAN Party, au Bourg-Forum ----
   npc('orga_lan',"L'Orga de la LAN","Donjon : La LAN Party",'Donjon · La LAN Party · Étape 1 : L\'Installation',17.5,17.8,"Salut ! C'est moi qui organise. Y'a vingt-trois multiprises, onze écrans et personne n'a pensé aux câbles réseau. Tu viens ? Faut juste tout installer avant que quelqu'un dise « bon, on commence ». Niveau 20 minimum : les potes sans tour ne font pas de cadeaux.",{look:'door',dungeon:'lan'}),
