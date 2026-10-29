@@ -2,11 +2,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createWorld, addPlayer, tick, handleAction, handleChat, takeEvents, movePlayer} from '../shared/sim.js';
-import {T, canStand, findPath, isSafe, zoneAt} from '../shared/map.js';
+import {T, canStand, findPath, isSafe, regionAt, zoneAt} from '../shared/map.js';
+import {snapshotFor} from '../shared/protocol.js';
 import {normalizeSave} from '../shared/rules.js';
 import {ITEMS, MOBS, NPCS, STOCK} from '../shared/data.js';
 import {BOSSES} from '../shared/data/bosses.js';
-import {SAFE} from '../shared/data/zones.js';
+import {REGIONS, SAFE} from '../shared/data/zones.js';
 
 const npc = id => NPCS.find(n => n.id === id);
 const place = (pl, x, y) => { pl.P.x = x; pl.P.y = y; };
@@ -25,13 +26,13 @@ test('A* contourne un mur, évite les cases interdites et abandonne une cible en
 
 test('un monstre bloqué derrière un mur rejoint sa cible par A*', () => {
   const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), map = w.maps.over;
-  // Monstre et joueur séparés par la haie x = 50 (seule ouverture proche : la route en y 20–21) ; en ligne droite, il resterait collé à la haie.
+  // Monstre et joueur séparés par une rangée de baies du Datacenter (ouverture la plus proche : x = 60) ; en ligne droite, il resterait collé aux baies.
   const m = map.mobs.find(x => x.type === 'herbe');
-  Object.assign(m, {x: 49.5, y: 17.5, hx: 49.5, hy: 17.5, st: 'chase', target: 'p1', threat: {p1: 1}});
-  map.mobs = [m]; p.S.lvl = 30; place(p, 52.5, 17.5);
-  assert.ok(canStand(map, 49.5, 17.5) && canStand(map, 52.5, 17.5));
+  Object.assign(m, {x: 57.5, y: 35.5, hx: 57.5, hy: 35.5, st: 'chase', target: 'p1', threat: {p1: 1}});
+  map.mobs = [m]; p.S.lvl = 30; place(p, 57.5, 37.5);
+  assert.ok(canStand(map, 57.5, 35.5) && canStand(map, 57.5, 37.5));
   run(w, 10);
-  assert.ok(m.x > 50.5 && Math.hypot(m.x - 52.5, m.y - 17.5) < 1.5, `le monstre a franchi la haie (${m.x.toFixed(1)}, ${m.y.toFixed(1)})`);
+  assert.ok(m.y > 36.5 && Math.hypot(m.x - 57.5, m.y - 37.5) < 1.5, `le monstre a contourné les baies (${m.x.toFixed(1)}, ${m.y.toFixed(1)})`);
 });
 
 test('chaque sanctuaire : point d\'arrivée praticable, dans sa zone, sans monstre ; marchand et PNJ dedans', () => {
@@ -170,4 +171,19 @@ test('chat Général : arrivées, hauts faits et réponses de commande ont leur 
   b.S.ach = {}; handleAction(w, 'b', {a: 'target', id: null});
   place(b, npc('tavernier').x + 1, npc('tavernier').y); handleAction(w, 'b', {a: 'talk', id: 'tavernier'});
   assert.ok(takeEvents(w, 'a').some(e => e.cls === 'hf' && /Bob/.test(e.text)));
+});
+
+test('une zone = une carte : snapshot, ciblage et poursuite restent dans la région du joueur', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), map = w.maps.over;
+  // Toute la carte du monde est découpée, sans trou ni chevauchement.
+  for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) assert.equal(Object.values(REGIONS).filter(r => x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]).length, 1, `case ${x},${y}`);
+  place(p, 81.5, 12.5);
+  const mobs = snapshotFor(w, 'p1').ents.filter(e => e.kind === 'mob');
+  assert.ok(mobs.length && mobs.every(e => regionAt(map, e.x, e.y) === 'parking'), 'seuls les monstres du Parking sont envoyés');
+  const m = map.mobs.find(x => x.type === 'herbe');
+  Object.assign(m, {x: 78.5, y: 12.5, hx: 78.5, hy: 12.5});
+  handleAction(w, 'p1', {a: 'target', id: m.id});
+  assert.equal(p.P.target, null, 'pas de cible à travers la frontière');
+  run(w, 2);
+  assert.equal(m.st, 'idle', 'le monstre du Marais ne poursuit pas un joueur du Parking');
 });

@@ -21,13 +21,14 @@
 //                                  online = {names} : pseudos de tous les connectés, à chaque arrivée/départ.
 //                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les
-//                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.
+//                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte (sur la carte du monde : de la région du joueur, REGIONS), champs de rendu seulement.
 //                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, crew : autres joueurs du même donjon,
 //                                  etape : {i, n, total, restants, fin} dans un donjon à étapes — compteur « Monstres restants : restants / total »).
 //                                  Coffre d'étape : objet {type:'chest'} dont `opened` est propre à chaque joueur ; événement `chest` {got:[id], gold:0} à son ouverture.
 import {HATS} from './data.js';
 import {CLASSES} from './data/classes.js';
 import {bossUpcoming,stats} from './rules.js';
+import {regionAt} from './map.js';
 
 export const cleanName=n=>String(n||'').trim().replace(/\s+/g,'_').replace(/[^\p{L}\p{N}_-]/gu,'').slice(0,16)||'Sire_Chouffin';
 export const cleanCls=c=>CLASSES[c]?c:undefined;
@@ -51,11 +52,12 @@ function playerRec(w,pl,mine){
 }
 
 export function snapshotFor(w,id){
-  const pl=w.players[id],map=w.maps[pl.mapId],ents=[];
-  for(const m of map.mobs)if(m.alive||m.dieT>0)ents.push(mobRec(m));
-  for(const o of map.objs)ents.push(objRec(o,id));
-  for(const b of map.bots)ents.push(botRec(b));
-  for(const n of map.npcs)if(n.sayT>0)ents.push({id:n.id,kind:'npc',say:n.say,sayT:r2(n.sayT)});
-  for(const p of Object.values(w.players))if(p.mapId===pl.mapId)ents.push(playerRec(w,p,p.id===id));
+  // Une zone = une carte : seules les entités de la région du joueur partent (c'est là que se jouait le poids du snapshot de la carte du monde).
+  const pl=w.players[id],map=w.maps[pl.mapId],ents=[],R=regionAt(map,pl.P.x,pl.P.y),here=e=>regionAt(map,e.x,e.y)===R;
+  for(const m of map.mobs)if((m.alive||m.dieT>0)&&here(m))ents.push(mobRec(m));
+  for(const o of map.objs)if(here(o))ents.push(objRec(o,id));
+  for(const b of map.bots)if(here(b))ents.push(botRec(b));
+  for(const n of map.npcs)if(n.sayT>0&&here(n))ents.push({id:n.id,kind:'npc',say:n.say,sayT:r2(n.sayT)});
+  for(const p of Object.values(w.players))if(p.mapId===pl.mapId&&here(p.P))ents.push(playerRec(w,p,p.id===id));
   return{t:'snap',world:{id:map.id,seed:map.seed,ti:map.ti,dg:map.dg,done:!!map.done},tick:w.tick,ents};
 }

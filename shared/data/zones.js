@@ -23,6 +23,14 @@ export const SAFE={
   vestiaire:{x:124.5,y:50.5,r:[123,47,132,52]},
   cafet:{x:139.5,y:31.5,r:[133,29,146,33]},
 };
+// Une zone = une carte : [x0, y0, x1, y1] en tuiles incluses. Chaque région de la carte du monde a ses propres entités (monstres, PNJ, joueurs visibles) ;
+// passer la frontière fait changer de carte. Les zones d'origine en plein champ (plaine, steppe, lac, forêt, Bourg, Sous-Sol, Arène, Cuisine) n'ont pas de haie entre elles :
+// les découper ferait changer de carte au milieu d'un pré, elles forment donc une seule carte, « pres ». Toute la carte est couverte (regionAt, map.js).
+export const REGIONS={
+  pres:[0,0,50,37],sel:[0,38,50,59],marais:[51,0,79,32],datacenter:[51,33,79,59],
+  parking:[80,0,119,19],supermarche:[80,20,119,39],pole:[80,40,119,59],
+  diiage:[120,0,159,39],convention:[120,40,159,59],
+};
 // [type, nombre, x0, x1, y0, y1] : mêmes rectangles que SPAWNS, à l'intérieur de chaque zone.
 export const NEW_SPAWNS=[
   ['delegue',8,84,116,2,17],['scooter',7,84,116,2,17],['souvenir',6,84,116,2,17],

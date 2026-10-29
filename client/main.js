@@ -1,6 +1,6 @@
 import {ACH,DIFFS,DUNGEONS,HATS,ZONES} from '../shared/data.js';
 import {CLASSES,DEFAULT_CLASS} from '../shared/data/classes.js';
-import {zoneAt} from '../shared/map.js';
+import {regionAt,zoneAt} from '../shared/map.js';
 import {cleanName} from '../shared/protocol.js';
 import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
@@ -18,9 +18,11 @@ const LAST='chouffinia-dernier-pseudo';
 const lastName=()=>{try{return localStorage.getItem(LAST)}catch(e){return null}};
 const rememberName=()=>{try{localStorage.setItem(LAST,S.name)}catch(e){}};
 
-let lastWD=null,curZone='';
+let lastWD=null,curZone='',curReg='';
 function syncView(){if(WD!==lastWD){lastWD=WD;closeMap();if(!WD.c)paintWorld(WD);curZone='';setMini();renderQuest()}}
 function updZone(){
+  // Changement de carte (région) : un fondu au noir très court masque le saut de caméra et l'arrivée des entités de la nouvelle région.
+  const r=regionAt(WD,P.x,P.y);if(r!==curReg){if(curReg){const f=$('#fade');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}curReg=r}
   const z=zoneAt(WD,P.x,P.y);if(z===curZone)return;
   curZone=z;const Z=z==='dungeon'?{n:DUNGEONS[WD.dg].n,s:`Difficulté ${DIFFS[WD.ti].n} · ${DIFFS[WD.ti].sub}`}:ZONES[z];
   $('#zone').textContent=Z.n;banner(Z.n,Z.s,z==='dungeon'?'dg':'');

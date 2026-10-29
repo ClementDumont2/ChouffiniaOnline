@@ -1,6 +1,6 @@
 // Pas de DOM ni de Math.random ici : le serveur et le client régénèrent la même carte depuis la graine.
 import {DIFFS} from './data.js';
-import {SAFE} from './data/zones.js';
+import {REGIONS,SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 
 export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31,ASPHALT:32,LINE:33,CAR:34,LAMP:35,SFLOOR:36,AISLE:37,CASH:38,CART:39,CARPET:40,GUICHET:41,PLANT:42,HALL:43,BOOTH:44,BANNER:45,LABFLOOR:46,PCDESK:47,BOARD:48};
@@ -143,6 +143,8 @@ export function zoneLabels(map){
   const acc={};for(let i=0;i<w*h;i++){const a=acc[z[i]]??={r:0,x:0,y:0,n:0};if(d[i]>a.r)Object.assign(a,{r:d[i],x:0,y:0,n:0});if(d[i]===a.r){a.x+=i%w+.5;a.y+=(i/w|0)+.5;a.n++}}
   return Object.entries(acc).map(([k,a])=>({z:k,x:a.x/a.n,y:a.y/a.n,r:a.r}));
 }
+// Carte (région) d'un point : en donjon, le donjon lui-même.
+export function regionAt(map,x,y){if(map.id!=='over')return map.id;for(const k in REGIONS){const r=REGIONS[k];if(x>=r[0]&&x<r[2]+1&&y>=r[1]&&y<r[3]+1)return k}return'pres'}
 export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='arene'||!!SAFE[z]};
 
 // A* sur les tuiles, 8 directions sans couper les coins. avoid(x, y) : cases interdites en plus des murs (les sanctuaires pour un monstre).

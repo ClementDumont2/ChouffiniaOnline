@@ -6,7 +6,7 @@ import {ARME_DIST_MULT,BAG,COMBAT_TP,dgDiffs,baseRange,classRange,buyPrice,canHo
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
-import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,stepToward,zoneAt} from './map.js';
+import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,regionAt,stepToward,zoneAt} from './map.js';
 import {SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 import {findCommand,canUse,visibleCommands} from './commands.js';
@@ -16,7 +16,10 @@ const ev=(w,to,e)=>w.events.push({to,...e});
 const msg=(w,to,cls,text)=>ev(w,to,{t:'msg',cls,text});
 const err=(w,to,text)=>ev(w,to,{t:'err',text});
 const onMap=(w,mapId)=>Object.values(w.players).filter(p=>p.mapId===mapId);
-const toMap=(w,mapId,e)=>{for(const p of onMap(w,mapId))ev(w,p.id,e)};
+// Même carte : même région de la carte du monde (en donjon, toujours vrai).
+const sameReg=(map,a,b)=>regionAt(map,a.x,a.y)===regionAt(map,b.x,b.y);
+// Un effet localisé (x, y) ne part qu'aux joueurs de sa région ; le reste (bannière, message) à toute la carte.
+const toMap=(w,mapId,e)=>{const map=w.maps[mapId];for(const p of onMap(w,mapId))if(e.x==null||!map||sameReg(map,e,p.P))ev(w,p.id,e)};
 const toAll=(w,e)=>{for(const id in w.players)ev(w,id,e)};
 const float=(w,mapId,x,y,txt,col,big)=>toMap(w,mapId,{t:'float',x,y,txt,col,big:!!big});
 const burst=(w,mapId,x,y,col,n,spd)=>toMap(w,mapId,{t:'burst',x,y,col,n,spd});
@@ -98,6 +101,8 @@ export function movePlayer(w,id,x,y,face){
   if(P.cast){P.cast=null;err(w,id,'Incantation interrompue.')}
   // Exception volontaire : la position vient du client ; on ne refuse que murs et vitesse impossible, et on renvoie alors la vraie position.
   if(!canStand(map,x,y)||d>MAX_SPEED*moveSpeed(pl.S,P)*(w.time-P.mt)+SLACK){ev(w,id,{t:'tp',x:P.x,y:P.y});return false}
+  // Changer de région = changer de carte : la cible et les monstres de l'ancienne restent derrière.
+  if(!sameReg(map,P,{x,y})){P.target=null;P.auto=false}
   P.step+=d*2.7;P.x=x;P.y=y;P.mt=w.time;
   if(pl.mapId==='over')discover(w,pl,zoneAt(map,x,y));
   if(d>0){P.mv=.15;P.moving=true}
@@ -109,12 +114,14 @@ export function tick(w,dt){
   w.tick++;w.time+=dt;
   for(const pl of Object.values(w.players))tickPlayer(w,pl,dt);
   for(const map of Object.values(w.maps)){
-    const here=onMap(w,map.id);
-    for(const m of map.mobs)tickMob(w,map,m,dt,here);
+    const here=onMap(w,map.id),byReg={};
+    for(const p of here)(byReg[regionAt(map,p.P.x,p.P.y)]??=[]).push(p);
+    // Sur la carte du monde, une région sans joueur ne fait tourner que les morts (réapparition) et les poursuites en cours (retour au point de départ).
+    for(const m of map.mobs){const h=byReg[regionAt(map,m.x,m.y)]||[];if(map.id!=='over'||h.length||!m.alive||m.st!=='idle')tickMob(w,map,m,dt,h)}
     for(const n of map.npcs){
       if(n.sayT>0)n.sayT-=dt;
       // Les PNJ ne parlent que s'il y a quelqu'un pour les entendre.
-      if(n.lines.length&&here.length&&(n.talkT=(n.talkT??w.r.rr(8,25))-dt)<=0){n.talkT=w.r.rr(30,60);say(n,w.r.pick(n.lines),4)}
+      if(n.lines.length&&byReg[regionAt(map,n.x,n.y)]&&(n.talkT=(n.talkT??w.r.rr(8,25))-dt)<=0){n.talkT=w.r.rr(30,60);say(n,w.r.pick(n.lines),4)}
     }
   }
   for(const map of Object.values(w.maps))if(map.mobs.some(m=>m.gone))map.mobs=map.mobs.filter(m=>!m.gone);
@@ -377,9 +384,9 @@ function useItem(w,pl,id){
   s.n--;if(s.n<=0)S.inv.splice(idx,1);
 }
 
-function nearestMob(map,P,r){let best=null,bd=r;for(const m of map.mobs){if(!m.alive)continue;const d=dist(P,m);if(d<bd){bd=d;best=m}}return best}
+function nearestMob(map,P,r){let best=null,bd=r;for(const m of map.mobs){if(!m.alive||!sameReg(map,m,P))continue;const d=dist(P,m);if(d<bd){bd=d;best=m}}return best}
 
-const alliesNear=(w,pl,r)=>onMap(w,pl.mapId).filter(p=>!p.P.dead&&dist(p.P,pl.P)<=r);
+const alliesNear=(w,pl,r)=>onMap(w,pl.mapId).filter(p=>!p.P.dead&&dist(p.P,pl.P)<=r&&sameReg(w.maps[pl.mapId],p.P,pl.P));
 const pay=(pl,sk)=>{pl.S.caf-=sk.c;pl.P.cd[sk.id]=sk.cd};
 function healBy(w,from,to,amt){
   const mx=stats(to.S,to.P.drunk).maxhp;
@@ -393,7 +400,7 @@ function revive(w,by,pl,pct){
   burst(w,pl.mapId,P.x,P.y-.8,'#f0d070',18,3);ev(w,pl.id,{t:'respawned'});ev(w,pl.id,{t:'self'});
 }
 // Mobs vivants dans un rayon autour du lanceur ; sert au contrôle de foule (étourdir, ralentir, provoquer).
-const mobsAround=(w,pl,r)=>w.maps[pl.mapId].mobs.filter(m=>m.alive&&dist(m,pl.P)<=r);
+const mobsAround=(w,pl,r)=>{const map=w.maps[pl.mapId];return map.mobs.filter(m=>m.alive&&dist(m,pl.P)<=r&&sameReg(map,m,pl.P))};
 
 // Compétences sans cible ennemie : chacune paie son coût elle-même et peut refuser sans rien débiter.
 const SELF={
@@ -465,7 +472,7 @@ function strike(w,pl,t,sk,st,crit,mul){
     case 'copypasta':
       say(P,'*colle 4 000 caractères*',1.8);
       if(t.kind==='player')t.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});
-      else for(const m of map.mobs){if(m.alive&&dist(m,t)<=2.2){m.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});aggro(w,map,m,pl);toMap(w,map.id,{t:'puff',x:m.x,y:m.y-m.hgt*.6})}}
+      else for(const m of map.mobs){if(m.alive&&dist(m,t)<=2.2&&sameReg(map,m,t)){m.dots.push({t:5,acc:0,dmg:roll(st.atk*.55),by:id});aggro(w,map,m,pl);toMap(w,map.id,{t:'puff',x:m.x,y:m.y-m.hgt*.6})}}
       break;
     case 'd20':{
       const nat=w.rnd()<.05,dmg=Math.max(1,Math.round(st.atk*rr(.6,1.4)*(nat?2:1)));
@@ -493,7 +500,7 @@ function useSkill(w,pl,i,auto){
   let t=findEnt(w,pl.mapId,P.target);
   const foe=duelFoe(w,pl),pvp=!!(foe&&t&&t.kind==='player'&&t.id===foe.id);
   if(pvp&&pl.duel.phase!=='fight'){if(!auto)err(w,id,'Le duel n\'a pas encore commencé.');return}
-  if(!pvp&&(!t||t.kind!=='mob'||!t.alive)){t=nearestMob(map,P,rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
+  if(!pvp&&(!t||t.kind!=='mob'||!t.alive||!sameReg(map,t,P))){t=nearestMob(map,P,rg+.6);if(!t){if(!auto)err(w,id,'Aucune cible. Touchez un ennemi ou appuyez sur Tab.');return}P.target=t.id}
   if(dist(P,t)>rg){
     // Les attaques de base s'approchent toutes seules ; les autres demandent de se rapprocher à la main.
     if(!auto){if(i===0){P.auto=true;ev(w,id,{t:'approach',id:t.id})}else err(w,id,'Hors de portée. Rapprochez-vous (physiquement, ce n\'est pas social).')}
@@ -520,7 +527,7 @@ function useSkill(w,pl,i,auto){
 // Duels : état symétrique dans pl.duel = {foe, phase:'count'|'fight'}. Le serveur seul décide des touches (pvpHit) ; personne ne meurt, un duel s'arrête à 1 PV.
 const inArena=(w,pl)=>pl.mapId==='over'&&zoneAt(w.maps.over,pl.P.x,pl.P.y)==='arene';
 const duelFoe=(w,pl)=>pl.duel?w.players[pl.duel.foe]:null;
-const attackable=(w,pl,t)=>(t.kind==='mob'&&t.alive)||(t.kind==='player'&&!!duelFoe(w,pl)&&duelFoe(w,pl).id===t.id&&pl.duel.phase==='fight');
+const attackable=(w,pl,t)=>(t.kind==='mob'&&t.alive&&sameReg(w.maps[pl.mapId],t,pl.P))||(t.kind==='player'&&!!duelFoe(w,pl)&&duelFoe(w,pl).id===t.id&&pl.duel.phase==='fight');
 
 function requestDuel(w,pl,name){
   if(!name){msg(w,pl.id,'sys','Usage : /duel <pseudo>');return}
@@ -977,7 +984,7 @@ export function handleAction(w,id,a){
   switch(a.a){
     case 'target':
       if(a.id==null){P.target=null;P.auto=false;break}
-      {const e=findEnt(w,pl.mapId,a.id);if(!e||(e.kind==='mob'&&!e.alive))break;P.target=e.id;if(a.auto&&(e.kind==='mob'||(e.kind==='player'&&duelFoe(w,pl)&&duelFoe(w,pl).id===e.id)))P.auto=true}
+      {const e=findEnt(w,pl.mapId,a.id);if(!e||(e.kind==='mob'&&!e.alive)||!sameReg(w.maps[pl.mapId],e,P))break;P.target=e.id;if(a.auto&&(e.kind==='mob'||(e.kind==='player'&&duelFoe(w,pl)&&duelFoe(w,pl).id===e.id)))P.auto=true}
       break;
     case 'talk':if(nearNpc(pl,a.id)){P.target=a.id;if(a.id==='tavernier')ach(w,pl,'khey');if(npcById(a.id).board)ev(w,id,{t:'board',tops:tops(w,10)})}break;
     case 'skill':useSkill(w,pl,a.i,false);break;
@@ -1273,7 +1280,7 @@ function tickMob(w,map,m,dt,here){
     const near=nearest(m,valid);
     if(near&&dist(m,near.P)<d.ag)aggro(w,map,m,near);
     else if(m.patrol){const q=m.patrol[m.pi];if(stepToward(map,m,q.x,q.y,d.sp*.5,dt)){m.pi+=m.pd;if(m.pi<0||m.pi>=m.patrol.length){m.pd*=-1;m.pi+=2*m.pd}}}
-    else if(!d.boss){m.wt-=dt;if(m.wt<=0){m.wt=rr(2.5,6);const p={x:m.hx+rr(-2,2),y:m.hy+rr(-2,2)};if(!isSolid(map,p.x,p.y)&&!(over&&isSafe(map,p.x,p.y))){m.wx=p.x;m.wy=p.y}}if(Math.hypot(m.wx-m.x,m.wy-m.y)>.1){if(stepToward(map,m,m.wx,m.wy,d.sp*.4,dt)){m.wx=m.x;m.wy=m.y}}else m.moving=false}
+    else if(!d.boss){m.wt-=dt;if(m.wt<=0){m.wt=rr(2.5,6);const p={x:m.hx+rr(-2,2),y:m.hy+rr(-2,2)};if(!isSolid(map,p.x,p.y)&&!(over&&(isSafe(map,p.x,p.y)||!sameReg(map,p,m)))){m.wx=p.x;m.wy=p.y}}if(Math.hypot(m.wx-m.x,m.wy-m.y)>.1){if(stepToward(map,m,m.wx,m.wy,d.sp*.4,dt)){m.wx=m.x;m.wy=m.y}}else m.moving=false}
   }else if(m.st==='chase'){
     const leash=over?(d.boss?8:9):16,tgt=pickTarget(m,valid);
     if(!tgt||dh>leash){dropMob(m);return}
@@ -1284,7 +1291,7 @@ function tickMob(w,map,m,dt,here){
     if(m.type==='lag'){m.blink-=dt;if(m.blink<=0&&dp>2){m.blink=rr(2,3.2);const L=Math.min(1.8,dp-1),nx=m.x+(T.x-m.x)/dp*L,ny=m.y+(T.y-m.y)/dp*L;if(!isSolid(map,nx,ny)){burst(w,map.id,m.x,m.y-.6,'#ff3bd5',6);m.x=nx;m.y=ny;float(w,map.id,m.x,m.y-1.4,'*lag*','#3bf0ff')}}}
     if(dp>1.1){
       // Tout droit tant que ça avance ; bloqué par un mur, A* jusqu'à la case de la cible, recalculé chaque seconde tant qu'on le suit (la cible bouge).
-      const sp=d.sp*(m.slow>0?.5:1),plan=()=>{m.path=findPath(map,m.x,m.y,T.x,T.y,over&&((x,y)=>isSafe(map,x,y)))||[];m.pathT=1};m.pathT-=dt;
+      const sp=d.sp*(m.slow>0?.5:1),plan=()=>{m.path=findPath(map,m.x,m.y,T.x,T.y,over&&((x,y)=>isSafe(map,x,y)||!sameReg(map,{x,y},m)))||[];m.pathT=1};m.pathT-=dt;
       if(m.path&&m.path.length){if(m.pathT<=0)plan();if(m.path.length&&stepToward(map,m,m.path[0].x,m.path[0].y,sp,dt))m.path.shift()}
       else if(stepToward(map,m,T.x,T.y,sp,dt)&&m.pathT<=0)plan();
     }

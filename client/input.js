@@ -1,7 +1,7 @@
 import {WHISPERS} from '../shared/data.js';
 import {baseRange,classRange,dist,moveSpeed} from '../shared/rules.js';
 import {findEnt} from '../shared/sim.js';
-import {findPath,moveEnt} from '../shared/map.js';
+import {findPath,moveEnt,regionAt} from '../shared/map.js';
 import {$,esc,pick} from './util.js';
 import {TS,cam,cv,setMarker} from './render.js';
 import {chat} from './hud.js';
@@ -44,7 +44,7 @@ export function initInput(){cv.addEventListener('pointerdown',e=>{
   if(document.activeElement===chatIn)chatIn.blur();
   const r=cv.getBoundingClientRect(),wx=cam.x+(e.clientX-r.left)/TS,wy=cam.y+(e.clientY-r.top)/TS;
   let best=null,bd=99;
-  const cands=[...WD.mobs.filter(m=>m.alive),...WD.npcs,...WD.objs,...WD.bots,...Object.values(world.players).filter(p=>p.id!==me).map(p=>p.P)];
+  const cands=[...WD.mobs.filter(m=>m.alive),...WD.npcs,...WD.objs,...WD.bots,...Object.values(world.players).filter(p=>p.id!==me).map(p=>p.P)].filter(c=>regionAt(WD,c.x,c.y)===regionAt(WD,P.x,P.y));
   for(const c of cands){const sc=c.kind==='mob'&&c.d.scale?Math.min(1.2,c.d.scale*.75):1;const cy=c.y-c.hgt*sc*.5;const rad=Math.max(.5,c.hgt*sc*.55);const d=Math.hypot(wx-c.x,(wy-cy)*.75);if(d<rad&&d<bd){bd=d;best=c}}
   if(best){
     if(best.kind==='mob'){send({a:'target',id:best.id,auto:true});nav.goal=null;if(dist(P,best)>mobNeed())nav.follow=best.id}
