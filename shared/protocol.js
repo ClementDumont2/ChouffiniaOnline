@@ -5,8 +5,8 @@
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
 //                                  acceptQuest, completeQuest, enterDungeon, launch {dg, ti} (entrer dans un donjon depuis la fiche de la carte, de n'importe où : refusé si mort, en combat < COMBAT_TP s, duel, échange, déjà en donjon, niveau trop bas), leaveDungeon, openChest, respawn,
-//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, buySkin {id}, wearSkin {id | null} (tenues, chez le Fripier),
-//                                  casino {g:'bj', op:'deal'|'hit'|'stand'} · {g:'roul', bet: rouge|noir|pair|impair|manque|passe|0–36} · {g:'pk', op:'sit'|'leave'|'start'|'draw', keep:[i]} ; deal, roul et sit portent la mise : {gold} ou {uid} d'un équipement du sac, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
+//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, buySkin {id}, wearSkin {id | null} (tenues, chez le Fripier), cross {x, y} (TP aux bords d'une zone, vers la région voisine),
+//                                  casino {g:'bj', op:'deal'|'hit'|'stand'} · {g:'roul', bet: rouge|noir|pair|impair|manque|passe|0–36} · {g:'pk', op:'sit'|'leave'|'start'|'call'|'raise'|'fold', gold (relance)} ; deal, roul et sit portent la mise : {gold} ou {uid} d'un équipement du sac, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
 //                                  tradeOffer {items:[{uid} | {id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
 //   {t:'chat', text}
 //
@@ -20,7 +20,7 @@
 //                                  proj = {x, y, tx, ty} : projectile visuel d'une attaque de base à distance (arme à portée), envoyé à toute la carte ; aucun effet de jeu.
 //                                  announce = {who, text} : bannière dorée pour tous (/annonce, droit « annonce »).
 //                                  casino = {g:'bj', you, bank, yv, bv, done, mult, net, stake} (cartes 0–51, la 2e de la banque cachée tant que done est faux) · {g:'roul', n, col, bet, mult, net, stake}.
-//                                  poker = {phase, left, seats:[{n, stake, ok, fold}], hand, ok, result?:[{n, hand, main, win}]} : à chaque joueur assis, à chaque changement de la table.
+//                                  poker = {phase: wait|pre|flop|turn|river, left, seats:[{n, stake, put, bet, fold, turn}], board, pot, cur, toCall, me, hand (2 cartes), result?:[{n, hand, main, win}]} : à chaque joueur assis, à chaque changement de la table.
 //                                  online = {names} : pseudos de tous les connectés, à chaque arrivée/départ.
 //                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les

@@ -188,3 +188,14 @@ test('une zone = une carte : snapshot, ciblage et poursuite restent dans la rég
   run(w, 2);
   assert.equal(m.st, 'idle', 'le monstre du Marais ne poursuit pas un joueur du Parking');
 });
+
+test('TP aux bords d\'une zone : seulement vers la région voisine, tout près, sur une case praticable', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), map = w.maps.over;
+  place(p, 10.5, 37.5);
+  assert.equal(regionAt(map, 10.5, 37.5), 'pres');
+  for (const [x, y] of [[10.5, 36.5], [10.5, 45.5], [10.5, 38.5]]) handleAction(w, 'p1', {a: 'cross', x, y});
+  assert.deepEqual([p.P.x, p.P.y], [10.5, 37.5], 'même région, trop loin ou dans la haie : refusé');
+  handleAction(w, 'p1', {a: 'cross', x: 10.5, y: 39.5});
+  assert.deepEqual([p.P.x, p.P.y, regionAt(map, p.P.x, p.P.y)], [10.5, 39.5, 'sel']);
+  assert.ok(takeEvents(w, 'p1').some(e => e.t === 'tp' && e.y === 39.5));
+});

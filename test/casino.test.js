@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createWorld, addPlayer, removePlayer, handleAction, tick} from '../shared/sim.js';
 import {NPCS} from '../shared/data.js';
 import {newItem, withUid} from '../shared/rules.js';
-import {bjValue, cmpRank, pokerRank, roulPays} from '../shared/casino.js';
+import {bestRank, bjValue, cmpRank, pokerRank, roulPays} from '../shared/casino.js';
 import {isSafe, zoneAt} from '../shared/map.js';
 
 const npc = id => NPCS.find(n => n.id === id);
@@ -36,6 +36,8 @@ test('règles : valeur au blackjack, gains de la roulette, ordre des mains de po
   ];
   for (let i = 1; i < mains.length; i++) assert.ok(cmpRank(pokerRank(mains[i]), pokerRank(mains[i - 1])) > 0, `main ${i}`);
   assert.ok(cmpRank(pokerRank([c(3), c(3, 1), c(7, 2), c(9, 3), c(12)]), pokerRank([c(3, 2), c(3, 3), c(7), c(9, 1), c(11)])) > 0, 'départage au kicker');
+  // 7 cartes : la couleur cachée parmi 2 + 5 est trouvée.
+  assert.equal(bestRank([c(0, 1), c(4, 1), c(7, 1), c(9, 1), c(11, 1), c(2, 2), c(3, 3)])[0], 5);
 });
 
 test('le Casino est un sanctuaire du monde avec ses croupiers', () => {
@@ -85,7 +87,7 @@ test('roulette : chance simple ×2, numéro plein ×36, zéro perdant', () => {
   assert.equal(p.S.gold, 1400, 'pari inconnu ou mise trop grosse : refusés');
 });
 
-test('poker : le pot (or et équipement) va à la meilleure main ; partir avant la donne rend la mise', () => {
+test('poker hold\'em : deux cartes, cinq au tableau, tours de parole ; le pot (or, relances, équipement) va à la meilleure main', () => {
   const w = createWorld({seed: 5}), a = joueur(w, 'a', 'croupier_pk'), b = joueur(w, 'b', 'croupier_pk'), c3 = joueur(w, 'c', 'croupier_pk');
   b.S.inv.push(withUid(b.S, newItem('sabre')));
   act(w, 'a', {g: 'pk', op: 'sit', gold: 200});
@@ -94,24 +96,36 @@ test('poker : le pot (or et équipement) va à la meilleure main ; partir avant 
   act(w, 'c', {g: 'pk', op: 'leave'});
   assert.equal(c3.S.gold, 1000, 'mise rendue avant la donne');
   act(w, 'a', {g: 'pk', op: 'start'});
-  assert.equal(w.poker.phase, 'draw');
+  assert.deepEqual([w.poker.phase, w.poker.seats.map(s => s.hand.length)], ['pre', [2, 2]]);
   const hands = Object.fromEntries(w.poker.seats.map(s => [s.id, s.hand]));
-  act(w, 'a', {g: 'pk', op: 'draw', keep: [0, 1, 2, 3, 4]});
-  act(w, 'b', {g: 'pk', op: 'draw', keep: [0, 1, 2, 3, 4]});
-  assert.equal(w.poker.phase, 'wait', 'abattage dès que tout le monde a échangé');
-  const d = cmpRank(pokerRank(hands.a), pokerRank(hands.b)), aWins = d > 0, bWins = d < 0;
-  assert.equal(a.S.gold, 800 + (aWins ? 200 : !bWins ? 100 : 0));
-  assert.equal(b.S.gold, 1000 + (bWins ? 200 : !aWins ? 100 : 0));
+  act(w, 'b', {g: 'pk', op: 'call'});
+  assert.equal(w.poker.phase, 'pre', 'pas son tour : ignoré');
+  act(w, 'a', {g: 'pk', op: 'raise', gold: 50});
+  act(w, 'b', {g: 'pk', op: 'call'});
+  assert.deepEqual([w.poker.phase, w.poker.board.length, b.S.gold], ['flop', 3, 950]);
+  for (const street of ['turn', 'river']) { act(w, 'a', {g: 'pk', op: 'call'}); act(w, 'b', {g: 'pk', op: 'call'}); assert.equal(w.poker.phase, street); }
+  const board = [...w.poker.board];
+  act(w, 'a', {g: 'pk', op: 'call'}); act(w, 'b', {g: 'pk', op: 'call'});
+  assert.equal(w.poker.phase, 'wait', 'abattage après la rivière');
+  const d = cmpRank(bestRank([...hands.a, ...board]), bestRank([...hands.b, ...board])), aWins = d > 0, bWins = d < 0;
+  assert.equal(a.S.gold + b.S.gold, 1700 + 300, "l'or est conservé");
+  assert.equal(a.S.gold, 750 + (aWins ? 300 : !bWins ? 150 : 0));
   assert.equal(a.S.inv.some(q => q.id === 'sabre'), aWins);
   assert.equal(b.S.inv.some(q => q.id === 'sabre'), !aWins);
-  // Déconnexion en attente : la mise revient dans la sauvegarde ; pendant la main, couché, et l'abattage part au bout du temps.
+  // Relance puis couché : le relanceur ramasse sans montrer ; temps écoulé avec quelque chose à suivre = couché.
+  const g0 = a.S.gold + b.S.gold;
+  act(w, 'a', {g: 'pk', op: 'sit', gold: 100}); act(w, 'b', {g: 'pk', op: 'sit', gold: 100});
+  act(w, 'b', {g: 'pk', op: 'start'});
+  act(w, 'a', {g: 'pk', op: 'raise', gold: 1e9});
+  assert.equal(w.poker.cur, 0, 'relance au-delà de son or : refusée');
+  act(w, 'a', {g: 'pk', op: 'raise', gold: 40});
+  for (let i = 0; i < 20 * 21; i++) tick(w, .05);
+  assert.equal(w.poker.phase, 'wait');
+  assert.equal(a.S.gold + b.S.gold, g0);
+  assert.equal(b.S.gold, g0 - a.S.gold);
+  assert.ok(a.S.gold > b.S.gold, 'b, absent, se couche face à la relance');
+  // Déconnexion en attente : la mise revient dans la sauvegarde.
   act(w, 'a', {g: 'pk', op: 'sit', gold: 100});
   assert.equal(removePlayer(w, 'a').gold, a.S.gold);
   assert.equal(w.poker.seats.length, 0);
-  const e = joueur(w, 'e', 'croupier_pk'), f = joueur(w, 'f', 'croupier_pk');
-  act(w, 'e', {g: 'pk', op: 'sit', gold: 100}); act(w, 'f', {g: 'pk', op: 'sit', gold: 100});
-  act(w, 'e', {g: 'pk', op: 'start'});
-  removePlayer(w, 'e');
-  for (let i = 0; i < 20 * 31; i++) tick(w, .05);
-  assert.equal(f.S.gold, 1100, 'le seul joueur resté ramasse le pot');
 });

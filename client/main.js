@@ -100,7 +100,8 @@ function frame(now){
   render(t);
   requestAnimationFrame(frame);
 }
-addEventListener('resize',resize);
+// La taille du canevas suit sa boîte, pas seulement la fenêtre : au premier chargement, la mise en page n'est pas encore définitive quand ce module s'exécute (zoom trop fort jusqu'au prochain redimensionnement).
+new ResizeObserver(resize).observe($('#world'));addEventListener('resize',resize);
 // Fond de l'écran de création : la carte du monde sans habitants, avec la graine par défaut du serveur.
 setMap(buildMap({id:'over',seed:20111}));
 lastWD=WD;paintWorld(WD);setMini();resize();

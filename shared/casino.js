@@ -19,7 +19,7 @@ export function roulPays(bet,n){
   return ok?2:0;
 }
 
-// Poker à 5 cartes : [catégorie, départages…], comparées dans l'ordre (cmpRank). La quinte As-2-3-4-5 vaut une quinte au 5.
+// Main de 5 cartes : [catégorie, départages…], comparées dans l'ordre (cmpRank). La quinte As-2-3-4-5 vaut une quinte au 5.
 export const HANDS=['Hauteur (comme votre ego)','Paire','Double paire','Brelan','Quinte','Couleur','Full','Carré','Quinte flush'];
 export function pokerRank(h){
   const r=h.map(c=>c%13).sort((a,b)=>b-a),cnt={};for(const x of r)cnt[x]=(cnt[x]||0)+1;
@@ -35,5 +35,11 @@ export function pokerRank(h){
   if(g[0][0]===2&&g[1][0]===2)return[2,...tb];
   if(g[0][0]===2)return[1,...tb];
   return[0,...r];
+}
+// Texas hold'em : la meilleure main de 5 cartes parmi les 2 du joueur et les 5 du tableau (21 combinaisons).
+export function bestRank(cards){
+  let best=null;const n=cards.length;
+  for(let a=0;a<n;a++)for(let b=a+1;b<n;b++){const r=pokerRank(cards.filter((_,i)=>i!==a&&i!==b));if(!best||cmpRank(r,best)>0)best=r}
+  return n<=5?pokerRank(cards):best;
 }
 export function cmpRank(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]??-1)-(b[i]??-1);if(d)return d}return 0}

@@ -247,9 +247,19 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .card{display:inline-grid;place-items:center;width:42px;height:58px;border-radius:5px;background:#f4ecd8;color:#1b161d;border:1px solid #3a2f24;font:700 17px var(--f-body);box-shadow:0 2px 0 rgba(0,0,0,.4)}
 .card.r{color:#b02a2a}
 .card.back{background:repeating-linear-gradient(45deg,#6d2230 0 6px,#4a1620 6px 12px);color:#f0d070}
-.cards.pick .card{cursor:pointer;opacity:.55;transform:translateY(4px)}
-.cards.pick .card.keep{opacity:1;transform:none;border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
-.cards.pick .card:disabled{cursor:default}
+@keyframes deal{0%{opacity:0;transform:translate(-40px,-30px) rotate(-25deg) scale(.6)}70%{opacity:1;transform:translate(0,0) rotate(4deg) scale(1.05)}100%{transform:none}}
+.card.deal{animation:deal .45s cubic-bezier(.2,.8,.3,1) both}
+.card.back{animation:wobble 2.4s ease-in-out infinite}
+@keyframes wobble{0%,100%{transform:none}50%{transform:translateY(-2px) rotate(-2deg)}}
+@keyframes spin{0%{transform:rotate(-1440deg) scale(.7)}80%{transform:rotate(15deg) scale(1.05)}100%{transform:none}}
+.roul.spin{animation:spin 1.6s cubic-bezier(.15,.7,.25,1) both}
+.roul.spin span{animation:reveal .2s 1.4s both}
+.reveal{animation:reveal .35s 1.6s both}
+@keyframes reveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.netwin,.rw b.up{display:inline-block;animation:pop .7s ease-out}
+@keyframes pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.25);opacity:1;text-shadow:0 0 12px var(--gold)}100%{transform:none}}
+.pkrow.turn{background:rgba(240,208,112,.08);border-left:3px solid var(--gold);padding-left:6px}
+@media (prefers-reduced-motion:reduce){.card.deal,.card.back,.roul.spin,.roul.spin span,.reveal,.netwin,.rw b.up{animation:none}}
 .stake{display:grid;gap:6px;margin:8px 0}
 .stake label,.bet{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
 .stake input,.stake select,.bet input,.bet select{background:var(--well);color:var(--parch);border:1px solid #4a3a2a;padding:4px 6px;font:inherit;max-width:100%}

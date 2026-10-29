@@ -378,9 +378,14 @@ $('#optsReset').onclick=()=>{resetKeys();waiting=null;renderOpts();refreshKeyLab
 let bj=null,roul=null,pk=null;
 // La mise choisie survit aux rafraîchissements du dialogue (chaque 'self' le redessine).
 const stake={gold:100,uid:'',bet:'rouge',num:17};
-export function setCasino(e){if(e.g==='bj')bj=e;else roul=e;refreshDialog()}
-export function setPoker(e){pk=e.result||e.phase==='draw'||e.seats.length?e:null;refreshDialog()}
-const cards=(h,hide)=>`<div class="cards">${h.map(c=>`<span class="card${(c/13|0)%3?' r':''}">${cardName(c)}</span>`).join('')}${hide?'<span class="card back">?</span>':''}</div>`;
+export function setCasino(e){if(e.g==='bj')bj=e;else roul={...e,fresh:true};refreshDialog()}
+export function setPoker(e){pk=e.result||e.phase!=='wait'||e.seats.length?e:null;refreshDialog()}
+// Animation de donne : seules les cartes nouvelles depuis le dernier affichage de ce paquet (clé) arrivent en glissant, l'une après l'autre.
+const seen={};
+function cards(h,key,hide){
+  const prev=seen[key]||[];let k=0;while(k<prev.length&&k<h.length&&prev[k]===h[k])k++;seen[key]=[...h];
+  return`<div class="cards">${h.map((c,i)=>`<span class="card${(c/13|0)%3?' r':''}${i>=k?' deal':''}"${i>=k?` style="animation-delay:${(i-k)*.15}s"`:''}>${cardName(c)}</span>`).join('')}${hide?'<span class="card back">?</span>':''}</div>`;
+}
 function stakeBox(){
   const box=document.createElement('div');box.className='stake';
   const eq=S.inv.filter(s=>s.uid);if(!eq.some(q=>q.uid===stake.uid))stake.uid='';
@@ -394,7 +399,7 @@ const stakeOk=()=>!!stake.uid||(stake.gold>=1&&stake.gold<=S.gold);
 const netLine=n=>n>0?`<b class="up">+${fmt(n)} po</b>`:n<0?`<b class="down">−${fmt(-n)} po</b>`:'<b>Mise rendue</b>';
 function openBj(n){
   const wrap=document.createElement('div'),play=bj&&!bj.done;
-  if(bj)wrap.insertAdjacentHTML('beforeend',`<h4>Banque${bj.bv!=null?` · ${bj.bv}`:''}</h4>${cards(bj.bank,!bj.done)}<h4>Vous · ${bj.yv}</h4>${cards(bj.you)}<p class="rw">Mise : ${esc(bj.stake)}${bj.done?` · ${netLine(bj.net)}`:''}</p>`);
+  if(bj)wrap.insertAdjacentHTML('beforeend',`<h4>Banque${bj.bv!=null?` · ${bj.bv}`:''}</h4>${cards(bj.bank,'bank',!bj.done)}<h4>Vous · ${bj.yv}</h4>${cards(bj.you,'you')}<p class="rw">Mise : ${esc(bj.stake)}${bj.done?` · ${netLine(bj.net)}`:''}</p>`);
   else wrap.innerHTML='<p class="rw">Approchez-vous de 21 sans le dépasser. La banque tire jusqu\'à 17. Blackjack (21 en deux cartes) : payé 3 pour 2. Égalité : mise rendue.</p>';
   if(!play)wrap.appendChild(stakeBox());
   const btns=play?[['Tirer une carte',()=>send({a:'casino',g:'bj',op:'hit'})],['Rester',()=>send({a:'casino',g:'bj',op:'stand'})]]:[[bj?'Rejouer':'Distribuer',()=>send({a:'casino',g:'bj',op:'deal',...stakeArgs()}),false,!stakeOk()]];
@@ -403,8 +408,9 @@ function openBj(n){
   dlgRedo=()=>openBj(n);
 }
 function openRoul(n){
-  const wrap=document.createElement('div');
-  if(roul)wrap.insertAdjacentHTML('beforeend',`<div class="roul ${roul.col}">${roul.n}</div><p class="rw">${roul.col} · mise ${esc(roul.stake)} · ${netLine(roul.net)}</p>`);
+  const wrap=document.createElement('div'),spin=roul&&roul.fresh;if(roul)roul.fresh=false;
+  // La bille tourne ~1,6 s avant d'afficher le résultat (déjà décidé par le serveur, et déjà écrit dans le chat « Tout »).
+  if(roul)wrap.insertAdjacentHTML('beforeend',`<div class="roul ${roul.col}${spin?' spin':''}"><span>${roul.n}</span></div><p class="rw${spin?' reveal':''}">${roul.col} · mise ${esc(roul.stake)} · ${netLine(roul.net)}</p>`);
   wrap.insertAdjacentHTML('beforeend',`<label class="bet">Pari <select id="rB">${Object.entries(ROUL_BETS).map(([k,l])=>`<option value="${k}"${stake.bet===k?' selected':''}>${l} · ×2</option>`).join('')}<option value="num"${stake.bet==='num'?' selected':''}>Numéro plein · ×36</option></select> <input type="number" id="rN" min="0" max="36" value="${stake.num}"${stake.bet==='num'?'':' hidden'}></label>`);
   wrap.appendChild(stakeBox());
   wrap.querySelector('#rB').onchange=e=>{stake.bet=e.target.value;openRoul(n)};
@@ -412,24 +418,29 @@ function openRoul(n){
   dialog('Roulette','Casino du 18-25 · roulette européenne',wrap,[['Lancer la bille',()=>send({a:'casino',g:'roul',bet:stake.bet==='num'?stake.num:stake.bet,...stakeArgs()}),false,!stakeOk()],['Retour',()=>{roul=null;showNpc(n)},true]],false,n);
   dlgRedo=()=>openRoul(n);
 }
-let keep=new Set();
+const STREET={pre:'Avant le flop',flop:'Flop',turn:'Turn',river:'Rivière'};
+let raiseBy=50;
 function openPoker(n){
-  const wrap=document.createElement('div'),seated=!!(pk&&pk.hand!==undefined&&pk.seats.some(s=>s.n===S.name)&&!pk.result),draw=seated&&pk.phase==='draw'&&!pk.ok;
-  wrap.innerHTML='<p class="rw">Chacun pose sa mise au pot (or ou équipement). Cinq cartes, un seul échange : touchez les cartes à <b>garder</b>, les autres sont remplacées. La meilleure main ramasse tout. Se lever après la donne = se coucher.</p>';
-  if(pk&&pk.result)wrap.insertAdjacentHTML('beforeend',`<h4>Abattage</h4>${pk.result.map(r=>`<div class="pkrow${r.win?' win':''}"><b>${esc(r.n)}</b> · ${esc(r.main)}${r.win?' · gagne':''}${cards(r.hand)}</div>`).join('')}`);
-  else if(pk)wrap.insertAdjacentHTML('beforeend',`<h4>Table${pk.phase==='draw'?` · échange en cours (${pk.left} s)`:' · en attente de joueurs'}</h4>${pk.seats.map(s=>`<div class="pkrow"><b>${esc(s.n)}</b> · ${esc(s.stake)}${s.fold?' · couché':s.ok?' · prêt':''}</div>`).join('')}`);
-  if(seated&&pk.hand){
-    const h=document.createElement('div');h.className='cards pick';
-    pk.hand.forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.className=`card${(c/13|0)%3?' r':''}${keep.has(i)||!draw?' keep':''}`;b.textContent=cardName(c);b.disabled=!draw;b.onclick=()=>{keep.has(i)?keep.delete(i):keep.add(i);openPoker(n)};h.appendChild(b)});
-    wrap.insertAdjacentHTML('beforeend','<h4>Votre main</h4>');wrap.appendChild(h);
+  const wrap=document.createElement('div'),seated=!!(pk&&!pk.result&&pk.me>=0&&pk.seats[pk.me]),inHand=seated&&pk.phase!=='wait',mine=inHand&&pk.seats[pk.me].turn&&!pk.seats[pk.me].fold;
+  wrap.innerHTML='<p class="rw">Texas hold\'em. La mise d\'entrée (or ou équipement) va au pot ; deux cartes chacun, cinq au tableau (flop, turn, rivière), et à chaque tour on parle chacun son tour : suivre, relancer en or ou se coucher. La meilleure main de 5 cartes ramasse tout.</p>';
+  if(pk&&pk.result){
+    wrap.insertAdjacentHTML('beforeend',`<h4>Abattage</h4>${pk.board&&pk.board.length?cards(pk.board,'board'):''}${pk.result.map(r=>`<div class="pkrow${r.win?' win':''}"><b>${esc(r.n)}</b> · ${esc(r.main)}${r.win?' · <span class="netwin">gagne le pot</span>':''}${r.hand?cards(r.hand,'res'+r.n):''}</div>`).join('')}`);
+  }else if(pk){
+    wrap.insertAdjacentHTML('beforeend',`<h4>${pk.phase==='wait'?'Table · en attente de joueurs':`${STREET[pk.phase]} · pot ${fmt(pk.pot)} po · ${pk.left} s pour parler`}</h4>${pk.phase!=='wait'?cards(pk.board,'board'):''}${pk.seats.map(s=>`<div class="pkrow${s.turn?' turn':''}"><b>${esc(s.n)}</b> · cave ${esc(s.stake)}${s.put?` · +${fmt(s.put)} po relancés`:''}${s.fold?' · couché':s.turn?' · <em>parle</em>':''}</div>`).join('')}`);
+    if(inHand&&pk.hand){wrap.insertAdjacentHTML('beforeend','<h4>Votre main</h4>'+cards(pk.hand,'hand'))}
   }
+  if(mine)wrap.insertAdjacentHTML('beforeend',`<label class="bet">Relance <input type="number" id="pkR" min="1" step="1" value="${raiseBy}"> po</label>`);
   if(!seated)wrap.appendChild(stakeBox());
   const btns=[];
-  if(!seated)btns.push(["S'asseoir et miser",()=>{keep=new Set();send({a:'casino',g:'pk',op:'sit',...stakeArgs()})},false,!stakeOk()||(pk&&pk.phase==='draw'&&!pk.result)]);
+  if(!seated)btns.push(["S'asseoir et miser",()=>send({a:'casino',g:'pk',op:'sit',...stakeArgs()}),false,!stakeOk()||(pk&&pk.phase!=='wait'&&!pk.result)]);
   else if(pk.phase==='wait')btns.push([`Distribuer (${pk.seats.length} joueur${pk.seats.length>1?'s':''})`,()=>send({a:'casino',g:'pk',op:'start'}),false,pk.seats.length<2]);
-  if(draw)btns.push([`Échanger ${5-keep.size} carte${5-keep.size>1?'s':''}`,()=>{send({a:'casino',g:'pk',op:'draw',keep:[...keep]});keep=new Set()}]);
-  if(seated)btns.push([pk.phase==='wait'?'Se lever (reprendre la mise)':'Se coucher',()=>send({a:'casino',g:'pk',op:'leave'}),true]);
+  if(mine){
+    btns.push([pk.toCall>0?`Suivre (${fmt(pk.toCall)} po)`:'Parole',()=>send({a:'casino',g:'pk',op:'call'}),false,pk.toCall>S.gold]);
+    btns.push([`Relancer de ${fmt(raiseBy)} po`,()=>send({a:'casino',g:'pk',op:'raise',gold:raiseBy}),false,pk.toCall+raiseBy>S.gold]);
+  }
+  if(seated)btns.push([pk.phase==='wait'?'Se lever (reprendre la mise)':'Se coucher',()=>send({a:'casino',g:'pk',op:inHand?'fold':'leave'}),true,inHand&&pk.seats[pk.me].fold]);
   btns.push(['Retour',()=>{if(pk&&pk.result)pk=null;showNpc(n)},true]);
-  dialog('Poker Chouffin','Casino du 18-25 · entre joueurs, 2 à 6',wrap,btns,false,n);
+  dialog('Poker Chouffin','Casino du 18-25 · Texas hold\'em entre joueurs, 2 à 6',wrap,btns,false,n);
+  const r=wrap.querySelector('#pkR');if(r)r.oninput=e=>{raiseBy=Math.max(1,Math.floor(+e.target.value||1));const b=[...$('#dlgActs').children].find(b=>b.textContent.startsWith('Relancer'));if(b){b.textContent=`Relancer de ${fmt(raiseBy)} po`;b.disabled=pk.toCall+raiseBy>S.gold}};
   dlgRedo=()=>openPoker(n);
 }

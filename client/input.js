@@ -1,7 +1,7 @@
 import {WHISPERS} from '../shared/data.js';
-import {baseRange,classRange,dist,moveSpeed} from '../shared/rules.js';
+import {CROSS,baseRange,classRange,dist,moveSpeed} from '../shared/rules.js';
 import {findEnt} from '../shared/sim.js';
-import {findPath,moveEnt,regionAt} from '../shared/map.js';
+import {canStand,findPath,moveEnt,regionAt} from '../shared/map.js';
 import {$,esc,pick} from './util.js';
 import {TS,cam,cv,setMarker} from './render.js';
 import {chat} from './hud.js';
@@ -22,7 +22,8 @@ function openObj(o){if(o.type==='portal')openPortal();else if(o.type==='chest')s
 addEventListener('keydown',e=>{
   if(!running)return;
   if(document.activeElement===chatIn){if(e.key==='Escape')chatIn.blur();return}
-  if(document.activeElement===$('#nm'))return;
+  // Un champ de saisie (pseudo, mise du Casino, options…) garde ses touches : taper « 4 » ne lance pas la compétence 4.
+  if(e.target.closest('input,select,textarea'))return;
   // « / » ouvre le chat avec la barre déjà tapée ; l'événement input affiche l'autocomplétion des commandes.
   if(e.key==='/'){e.preventDefault();chatIn.value='/';chatIn.focus();chatIn.dispatchEvent(new Event('input'));return}
   const act=actionFor(e.code);
@@ -58,6 +59,17 @@ $('#chatf').addEventListener('submit',e=>{
   sendChat(v);
 });
 
+// TP aux bords d'une zone : poussé contre la haie ou le mur qui sépare deux cartes, on saute sur la case praticable la plus proche de l'autre côté (le serveur vérifie).
+let crossT=0;
+function tryCross(dx,dy){
+  const now=performance.now();if(WD.id!=='over'||now<crossT)return;
+  const ax=Math.abs(dx)>=Math.abs(dy),ux=ax?Math.sign(dx):0,uy=ax?0:Math.sign(dy),r=regionAt(WD,P.x,P.y);
+  if(regionAt(WD,P.x+ux*1.5,P.y+uy*1.5)===r)return;
+  for(let k=1;k<=CROSS;k++)for(const o of [0,-1,1,-2,2]){
+    const x=Math.floor(P.x+ux*k+(ax?0:o))+.5,y=Math.floor(P.y+uy*k+(ax?o:0))+.5;
+    if(regionAt(WD,x,y)!==r&&canStand(WD,x,y)){crossT=now+800;send({a:'cross',x,y});return}
+  }
+}
 export function updControl(dt,t){
   if(P.mvT>0){P.mvT-=dt;if(P.mvT<=0)P.moving=false}
   if(P.dead){P.moving=false;autoCloseDlg();return}
@@ -78,6 +90,7 @@ export function updControl(dt,t){
     sendMove(o.x,o.y,Math.abs(dx)>.01?(dx>0?1:-1):0);
     // Le cycle de marche du joueur local est calculé ici : les snapshots ne portent pas sa position.
     if(moved>0){P.x=o.x;P.y=o.y;P.step+=moved*2.7;P.moving=true;P.mvT=.15;if(Math.abs(dx)>.01)P.face=dx>0?1:-1}
+    if(moved<s*.15)tryCross(dx,dy);
     // Bloqué (flaque, arbre, haie) : on contourne par A* au lieu d'abandonner, sinon on reste planté à « attaquer » une cible hors d'atteinte.
     if(dest&&moved<s*.15){nav.stuck+=dt;if(nav.stuck>.35){nav.stuck=0;const t=nav.follow?findEnt(world,WD.id,nav.follow):nav.goal,pts=!(nav.path&&nav.path.pts.length)&&t&&findPath(WD,P.x,P.y,t.x,t.y);if(pts&&pts.length)nav.path={for:dest,pts};else{nav.goal=null;nav.follow=null;nav.path=null}}}else nav.stuck=0;
   }

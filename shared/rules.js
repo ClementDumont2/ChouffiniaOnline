@@ -26,6 +26,8 @@ export const classRange=S=>SKILL_DEFS[classOf(S).skills[0]].rg;
 export const baseRange=S=>{const a=S.eq&&S.eq.arme,r=a&&ITEMS[a.id]&&ITEMS[a.id].rg;return Math.max(classRange(S),r||0)};
 // Vitesses (champs va et vd des objets, en %) : plafonnées, sinon cinq pièces rapides feraient courir plus vite qu'une trottinette et frapper sans pause.
 export const VA_MAX=50,VD_MAX=40;
+// TP aux bords d'une zone : profondeur maximale (en cases) du saut par-dessus la haie ou le mur qui sépare deux régions.
+export const CROSS=4;
 export function stats(S,drunk=0){const bs=baseStats(S.lvl);let atk=bs.atk,hp=bs.hp,arm=0,va=0,vd=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm;va+=i.va;vd+=i.vd}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:bs.caf,arm,red:arm/(arm+45),spd:m.spd,va:Math.min(va,VA_MAX),vd:Math.min(vd,VD_MAX)}}
 
 export const stackable=id=>ITEMS[id].t!=='eq';

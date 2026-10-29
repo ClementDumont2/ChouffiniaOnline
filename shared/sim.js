@@ -2,11 +2,11 @@
 // Tout résultat visible sort par world.events ({to: id du joueur concerné, t: type, ...}) ; le client ne fait que les afficher.
 // Les textes d'événements 'msg' utilisent un mini-balisage que le client interprète : **gras**, [[id_objet]] (lien d'objet), [[up]] (flèche d'amélioration).
 import {ACH,ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVLUP,MAXLVL,MOBS,NPCS,QUESTS,SLOTS,SPAWNS,STOCK,SYS_LINES,ZONES} from './data.js';
-import {ARME_DIST_MULT,BAG,COMBAT_TP,dgDiffs,baseRange,classRange,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
+import {ARME_DIST_MULT,BAG,COMBAT_TP,CROSS,dgDiffs,baseRange,classRange,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
 import {SKINS} from './data/skins.js';
-import {HANDS,ROUGES,ROUL_BETS,bjValue,cardName,cmpRank,deck,isBlackjack,pokerRank,roulPays} from './casino.js';
+import {HANDS,ROUGES,ROUL_BETS,bestRank,bjValue,cmpRank,deck,isBlackjack,roulPays} from './casino.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
 import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,regionAt,stepToward,zoneAt} from './map.js';
 import {SAFE} from './data/zones.js';
@@ -187,6 +187,12 @@ function travel(w,pl,to){
   if(o)msg(w,o.id,'sys',`${S.name} se téléporte à côté de vous. Sans prévenir. Comme un cousin.`);
 }
 
+// TP aux bords d'une zone, demandé par le client quand il pousse contre la frontière : seulement vers une région voisine, tout près, sur une case praticable.
+function cross(w,pl,x,y){
+  const {P}=pl,map=w.maps[pl.mapId];
+  if(pl.mapId!=='over'||!Number.isFinite(x)||!Number.isFinite(y)||sameReg(map,P,{x,y})||Math.hypot(x-P.x,y-P.y)>CROSS+1.5||!canStand(map,x,y))return;
+  P.target=null;P.auto=false;P.cast=null;teleport(w,pl,x,y);
+}
 function teleport(w,pl,x,y){const {P}=pl;P.x=x;P.y=y;P.mt=w.time;ev(w,pl.id,{t:'tp',x,y})}
 function respawnAt(w,pl){
   const map=w.maps[pl.mapId],over=map.id==='over';
@@ -639,7 +645,7 @@ function wearSkin(w,pl,id){
   pl.S.skin=id;
 }
 // ---- Casino : mises en or ou en équipement du sac ; cartes et billes tirées ici, règles dans shared/casino.js. ----
-const CASINO_MAX=1e6,PK_SEATS=6,PK_DRAW=30;
+const CASINO_MAX=1e6,PK_SEATS=6,PK_TURN=20;
 // La mise quitte le sac (ou la bourse) dès qu'elle est posée : impossible de l'échanger, de la vendre ou de la miser deux fois pendant la partie.
 function takeStake(w,pl,a){
   const {S}=pl;
@@ -700,34 +706,67 @@ function roulette(w,pl,a){
   msg(w,pl.id,net>0?'loot':'sys',`[Roulette] ${n} ${col}. Vous aviez joué ${Number.isInteger(bet)?`le ${bet}`:ROUL_BETS[bet]} : ${netText(net)}${st.item&&mult>=1?`, et ${link(st.item)} revient`:st.item?`. ${link(st.item)} reste à la maison`:''}.`);
 }
 
-// Poker Chouffin : une table pour tout le serveur, w.poker = {seats:[{id, n, st, hand, ok, fold}], phase:'wait'|'draw', d, end}.
-// Chacun pose sa mise (or ou équipement), cinq cartes, un seul échange, la meilleure main ramasse tout le pot. Partir pendant la main = se coucher, la mise reste au pot.
-const pkTable=w=>w.poker??={seats:[],phase:'wait'};
+// Poker Chouffin (Texas hold'em) : une table pour tout le serveur, w.poker = {seats:[{id, n, st, hand, put, bet, acted, fold}], phase, d, board, cur, turn, end}.
+// La mise d'entrée (or ou équipement) est la cave ; ensuite deux cartes chacun, cinq au tableau, et quatre tours de parole (relances en or seulement, chacun son tour).
+// ponytail: pas de tapis ni de pots secondaires : qui n'a pas l'or pour suivre se couche ; à ajouter si les tables se jouent avec de grosses relances.
+const pkTable=w=>w.poker??={seats:[],phase:'wait',board:[]};
+const STREETS=['pre','flop','turn','river'],REVEAL={flop:3,turn:1,river:1};
+const pkLive=T=>T.seats.filter(s=>!s.fold);
+const pkPot=T=>T.seats.reduce((a,s)=>a+(s.st.gold||0)+s.put,0);
 function pkSend(w,extra){
-  const T=pkTable(w),seats=T.seats.map(s=>({n:s.n,stake:stakeText(s.st),ok:s.ok,fold:!!s.fold}));
-  for(const s of T.seats)if(w.players[s.id])ev(w,s.id,{t:'poker',phase:T.phase,left:T.phase==='draw'?Math.max(0,Math.ceil(T.end-w.time)):null,seats,hand:s.hand,ok:s.ok,...extra});
+  const T=pkTable(w),seats=T.seats.map((s,i)=>({n:s.n,stake:stakeText(s.st),put:s.put,bet:s.bet,fold:!!s.fold,turn:T.phase!=='wait'&&i===T.turn}));
+  for(const s of T.seats)if(w.players[s.id])ev(w,s.id,{t:'poker',phase:T.phase,left:T.phase!=='wait'?Math.max(0,Math.ceil(T.end-w.time)):null,seats,board:T.board,pot:pkPot(T),cur:T.cur||0,toCall:(T.cur||0)-s.bet,me:T.seats.indexOf(s),hand:s.hand,...extra});
 }
 function pkSay(w,text){for(const s of pkTable(w).seats)if(w.players[s.id])msg(w,s.id,'sys',`[Poker] ${text}`)}
+// Prochain joueur encore en main après i ; -1 s'il n'y en a plus qui doive parler.
+const pkNext=(T,i)=>{for(let k=1;k<=T.seats.length;k++){const j=(i+k)%T.seats.length,s=T.seats[j];if(!s.fold&&(!s.acted||s.bet<T.cur))return j}return -1};
 function pkShowdown(w){
-  const T=w.poker,live=T.seats.filter(s=>!s.fold&&w.players[s.id]),rank=new Map(live.map(s=>[s,pokerRank(s.hand)]));
+  const T=w.poker,live=pkLive(T).filter(s=>w.players[s.id]),rank=new Map(live.map(s=>[s,live.length>1?bestRank([...s.hand,...T.board]):[0]]));
   const best=live.reduce((b,s)=>!b||cmpRank(rank.get(s),rank.get(b))>0?s:b,null),win=live.filter(s=>cmpRank(rank.get(s),rank.get(best))===0);
-  const gold=T.seats.reduce((a,s)=>a+(s.st.gold||0),0),items=T.seats.filter(s=>s.st.item);
+  const gold=pkPot(T),items=T.seats.filter(s=>s.st.item);
   // Égalité : l'or est partagé, chaque gagnant récupère son objet, ceux des perdants vont au premier gagnant.
   const share=win.length?Math.floor(gold/win.length):0;
   for(const s of win)w.players[s.id].S.gold+=share;
   for(const s of items)if(win.length)giveItem(w,w.players[(win.includes(s)?s:win[0]).id],s.st.item);
-  const shown=live.map(s=>({n:s.n,hand:s.hand,main:HANDS[rank.get(s)[0]],win:win.includes(s)}));
-  pkSay(w,win.length?`${win.map(s=>s.n).join(' et ')} ${win.length>1?'se partagent':'remporte'} le pot (${HANDS[rank.get(best)[0]]}) : ${fmt(gold)} po${items.length?` et ${items.map(s=>link(s.st.item)).join(', ')}`:''}.`:'Tout le monde s\'est couché : la maison garde le pot.');
+  // Gagné parce que tous les autres se sont couchés : sa main reste cachée, comme au vrai poker.
+  const alone=live.length===1,shown=live.map(s=>({n:s.n,hand:alone?null:s.hand,main:alone?'Les autres se sont couchés':HANDS[rank.get(s)[0]],win:win.includes(s)}));
+  pkSay(w,win.length?`${win.map(s=>s.n).join(' et ')} ${win.length>1?'se partagent':'remporte'} le pot${alone?'':` (${HANDS[rank.get(best)[0]]})`} : ${fmt(gold)} po${items.length?` et ${items.map(s=>link(s.st.item)).join(', ')}`:''}.`:'Plus personne à la table : la maison garde le pot.');
   pkSend(w,{result:shown});
   for(const s of T.seats)if(w.players[s.id])ev(w,s.id,{t:'self'});
-  w.poker={seats:[],phase:'wait'};
+  w.poker={seats:[],phase:'wait',board:[]};
+}
+// Après chaque parole : joueur suivant, ou carte(s) suivante(s) au tableau, ou abattage.
+function pkAdvance(w){
+  const T=w.poker;
+  if(pkLive(T).length<=1)return pkShowdown(w);
+  const j=pkNext(T,T.turn);
+  if(j>=0){T.turn=j;T.end=w.time+PK_TURN;return pkSend(w)}
+  const k=STREETS.indexOf(T.phase)+1;
+  if(k>=STREETS.length)return pkShowdown(w);
+  T.phase=STREETS[k];for(let i=0;i<REVEAL[T.phase];i++)T.board.push(T.d.pop());
+  T.cur=0;for(const s of T.seats){s.bet=0;s.acted=false}
+  T.turn=-1;T.turn=pkNext(T,T.seats.length-1);T.end=w.time+PK_TURN;
+  pkSend(w);
+}
+function pkAct(w,s,op,amount){
+  const T=w.poker,{S}=w.players[s.id];
+  if(op==='fold'){s.fold=true;pkSay(w,`${s.n} se couche.`)}
+  else{
+    const raise=op==='raise'?amount:0,pay=T.cur-s.bet+raise;
+    if(op==='raise'&&(!Number.isInteger(raise)||raise<1||raise>CASINO_MAX)){err(w,s.id,`Relance entre 1 et ${fmt(CASINO_MAX)} po.`);return}
+    if(pay>S.gold){err(w,s.id,"Pas assez d'or pour ça. Suivez, ou couchez-vous.");return}
+    S.gold-=pay;s.put+=pay;s.bet+=pay;
+    if(raise){T.cur=s.bet;pkSay(w,`${s.n} relance de ${fmt(raise)} po.`)}
+  }
+  s.acted=true;pkAdvance(w);
 }
 function pkLeave(w,pl){
   const T=pkTable(w),i=T.seats.findIndex(s=>s.id===pl.id);if(i<0)return;
   const s=T.seats[i];
-  if(T.phase==='wait'){T.seats.splice(i,1);settle(w,pl,s.st,1);pkSay(w,`${s.n} se lève et reprend sa mise.`);msg(w,pl.id,'sys','[Poker] Vous reprenez votre mise.');ev(w,pl.id,{t:'poker',phase:'wait',seats:[],hand:null,ok:false})}
-  else{s.fold=true;pkSay(w,`${s.n} se couche. Sa mise reste au pot.`);if(T.seats.every(o=>o.ok||o.fold))return pkShowdown(w)}
-  pkSend(w);
+  if(T.phase==='wait'){T.seats.splice(i,1);settle(w,pl,s.st,1);pkSay(w,`${s.n} se lève et reprend sa mise.`);msg(w,pl.id,'sys','[Poker] Vous reprenez votre mise.');ev(w,pl.id,{t:'poker',phase:'wait',seats:[],board:[],hand:null});return pkSend(w)}
+  if(s.fold)return;
+  s.fold=true;pkSay(w,`${s.n} se couche. Sa mise reste au pot.`);
+  if(T.turn===i)pkAdvance(w);else if(pkLive(T).length<=1)pkShowdown(w);else pkSend(w);
 }
 function poker(w,pl,a){
   const T=pkTable(w),me=T.seats.find(s=>s.id===pl.id);
@@ -737,24 +776,23 @@ function poker(w,pl,a){
     if(T.phase!=='wait'){err(w,pl.id,'Une main est en cours. Attendez la suivante.');return}
     if(T.seats.length>=PK_SEATS){err(w,pl.id,`Table complète (${PK_SEATS} joueurs).`);return}
     const st=takeStake(w,pl,a);if(!st)return;
-    T.seats.push({id:pl.id,n:pl.S.name,st,hand:null,ok:false});
+    T.seats.push({id:pl.id,n:pl.S.name,st,hand:null,put:0,bet:0,acted:false});
     pkSay(w,`${pl.S.name} s'assoit et pose ${stakeText(st)} au pot.`);
-  }else if(!me)return;
-  else if(a.op==='leave')return pkLeave(w,pl);
-  else if(a.op==='start'){
+    return pkSend(w);
+  }
+  if(!me)return;
+  if(a.op==='leave')return pkLeave(w,pl);
+  if(a.op==='start'){
     if(T.phase!=='wait'||T.seats.length<2){err(w,pl.id,'Il faut au moins deux joueurs assis.');return}
-    T.phase='draw';T.d=deck(w.rnd);T.end=w.time+PK_DRAW;
-    for(const s of T.seats){s.hand=[0,0,0,0,0].map(()=>T.d.pop());s.ok=false}
-    pkSay(w,`${pl.S.name} distribue. Choisissez les cartes à garder : ${PK_DRAW} s pour échanger.`);
-  }else if(a.op==='draw'){
-    if(T.phase!=='draw'||me.ok||me.fold)return;
-    const keep=new Set(Array.isArray(a.keep)?a.keep.filter(i=>Number.isInteger(i)):[]);
-    me.hand=me.hand.map((c,i)=>keep.has(i)?c:T.d.pop());me.ok=true;
-    if(T.seats.every(s=>s.ok||s.fold))return pkShowdown(w);
-  }else return;
-  pkSend(w);
+    Object.assign(T,{phase:'pre',d:deck(w.rnd),board:[],cur:0,turn:0,end:w.time+PK_TURN});
+    for(const s of T.seats){s.hand=[T.d.pop(),T.d.pop()];s.bet=s.put=0;s.acted=false;s.fold=false}
+    pkSay(w,`${pl.S.name} distribue. Deux cartes chacun ; à ${T.seats[0].n} de parler.`);
+    return pkSend(w);
+  }
+  if(['call','raise','fold'].includes(a.op)&&T.phase!=='wait'&&T.seats[T.turn]===me)pkAct(w,me,a.op,a.gold);
 }
-function tickPoker(w){if(w.poker&&w.poker.phase==='draw'&&w.time>=w.poker.end)pkShowdown(w)}
+// Temps de parole écoulé : parole si rien à suivre, sinon couché.
+function tickPoker(w){const T=w.poker;if(!T||T.phase==='wait'||w.time<T.end)return;const s=T.seats[T.turn];if(s)pkAct(w,s,s.bet<T.cur?'fold':'call')}
 
 function mamanKill(w,pl){
   const {S}=pl;
@@ -1149,6 +1187,7 @@ export function handleAction(w,id,a){
     case 'fuse':fusion(w,pl,a.x,a.y);break;
     case 'changeClass':changeClass(w,pl,a.cls);break;
     case 'respawn':if(P.dead)respawn(w,pl);break;
+    case 'cross':cross(w,pl,a.x,a.y);break;
     default:return;
   }
   ev(w,id,{t:'self'});
