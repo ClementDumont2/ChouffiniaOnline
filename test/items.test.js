@@ -1,15 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createWorld, addPlayer, handleAction, handleChat} from '../shared/sim.js';
+import {createWorld, addPlayer, handleAction, handleChat, tick} from '../shared/sim.js';
 import {ITEMS, RARITY_MULT, NPCS} from '../shared/data.js';
-import {newItem, itemStats, normalizeSave, stats} from '../shared/rules.js';
+import {VA_MAX, VD_MAX, classOf, moveSpeed, newItem, itemStats, normalizeSave, stats} from '../shared/rules.js';
+import {STOCK} from '../shared/data.js';
+import {SKINS} from '../shared/data/skins.js';
+import {snapshotFor} from '../shared/protocol.js';
+import {canStand} from '../shared/map.js';
 
 const eqIds = Object.keys(ITEMS).filter(id => ITEMS[id].t === 'eq');
 
 test('un objet à nObj = rl et à sa rareté d\'origine garde exactement ses stats d\'avant (aucun gain ni perte à la migration)', () => {
   for (const id of eqIds) {
     const it = ITEMS[id];
-    assert.deepEqual(itemStats(newItem(id)), {atk: it.atk || 0, hp: it.hp || 0, arm: it.arm || 0}, id);
+    assert.deepEqual(itemStats(newItem(id)), {atk: it.atk || 0, hp: it.hp || 0, arm: it.arm || 0, va: it.va || 0, vd: it.vd || 0}, id);
   }
 });
 
@@ -97,4 +101,42 @@ test('Fanfiqueuse : fusion côté serveur (portée, or, deux objets du même emp
   p.S.gold = 1000; fusion('i1', 'i2');
   const r = p.S.inv.find(s => s.id === 'katana');
   assert.deepEqual([p.S.inv.length, r.nObj, r.rarete, p.S.gold], [2, 5, 'epic', 1000 - 15 * 5]);
+});
+
+test('vitesse d\'attaque et de déplacement : par l\'équipement, plafonnées, appliquées par le serveur', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), {S, P} = p;
+  S.lvl = 100; S.eq.mains = {uid: 'a', ...newItem('mitaines_speedrun')}; S.eq.jambes = {uid: 'b', ...newItem('baskets_led')};
+  assert.deepEqual([stats(S).va, stats(S).vd], [12, 10]);
+  assert.equal(moveSpeed(S, P), stats(S).spd * 1.1);
+  // Le niveau d'objet ne fait pas grossir un pourcentage.
+  assert.equal(itemStats(newItem('mitaines_speedrun', 90, 'leg')).va, 12);
+  S.eq.arme = {uid: 'c', ...newItem('bokken')}; S.eq.mains = {uid: 'd', ...newItem('gants_apm')}; S.eq.tete = {uid: 'e', ...newItem('mitaines_speedrun')};
+  S.eq.jambes = {uid: 'f', ...newItem('sneakers_dev')}; S.eq.torse = {uid: 'g', ...newItem('rollers')};
+  assert.deepEqual([stats(S).va, stats(S).vd], [Math.min(42, VA_MAX), Math.min(27, VD_MAX)]);
+  // Seule l'attaque de base recharge plus vite.
+  const k0 = classOf(S).skills[0], k1 = classOf(S).skills[1];
+  P.cd = {[k0]: 1, [k1]: 1}; tick(w, .5);
+  assert.ok(Math.abs(P.cd[k0] - (1 - .5 * (1 + stats(S).va / 100))) < 1e-9 && Math.abs(P.cd[k1] - .5) < 1e-9);
+  // Chaque marchand d'équipement vend au moins deux armes.
+  for (const [k, ids] of Object.entries(STOCK)) if (ids.some(id => ITEMS[id].t === 'eq')) assert.ok(ids.filter(id => ITEMS[id].s === 'arme').length >= 2, k);
+});
+
+test('tenues : achat et port chez le Fripier, visibles des autres, sauvegarde réparée', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), f = NPCS.find(n => n.id === 'fripier');
+  assert.ok(canStand(w.maps.over, f.x, f.y));
+  p.S.gold = SKINS.survet.price;
+  handleAction(w, 'p1', {a: 'buySkin', id: 'survet'});
+  assert.equal(p.S.skin, null, 'loin du Fripier : rien');
+  p.P.x = f.x; p.P.y = f.y + 1;
+  handleAction(w, 'p1', {a: 'buySkin', id: 'doree'});
+  assert.deepEqual([p.S.skins, p.S.gold], [[], SKINS.survet.price], 'trop cher');
+  handleAction(w, 'p1', {a: 'buySkin', id: 'survet'});
+  assert.deepEqual([p.S.skins, p.S.skin, p.S.gold], [['survet'], 'survet', 0]);
+  assert.equal(snapshotFor(w, 'p1').ents.find(e => e.id === 'p1').look.skin, 'survet');
+  handleAction(w, 'p1', {a: 'wearSkin', id: null});
+  assert.equal(p.S.skin, null);
+  handleAction(w, 'p1', {a: 'wearSkin', id: 'costard'});
+  assert.equal(p.S.skin, null, 'tenue non possédée');
+  const S = normalizeSave({name: 'x', skins: ['survet', 'survet', 'inconnue'], skin: 'costard'});
+  assert.deepEqual([S.skins, S.skin], [['survet'], null]);
 });

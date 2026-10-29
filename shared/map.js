@@ -1,6 +1,6 @@
 // Pas de DOM ni de Math.random ici : le serveur et le client régénèrent la même carte depuis la graine.
 import {DIFFS} from './data.js';
-import {SAFE} from './data/zones.js';
+import {REGIONS,SAFE} from './data/zones.js';
 import {mulberry32,rngTools} from './rng.js';
 
 export const T={GRASS:0,DIRT:1,WOOD:2,WALL:3,LAKE:4,TREE:5,KT:6,FLOWER:7,ROCK:8,DESK:9,BED:10,FRIDGE:11,TABLE:12,SHELF:13,STONE:14,FENCE:15,STALLR:16,STALLB:17,BAR:18,STAIRS:19,SWAMP:20,MURK:21,DTREE:22,SALT:23,CRYSTAL:24,METAL:25,RACK:26,DFLOOR:27,DWALL:28,DTORCH:29,PILLAR:30,PAPERS:31,ASPHALT:32,LINE:33,CAR:34,LAMP:35,SFLOOR:36,AISLE:37,CASH:38,CART:39,CARPET:40,GUICHET:41,PLANT:42,HALL:43,BOOTH:44,BANNER:45,LABFLOOR:46,PCDESK:47,BOARD:48};
@@ -16,8 +16,8 @@ export function stepToward(map,e,tx,ty,sp,dt){const dx=tx-e.x,dy=ty-e.y,L=Math.h
 export function fillRect(map,x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)setTile(map,x,y,v)}
 
 export function genOverworld(seed){
-  // 80 colonnes d'origine + 40 de zones (Lot 8) + 40 (Lot 9). Les 80 premières sont générées exactement comme avant ; l'extension a son propre générateur.
-  const map={id:'over',w:160,h:60,t:new Uint8Array(160*60),oob:T.TREE};
+  // 80 colonnes d'origine + 40 de zones (Lot 8) + 40 (Lot 9) + 40 (Saison 3). Les 80 premières sont générées exactement comme avant ; l'extension a son propre générateur.
+  const map={id:'over',w:200,h:60,t:new Uint8Array(200*60),oob:T.TREE};
   const setT=(x,y,v)=>setTile(map,x,y,v),rect=(...a)=>fillRect(map,...a);
   const r=mulberry32(seed),RI=(a,b)=>a+Math.floor(r()*(b-a+1));
   for(let y=0;y<60;y++)for(let x=0;x<80;x++){const q=r();setT(x,y,q<.07?T.FLOWER:q<.083?T.ROCK:T.GRASS)}
@@ -52,7 +52,10 @@ export function genOverworld(seed){
   rect(13,15,15,15,T.STALLR);rect(18,15,20,15,T.STALLB);setT(12,19,T.BAR);setT(13,19,T.BAR);setT(20,18,T.STAIRS);setT(21,18,T.STAIRS);
   // L'Arène du Débat Stérile : petit enclos à l'est du Bourg, ouvert sur la route par deux cases au sud.
   rect(29,13,38,19,T.FENCE);rect(30,14,37,18,T.STONE);rect(33,19,34,19,T.STONE);
-  genEast(map,seed);genFar(map,seed);
+  // Saison 3 : le Casino, dans la forêt au sud de la route (porte nord). Tables de blackjack, de roulette et de poker, le bar au fond.
+  rect(33,24,46,33,T.WALL);rect(34,25,45,32,T.CARPET);rect(39,22,40,24,T.CARPET);
+  for(const [x,y,t] of [[35,28,T.TABLE],[36,28,T.TABLE],[42,29,T.TABLE],[43,29,T.TABLE],[37,31,T.TABLE],[38,31,T.TABLE],[39,31,T.TABLE],[40,31,T.TABLE],[44,25,T.SHELF],[45,25,T.SHELF],[34,25,T.PLANT],[34,32,T.PLANT],[45,32,T.PLANT]])setT(x,y,t);
+  genEast(map,seed);genFar(map,seed);genBeyond(map,seed);
   return map;
 }
 
@@ -109,6 +112,31 @@ function genFar(map,seed){
   for(const y of [10,16,22,28])for(let x=126;x<=153;x++)if((x-126)%4<3&&(x<136||x>143))setT(x,y,T.PCDESK);
 }
 
+// Saison 3, x 160–199 : l'après-diplôme. Startup (y 0–19), Coloc (y 20–39), Discord (y 40–59) ; on y entre par la porte est du DIIAGE, puis on descend de porte en porte.
+function genBeyond(map,seed){
+  const r=mulberry32(seed^0x3c6ef372),rect=(...a)=>fillRect(map,...a),setT=(x,y,v)=>setTile(map,x,y,v);
+  for(let y=0;y<60;y++)for(let x=160;x<200;x++)setT(x,y,r()<.06?T.FLOWER:T.GRASS);
+  for(let x=160;x<200;x++){setT(x,0,T.TREE);setT(x,59,T.TREE)}
+  for(let y=0;y<60;y++)setT(199,y,T.TREE);
+  for(const y of [20,40])rect(160,y,198,y,T.TREE);
+  // Porte est du DIIAGE (entre deux rangées de bureaux), route le long de la Startup, puis l'allée nord-sud qui relie les trois zones.
+  rect(157,18,157,19,T.LABFLOOR);rect(158,18,198,19,T.DIRT);rect(179,20,180,22,T.DIRT);rect(179,38,180,41,T.DIRT);
+  // Startup : open space moquetté, deux rangées de bureaux, baby-foot de la cohésion, plantes ; porte sud.
+  rect(163,2,197,16,T.WALL);rect(164,3,196,15,T.CARPET);rect(179,16,180,16,T.CARPET);
+  for(const y of [6,10])for(let x=166;x<=194;x++)if((x-166)%5<3)setT(x,y,T.PCDESK);
+  for(const x of [170,171,189,190])setT(x,13,T.TABLE);
+  for(const [x,y] of [[164,3],[196,3],[164,15],[196,15]])setT(x,y,T.PLANT);
+  // Coloc : trois pièces sur parquet (chambre, palier-cuisine, chambre), portes nord et sud alignées sur l'allée.
+  rect(163,23,197,37,T.WALL);rect(164,24,196,36,T.WOOD);rect(179,23,180,23,T.WOOD);rect(179,37,180,37,T.WOOD);
+  for(const x of [174,186]){rect(x,24,x,36,T.WALL);rect(x,30,x,31,T.WOOD)}
+  rect(175,32,185,36,T.KT);
+  for(const [x,y,t] of [[165,25,T.BED],[166,25,T.BED],[165,34,T.SHELF],[165,35,T.SHELF],[169,29,T.TABLE],[170,29,T.TABLE],[194,25,T.BED],[195,25,T.BED],[195,34,T.FRIDGE],[195,35,T.FRIDGE],[190,30,T.TABLE],[191,30,T.TABLE],[175,36,T.FRIDGE],[185,36,T.SHELF]])setT(x,y,t);
+  // Discord : serveur à 4 h du matin, baies qui clignotent et salons vocaux (cabines) ; porte nord.
+  rect(162,42,197,57,T.WALL);rect(163,43,196,56,T.METAL);rect(179,42,180,42,T.METAL);
+  for(const y of [49,53])for(let x=165;x<=194;x++)if((x-165)%6<4&&(x<177||x>182))setT(x,y,T.RACK);
+  for(const [x,y] of [[166,45],[192,45],[166,55],[192,55]]){setT(x,y,T.BOOTH);setT(x+1,y,T.BOOTH)}
+}
+
 export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
   const {ri}=rngTools(rnd),solid=(x,y)=>isSolid(map,x,y);
   for(let i=0;i<300;i++){const x=ri(x0,x1)+.5,y=ri(y0,y1)+.5;if(!solid(x,y)&&!solid(x+.35,y)&&!solid(x-.35,y)&&!solid(x,y-.4)&&(!avoid||!avoid(x,y)))return{x,y}}
@@ -118,6 +146,7 @@ export function randSpot(map,rnd,x0,x1,y0,y1,avoid){
 export function zoneAt(map,x,y){
   if(map.id!=='over')return'dungeon';
   for(const k in SAFE){const r=SAFE[k].r;if(r&&x>=r[0]&&x<r[2]+1&&y>=r[1]&&y<r[3]+1)return k}
+  if(x>=160)return y<20?'startup':y<40?'coloc':'discord';
   if(x>=120)return y<40?'diiage':'convention';
   if(x>=80)return y<20?'parking':y<40?'supermarche':'pole';
   if(x<14&&y<12)return'base';
@@ -143,6 +172,8 @@ export function zoneLabels(map){
   const acc={};for(let i=0;i<w*h;i++){const a=acc[z[i]]??={r:0,x:0,y:0,n:0};if(d[i]>a.r)Object.assign(a,{r:d[i],x:0,y:0,n:0});if(d[i]===a.r){a.x+=i%w+.5;a.y+=(i/w|0)+.5;a.n++}}
   return Object.entries(acc).map(([k,a])=>({z:k,x:a.x/a.n,y:a.y/a.n,r:a.r}));
 }
+// Carte (région) d'un point : en donjon, le donjon lui-même.
+export function regionAt(map,x,y){if(map.id!=='over')return map.id;for(const k in REGIONS){const r=REGIONS[k];if(x>=r[0]&&x<r[2]+1&&y>=r[1]&&y<r[3]+1)return k}return'pres'}
 export const isSafe=(map,x,y)=>{const z=zoneAt(map,x,y);return z==='arene'||!!SAFE[z]};
 
 // A* sur les tuiles, 8 directions sans couper les coins. avoid(x, y) : cases interdites en plus des murs (les sanctuaires pour un monstre).

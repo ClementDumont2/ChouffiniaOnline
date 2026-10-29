@@ -14,7 +14,7 @@ test('xpNeed suit la courbe du legacy', () => {
 });
 
 test('stats() sans équipement', () => {
-  assert.deepEqual(stats(joueur(1)), {atk: 4, maxhp: 60, maxcaf: 50, arm: 0, red: 0, spd: 1});
+  assert.deepEqual(stats(joueur(1)), {atk: 4, maxhp: 60, maxcaf: 50, arm: 0, red: 0, spd: 1, va: 0, vd: 0});
   assert.equal(stats(joueur(3)).atk, 8);
   assert.equal(stats(joueur(3)).maxhp, 90);
 });

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {SAFE} from '../shared/data/zones.js';
 import {createWorld, addPlayer, tick, handleAction, handleChat, takeEvents, movePlayer} from '../shared/sim.js';
 import {genOverworld, zoneAt, canStand, isSolid} from '../shared/map.js';
 import {bossUpcoming, stats, statsDeMob, xpNeed} from '../shared/rules.js';
@@ -11,15 +12,16 @@ const place = (pl, x, y) => { pl.P.x = x; pl.P.y = y; };
 const run = (w, s) => { for (let i = 0; i < Math.round(s * 20); i++) tick(w, .05); };
 const NOUVELLES = {parking: ['delegue', 'scooter', 'souvenir'], supermarche: ['caddie', 'vigile', 'promo'], pole: ['cerfa', 'file', 'conseillerabs']};
 
-test('la carte fait 160 colonnes, la partie d\'origine est inchangée et les cinq zones existent', () => {
+test('la carte fait 200 colonnes, la partie d\'origine est inchangée et les huit zones de l\'est existent', () => {
   const map = genOverworld(20111);
-  assert.equal(map.w, 160);
-  assert.deepEqual([zoneAt(map, 100, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50), zoneAt(map, 145, 50), zoneAt(map, 130, 20)], ['parking', 'supermarche', 'pole', 'convention', 'diiage']);
-  for (const z of ['parking', 'supermarche', 'pole', 'convention', 'diiage']) assert.ok(ZONES[z].n && ZONES[z].s);
-  // Empreinte des 64 premières colonnes, relevée avant le Lot 8 : seule la route vers le parking (x ≥ 64, y 12–13) a changé dans l'ancienne carte.
+  assert.equal(map.w, 200);
+  assert.deepEqual([zoneAt(map, 100, 10), zoneAt(map, 90, 30), zoneAt(map, 90, 50), zoneAt(map, 145, 50), zoneAt(map, 130, 20), zoneAt(map, 170, 8), zoneAt(map, 170, 30), zoneAt(map, 170, 50)], ['parking', 'supermarche', 'pole', 'convention', 'diiage', 'startup', 'coloc', 'discord']);
+  for (const z of ['parking', 'supermarche', 'pole', 'convention', 'diiage', 'startup', 'coloc', 'discord']) assert.ok(ZONES[z].n && ZONES[z].s);
+  // Empreinte des 64 premières colonnes, relevée avant le Lot 8 : seule la route vers le parking (x ≥ 64, y 12–13) a changé dans l'ancienne carte,
+  // puis le Casino (Saison 3) : l'empreinte saute son rectangle (x 33–46, y 22–33), relevée avant lui (1471958823 en comptant ce rectangle).
   let h = 0;
-  for (let y = 0; y < 60; y++) for (let x = 0; x < 64; x++) h = (h * 31 + map.t[y * map.w + x]) >>> 0;
-  assert.equal(h, 1471958823);
+  for (let y = 0; y < 60; y++) for (let x = 0; x < 64; x++) if (!(x >= 33 && x <= 46 && y >= 22 && y <= 33)) h = (h * 31 + map.t[y * map.w + x]) >>> 0;
+  assert.equal(h, 3268697032);
 });
 
 test('chaque zone est accessible à pied depuis le point d\'arrivée, jusqu\'à ses PNJ et à l\'entrée du donjon', () => {
@@ -37,8 +39,10 @@ test('chaque zone est accessible à pied depuis le point d\'arrivée, jusqu\'à 
     }
   }
   const atteint = n => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen[Math.floor(n.y + dy) * W + Math.floor(n.x + dx)]);
-  for (const id of ['panneau_parking', 'cpe', 'porte_bac', 'panneau_supermarche', 'caissiere', 'porte_reserve', 'panneau_pole', 'mystique', 'porte_labyrinthe', 'panneau_convention', 'otaku', 'porte_dedicaces', 'panneau_diiage', 'responsable', 'porte_soutenance', 'cantine', 'chef_rayon', 'sauvette', 'goodies', 'bde'])
+  for (const id of ['panneau_parking', 'cpe', 'porte_bac', 'panneau_supermarche', 'caissiere', 'porte_reserve', 'panneau_pole', 'mystique', 'porte_labyrinthe', 'panneau_convention', 'otaku', 'porte_dedicaces', 'panneau_diiage', 'responsable', 'porte_soutenance', 'cantine', 'chef_rayon', 'sauvette', 'goodies', 'bde', 'panneau_startup', 'barista', 'panneau_coloc', 'coloc_ancien', 'panneau_discord', 'modo_afk'])
     assert.ok(atteint(npc(id)), `PNJ ${id} inaccessible`);
+  // Les trois sanctuaires de l'après-diplôme aussi (on y arrive à pied depuis le DIIAGE).
+  for (const z of ['machine_cafe', 'palier', 'salon_afk']) assert.ok(seen[Math.floor(SAFE[z].y) * W + Math.floor(SAFE[z].x)], `${z} inaccessible`);
   for (const dg of ['bac', 'reserve', 'labyrinthe', 'dedicaces', 'soutenance']) assert.ok(seen[Math.floor(DUNGEONS[dg].exit.y) * W + Math.floor(DUNGEONS[dg].exit.x)], `sortie de ${dg} inaccessible`);
   assert.ok(!isSolid(map, 99.5, 21.5) && !isSolid(map, 99.5, 39.5), 'les portes entre zones sont ouvertes');
 });

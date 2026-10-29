@@ -2,6 +2,7 @@ import {ITEMS,MOBS,DIFFS,DUNGEONS,ART_POOL,HATS,MAXLVL,NPCS,QUESTS,RARITY_MULT,S
 import {rngTools} from './rng.js';
 import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
 import {MOUNTS} from './data/mounts.js';
+import {SKINS} from './data/skins.js';
 import {BOSSES} from './data/bosses.js';
 export {ARME_RG,ARME_DIST_MULT} from './data/items.js';
 import {SAFE} from './data/zones.js';
@@ -23,7 +24,9 @@ export const skillsOf=S=>classOf(S).skills.map(id=>({id,...SKILL_DEFS[id]}));
 // Portée de l'attaque de base : celle de la compétence 1 de la classe, allongée par l'arme équipée (champ rg). Même règle côté serveur et client.
 export const classRange=S=>SKILL_DEFS[classOf(S).skills[0]].rg;
 export const baseRange=S=>{const a=S.eq&&S.eq.arme,r=a&&ITEMS[a.id]&&ITEMS[a.id].rg;return Math.max(classRange(S),r||0)};
-export function stats(S,drunk=0){const bs=baseStats(S.lvl);let atk=bs.atk,hp=bs.hp,arm=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:bs.caf,arm,red:arm/(arm+45),spd:m.spd}}
+// Vitesses (champs va et vd des objets, en %) : plafonnées, sinon cinq pièces rapides feraient courir plus vite qu'une trottinette et frapper sans pause.
+export const VA_MAX=50,VD_MAX=40;
+export function stats(S,drunk=0){const bs=baseStats(S.lvl);let atk=bs.atk,hp=bs.hp,arm=0,va=0,vd=0;for(const k in S.eq){const q=S.eq[k];if(q){const i=itemStats(q);atk+=i.atk;hp+=i.hp;arm+=i.arm;va+=i.va;vd+=i.vd}}if(drunk>0)atk=Math.round(atk*1.15);const m=classOf(S).mods;hp=Math.round(hp*m.hp);arm=Math.round(arm*m.arm);atk=Math.round(atk*m.atk);return{atk,maxhp:hp,maxcaf:bs.caf,arm,red:arm/(arm+45),spd:m.spd,va:Math.min(va,VA_MAX),vd:Math.min(vd,VD_MAX)}}
 
 export const stackable=id=>ITEMS[id].t!=='eq';
 // Le sac : 24 emplacements. Une pile déjà présente accueille toujours plus du même objet. Le client s'en sert pour griser les achats, le serveur pour trancher.
@@ -35,7 +38,8 @@ export const canHold=(S,id)=>(stackable(id)&&S.inv.some(s=>s.id===id))||S.inv.le
 export const newItem=(id,nObj,rarete)=>{const it=ITEMS[id];return{id,nObj:Math.max(1,Math.floor(nObj||it.rl||1)),rarete:RARITY_MULT[rarete]?rarete:it.r}};
 export const withUid=(S,x)=>({uid:'i'+(S.nextUid=(S.nextUid||0)+1),...x});
 const scaleOf=q=>{const it=ITEMS[q.id];return(1+q.nObj/10)*RARITY_MULT[q.rarete]/((1+(it.rl||1)/10)*RARITY_MULT[it.r])};
-export const itemStats=q=>{const it=ITEMS[q.id],f=scaleOf(q);return{atk:Math.round((it.atk||0)*f),hp:Math.round((it.hp||0)*f),arm:Math.round((it.arm||0)*f)}};
+// va / vd (vitesse d'attaque / de déplacement, en %) ne suivent pas le niveau d'objet : un pourcentage qui grossirait avec nObj dépasserait vite le plafond.
+export const itemStats=q=>{const it=ITEMS[q.id],f=scaleOf(q);return{atk:Math.round((it.atk||0)*f),hp:Math.round((it.hp||0)*f),arm:Math.round((it.arm||0)*f),va:it.va||0,vd:it.vd||0}};
 export const buyPrice=id=>ITEMS[id].buy??ITEMS[id].price*3;
 export const itemValue=q=>Math.max(1,Math.round(ITEMS[q.id].price*scaleOf(q)));
 export const RARITY_ORDER=['common','unc','rare','epic','leg'];
@@ -51,10 +55,10 @@ export function fuse(a,b){
 // 15 po par niveau d'objet du résultat : une dizaine de monstres d'or au niveau de l'objet.
 export const FUSE_PER_LEVEL=15;
 export const fuseCost=q=>FUSE_PER_LEVEL*q.nObj;
-export function score(q){if(!q)return -1;const i=itemStats(q);return i.atk*3+i.hp+i.arm*3}
+export function score(q){if(!q)return -1;const i=itemStats(q);return i.atk*3+i.hp+i.arm*3+(i.va+i.vd)*4}
 
-// Vitesse de déplacement relative : classe × monture (P.mount : id de la monture en selle, ou null).
-export const moveSpeed=(S,P)=>stats(S).spd*(1+(P.mount&&MOUNTS[P.mount]?MOUNTS[P.mount].speed:0));
+// Vitesse de déplacement relative : classe × équipement (vd) × monture (P.mount : id de la monture en selle, ou null).
+export const moveSpeed=(S,P)=>{const st=stats(S);return st.spd*(1+st.vd/100)*(1+(P.mount&&MOUNTS[P.mount]?MOUNTS[P.mount].speed:0))};
 
 // Capacités à venir d'un boss, pour le cadre de cible : {n, t} (secondes avant) ou {n, pct} (à ce % de PV).
 export function bossUpcoming(m){
@@ -77,14 +81,14 @@ export function statsDeMob(type,L){
 
 export function rollArt(ti,rnd,pool=ART_POOL){const w=DIFFS[ti].w,{pick}=rngTools(rnd);let tot=0;for(const k in w)tot+=w[k];let r=rnd()*tot;for(const k in w){r-=w[k];if(r<=0)return pick(pool[k])}return pick(pool.common)}
 
-export const CMP_KEYS=[['atk','Attaque','Att'],['arm','Protection','Prot'],['hp','PV','PV']];
+export const CMP_KEYS=[['atk','Attaque','Att'],['arm','Protection','Prot'],['hp','PV','PV'],['va',"Vitesse d'attaque (%)",'VA'],['vd','Vitesse de déplacement (%)','Vit']];
 export function statsWith(S,slot,q,drunk){const keep=S.eq[slot];S.eq[slot]=q;const st=stats(S,drunk);S.eq[slot]=keep;return st}
 export function cmpInfo(S,q){
   const it=q&&ITEMS[q.id];if(!it||it.t!=='eq')return null;
   const cur=S.eq[it.s]||null,curIt=cur&&ITEMS[cur.id],mine=itemStats(q),was=cur?itemStats(cur):{};
   const same=!!cur&&cur.id===q.id&&cur.nObj===q.nObj&&cur.rarete===q.rarete;
   const rows=CMP_KEYS.map(([k,l,sh])=>{const a=was[k]||0,b=mine[k]||0;return{k,l,sh,a,b,d:b-a}}).filter(r=>r.a||r.b);
-  const ups=rows.some(r=>r.d>0),downs=rows.some(r=>r.d<0),net=rows.reduce((s,r)=>s+r.d*(r.k==='hp'?1:3),0);
+  const ups=rows.some(r=>r.d>0),downs=rows.some(r=>r.d<0),net=rows.reduce((s,r)=>s+r.d*(r.k==='hp'?1:r.k==='va'||r.k==='vd'?4:3),0);
   let v,cls;
   if(same){v='Déjà équipé';cls='eq'}
   else if(ups&&!downs){v='Amélioration';cls='up'}
@@ -106,7 +110,7 @@ export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
-export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null,tp:['base','bourg']});
+export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null,tp:['base','bourg'],skins:[],skin:null});
 // Les sauvegardes viennent d'un fichier (parfois édité à la main, parfois abîmé) : on les remet d'aplomb sans jamais lever d'exception.
 // Entier borné ; une valeur absente donne `def`, une valeur absurde (texte, NaN, négatif) donne `min`.
 const int=(v,def,min=0,max=1e12)=>v===undefined?def:Number.isFinite(+v)&&v!==null&&v!==''?Math.min(max,Math.max(min,Math.floor(+v))):min;
@@ -141,6 +145,8 @@ export function normalizeSave(sv){
   if(!CLASSES[S.cls])S.cls=DEFAULT_CLASS;
   S.mounts=(Array.isArray(sv.mounts)?sv.mounts:[]).filter(id=>MOUNTS[id]);
   if(!S.mounts.includes(S.mount))S.mount=S.mounts[0]||null;
+  S.skins=[...new Set(Array.isArray(sv.skins)?sv.skins:[])].filter(id=>SKINS[id]);
+  if(!S.skins.includes(S.skin))S.skin=null;
   S.droits=Array.isArray(sv.droits)?sv.droits.filter(d=>typeof d==='string'):[];
   return S;
 }

@@ -77,7 +77,7 @@ function applySnap(m){
   const ps=merge(old,others,now,()=>({}));
   const mine=world.players[me];
   world.players={[me]:mine};
-  for(const [i,r] of others.entries())world.players[r.id]={id:r.id,P:ps[i],mapId:w.id,S:{name:r.n,hat:r.look.hat,eq:r.look.eq,lvl:r.lvl,cls:r.cls}};
+  for(const [i,r] of others.entries())world.players[r.id]={id:r.id,P:ps[i],mapId:w.id,S:{name:r.n,hat:r.look.hat,skin:r.look.skin,eq:r.look.eq,lvl:r.lvl,cls:r.cls}};
 
   // Sa propre position vient du client ; le reste de son état de combat vient du serveur.
   const r=by.player.find(x=>x.id===me);

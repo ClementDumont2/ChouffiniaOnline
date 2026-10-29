@@ -168,6 +168,7 @@ Object.assign(STOCK,{
   bde:['chips','chouffe','sweat_diiage','badge_diiage','jean_rendu'],
   petit_frere:['chips','chouffe','regle','sweat','jogging'],
   buvette:['chips','chouffe'],
+  barman_casino:['chips','chouffe'],
 });
 
 // ---- Lot 3 : butin exclusif de l'étape 1 de la LAN Party (aucun marchand, aucun tirage ; base epic niveau d'objet 20) ----
@@ -175,3 +176,59 @@ Object.assign(ITEMS,{
   multiprise_parafoudre:{n:"Multiprise Parafoudre",t:'eq',s:'arme',r:'epic',atk:52,hp:30,rl:20,price:1100,d:"Neuf prises, un interrupteur lumineux et un parafoudre qui n'a jamais servi. Corps à corps uniquement : le câble fait deux mètres, et la loi des multiprises interdit de la brancher en cascade."},
   tapis_xxl:{n:"Tapis de Souris XXL",t:'eq',s:'torse',r:'epic',atk:4,arm:40,hp:90,rl:20,price:1100,d:"90 × 40 cm de pure surface de glisse, porté en cape. Il a connu trois souris, deux Coca renversés et une rage. Il glisse sur tout, sauf sur vos responsabilités."},
 });
+
+// ---- Saison 3 : équipement de l'après-diplôme (rl 100, même échelle que le Lot 9 ; le butin des monstres 100–112 a un niveau d'objet plus haut). ----
+Object.assign(ITEMS,{
+  lanyard:eq9("Lanyard de Startup",'tete','rare',100,"Il ouvre la porte, la cafétéria et le cœur du manager. Le dernier est verrouillé."),
+  doudoune_manager:eq9("Doudoune Sans Manches de Manager",'torse','epic',100,"Brodée au logo d'un fonds d'investissement. Elle tient chaud au torse et laisse les bras dans le doute."),
+  macbook:eq9("MacBook Pro Couvert d'Autocollants",'arme','rare',100,"Plus d'autocollants que de touches. Il frappe fort, il chauffe fort, il coûte un loyer."),
+  gants_vaisselle:eq9("Gants de Vaisselle Jaunes",'mains','epic',100,"Ils ont touché des choses qu'aucun gant ne devrait toucher. Ils protègent de tout, même de la culpabilité."),
+  pyjama_coloc:eq9("Pantalon de Pyjama de Coloc",'jambes','epic',100,"Porté pour télétravailler, dormir, sortir les poubelles et, une fois, à un entretien."),
+  balai_coloc:eq9("Balai de la Coloc (Jamais Utilisé)",'arme','rare',100,"Il n'a jamais balayé. Il a toujours tapé. C'est sa vraie vocation."),
+  casque_streamer:eq9("Casque de Streamer à Micro Rétractable",'tete','epic',100,"Le micro ne se rétracte plus depuis 2021. Vous parlez toujours trop fort."),
+  clavier_60:{...eq9("Clavier 60 % Lanceur de Touches",'arme','epic',100,"Il lui manque les flèches, le pavé numérique et la dignité. Les touches partent toutes seules, à cinq cases."),rg:ARME_RG},
+  jogging_rgb:eq9("Jogging RGB Synchronisé",'jambes','rare',100,"Il clignote au rythme du bot musique. Il est désynchronisé aussi."),
+  stock_options:eq9("Stock-Options (Sans Valeur)",'arme','leg',100,"Elles vaudront des millions. Après la sortie. Après la prochaine levée. Après."),
+  trousseau_proprio:eq9("Trousseau de Clés du Proprio",'arme','leg',100,"Quarante clés, aucune n'ouvre la boîte aux lettres. Elles tranchent quand même les cautions."),
+  role_admin:eq9("Rôle Admin (Tranchant)",'arme','leg',100,"Une couleur rouge dans la liste des membres. Ça suffit à tout couper."),
+});
+Object.assign(STOCK,{
+  barista:['chips','chouffe','lanyard','macbook'],
+  coloc_ancien:['chips','chouffe','gants_vaisselle','balai_coloc'],
+  modo_afk:['chips','chouffe','jogging_rgb','clavier_60'],
+});
+
+// ---- Saison 3 : vitesse (va = vitesse d'attaque de base, vd = vitesse de déplacement, en %, plafonnées par VA_MAX / VD_MAX dans rules.js) et armes en plus chez chaque marchand. ----
+Object.assign(ITEMS,{
+  baskets_led:{n:"Baskets à LED de 2008",t:'eq',s:'jambes',r:'unc',arm:4,hp:8,vd:10,rl:5,buy:140,price:50,d:"Elles clignotent à chaque pas. Vous courez plus vite, surtout pour fuir les regards."},
+  mitaines_speedrun:{n:"Mitaines de Speedrunner",t:'eq',s:'mains',r:'rare',atk:3,arm:2,va:12,rl:8,buy:260,price:90,d:"Usées au pouce droit. Frame-perfect, sauf pour les relations humaines."},
+  rollers:{...eq9("Rollers de Livreur à Vélo (Sans Vélo)",'jambes','rare',30,"Huit roues, aucun frein, une note de 4,2 sur l'appli."),vd:12},
+  gants_apm:{...eq9("Gants 300 APM",'mains','epic',60,"Trois cents actions par minute. Dont deux cent quatre-vingt-dix inutiles, mais très vite."),va:15},
+  sneakers_dev:{...eq9("Sneakers de Développeur Pressé",'jambes','epic',88,"Pour courir du daily au rendu, et du rendu au daily. Les lacets sont défaits depuis la rentrée."),vd:15},
+  pistolet_eau:{n:"Pistolet à Eau du Petit Frère",t:'eq',s:'arme',r:'common',atk:2,rl:1,rg:ARME_RG,buy:15,price:5,d:"Il fuit. Il fuit beaucoup. Il mouille surtout vous, mais il porte loin."},
+  compas:{n:"Compas de Géométrie",t:'eq',s:'arme',r:'unc',atk:4,va:12,rl:2,buy:45,price:15,d:"Pointu d'un côté, crayon de l'autre. Il pique vite et trace des cercles parfaits autour de vos ennemis."},
+  sarbacane:{n:"Sarbacane en Stylo Bic",t:'eq',s:'arme',r:'rare',atk:8,rl:6,rg:ARME_RG,buy:220,price:75,d:"Corps de stylo, boulette de papier mâché. Le prof de maths l'a confisquée trois fois. Elle revient toujours."},
+  micro_plateau:{n:"Micro de Plateau TV",t:'eq',s:'arme',r:'unc',atk:5,hp:5,va:8,rl:4,buy:90,price:30,d:"Celui qui coupe la parole. Il frappe vite, il frappe fort, il ne laisse jamais finir une phrase."},
+  chaise_pliante:{n:"Chaise Pliante de Débat",t:'eq',s:'arme',r:'rare',atk:12,hp:10,rl:8,buy:300,price:100,d:"L'argument final de tout débat de plateau. Elle se plie, vos adversaires aussi."},
+  louche:{...eq9("Louche de la Cantine",'arme','rare',18,"Elle sert la purée et les coups. Les deux à la même vitesse : beaucoup trop vite."),va:10},
+  baguette:{...eq9("Baguette Rassie de 21 h 58",'arme','rare',30,"Dure comme du béton depuis 21 h 57. Elle frappe vite, elle frappe sec, elle ne se mange plus."),va:12},
+  pistolet_etiquettes:{...eq9("Pistolet à Étiquettes",'arme','rare',33,"Il colle « −70 % » sur tout ce qui bouge, à cinq cases. Personne n'ose le décoller."),rg:ARME_RG},
+  parapluie:{...eq9("Parapluie à Ressort du Guichet",'arme','rare',46,"Oublié par un usager en 2009. Il s'ouvre tout seul, loin, et toujours au mauvais moment pour l'ennemi."),rg:ARME_RG},
+  agrafeuse:{...eq9("Agrafeuse Lourde de Bureau",'arme','epic',50,"Cinquante feuilles d'un coup. Ou un ennemi. Clac, clac, clac, très vite."),va:10},
+  arc_mousse:{...eq9("Arc en Mousse de GN",'arme','rare',58,"Les flèches sont en mousse, la conviction est en béton. « Touché ! Tu es mort ! » Il l'est, en effet."),rg:ARME_RG},
+  bokken:{...eq9("Bokken de Cosplay Vernis",'arme','epic',62,"Trois couches de vernis, aucun entraînement. Il frappe vite parce qu'il est léger, et parce qu'il est fier."),va:15},
+  souris_lasso:{...eq9("Souris Filaire en Lasso",'arme','epic',84,"Deux mètres de câble, un clic gauche à distance. Elle revient toujours, comme un bug."),rg:ARME_RG},
+  mug_geant:{...eq9("Mug « World's Best Developer »",'arme','rare',100,"Offert par l'équipe, rempli quatre fois par heure. Il cogne vite : il n'y a jamais assez de temps."),va:10},
+  poele_coloc:eq9("Poêle de la Coloc (Jamais Lavée)",'arme','epic',100,"La couche de gras la rend antiadhésive et indestructible. Ne pas lécher."),
+  webcam:{...eq9("Webcam Lancée en Plein Appel",'arme','epic',100,"« Tu m'entends ? » Non. Mais elle, elle vous atteint à cinq cases."),rg:ARME_RG},
+  ecran_incurve:eq9("Écran Incurvé de 34 Pouces",'arme','epic',90,"Immersif. Lourd. Il épouse la forme du crâne de l'ennemi."),
+});
+STOCK.bernard.push('compas','sarbacane','baskets_led','mitaines_speedrun');
+STOCK.petit_frere.push('pistolet_eau');
+STOCK.buvette.push('micro_plateau','chaise_pliante');
+STOCK.cantine.push('louche');
+STOCK.chef_rayon.push('baguette','pistolet_etiquettes','rollers');
+STOCK.sauvette.push('parapluie','agrafeuse');
+STOCK.goodies.push('arc_mousse','bokken','gants_apm');
+STOCK.barista.push('mug_geant');STOCK.coloc_ancien.push('poele_coloc');STOCK.modo_afk.push('webcam');
+STOCK.bde.push('souris_lasso','ecran_incurve','sneakers_dev');

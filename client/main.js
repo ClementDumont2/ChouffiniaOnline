@@ -1,12 +1,12 @@
 import {ACH,DIFFS,DUNGEONS,HATS,ZONES} from '../shared/data.js';
 import {CLASSES,DEFAULT_CLASS} from '../shared/data/classes.js';
-import {zoneAt} from '../shared/map.js';
+import {isSafe,regionAt,zoneAt} from '../shared/map.js';
 import {cleanName} from '../shared/protocol.js';
 import {$,esc,pick,rr} from './util.js';
 import {drawChouffin} from './sprites.js';
 import {burst,floater,shoot,paintWorld,parts,render,resize,updFx} from './render.js';
 import {countdown,announce,banner,buildBar,syncBar,syncUpgrade,chat,drawPortrait,err,fmtMsg,hud,renderQuest,setMini,toast,updTarget} from './hud.js';
-import {closeMap,refreshDialog,renderBag,renderChar,setBoard,showChest,showDeath,showDuelInvite,showEnd,showTrade,unlockDlg} from './panels.js';
+import {closeMap,refreshDialog,renderBag,renderChar,setBoard,setCasino,setPoker,showChest,showDeath,showDuelInvite,showEnd,showTrade,unlockDlg} from './panels.js';
 import {initInput,nav,updControl} from './input.js';
 import {helpHTML} from './keys.js';
 import {music,sfx,wheels} from './sound.js';
@@ -18,9 +18,12 @@ const LAST='chouffinia-dernier-pseudo';
 const lastName=()=>{try{return localStorage.getItem(LAST)}catch(e){return null}};
 const rememberName=()=>{try{localStorage.setItem(LAST,S.name)}catch(e){}};
 
-let lastWD=null,curZone='';
+let lastWD=null,curZone='',curReg='';
 function syncView(){if(WD!==lastWD){lastWD=WD;closeMap();if(!WD.c)paintWorld(WD);curZone='';setMini();renderQuest()}}
 function updZone(){
+  // Changement de carte (région) : un fondu au noir très court masque le saut de caméra et l'arrivée des entités de la nouvelle région.
+  const r=regionAt(WD,P.x,P.y);if(r!==curReg){if(curReg){const f=$('#fade');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}curReg=r}
+  $('#zone').classList.toggle('safe',WD.id==='over'&&isSafe(WD,P.x,P.y));
   const z=zoneAt(WD,P.x,P.y);if(z===curZone)return;
   curZone=z;const Z=z==='dungeon'?{n:DUNGEONS[WD.dg].n,s:`Difficulté ${DIFFS[WD.ti].n} · ${DIFFS[WD.ti].sub}`}:ZONES[z];
   $('#zone').textContent=Z.n;banner(Z.n,Z.s,z==='dungeon'?'dg':'');
@@ -55,6 +58,8 @@ hooks.event=e=>{
     case 'approach':nav.follow=e.id;nav.goal=null;break;
     case 'chest':showChest(e);sfx('coin');break;
     case 'board':setBoard(e.tops);break;
+    case 'casino':setCasino(e);sfx(e.net>0?'coin':'pop');break;
+    case 'poker':setPoker(e);break;
     case 'trade':showTrade(e);break;
     case 'duelInvite':showDuelInvite(e);break;
     case 'count':countdown(e.text);break;

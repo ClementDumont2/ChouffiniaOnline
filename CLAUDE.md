@@ -7,7 +7,7 @@ MMORPG parodique en pixel art (canvas 2D) où l'on joue un chouffin. Objectif du
 - JavaScript **ES modules natifs**, Node ≥ 20. Pas de TypeScript, pas de framework, pas de bundler.
 - Une seule dépendance runtime : `ws`. Le serveur HTTP est le module `http` de Node (fichiers statiques).
 - Persistance : **un fichier JSON par joueur** dans `saves/`. Pas de base de données.
-- Pas de Docker, pas de comptes, pas d'anti-triche. On joue entre potes.
+- Docker seulement pour l'hébergement (`Dockerfile` + `compose.yaml`, image `node:20-alpine`, `saves/` monté) ; pas de comptes, pas d'anti-triche. On joue entre potes.
 - Si une solution demande une nouvelle dépendance ou une nouvelle couche, proposer d'abord l'alternative sans.
 
 ## Commandes
@@ -27,13 +27,14 @@ Test multi manuel : deux onglets sur `http://localhost:3000`, deux pseudos diff�
 ```
 shared/            code pur, AUCUN accès au DOM ni à Math.random, importé par Node ET par le navigateur
   data.js          tables de base + agrégation des fichiers data/ (ZONES, MOBS, SPAWNS, QUESTS, NPCS, DIFFS, ACH, BOTS, HATS, MAXLVL…)
-  data/            un fichier par domaine (voir « Données ») : classes, zones, mobs, bosses, items, mounts, dialogues, commands, dungeons, quests
+  data/            un fichier par domaine (voir « Données ») : classes, zones, mobs, bosses, items, mounts, skins, dialogues, commands, dungeons, quests
   rng.js           mulberry32(seed), rngTools(rnd) → {rr, ri, pick}
   map.js           tuiles (T, SOLID), genOverworld(seed), genDungeon(seed, ti, opts), zoneAt, isSafe, zoneLabels, canStand/moveEnt
   rules.js         stats(), xpNeed(), statsDeMob(), objets (newItem, itemStats, fuse), newSave/normalizeSave, hasRight, cmpInfo
   sim.js           état du monde : createWorld, addPlayer/removePlayer, movePlayer, tick, handleAction, handleChat, takeEvents
   protocol.js      formes des messages (doc en tête de fichier), snapshotFor, cleanName/cleanHat/cleanCls
   commands.js      findCommand, canUse, suggest (autocomplétion) sur la table data/commands.js
+  casino.js        règles pures du Casino : paquet, valeur au blackjack, gains de la roulette, rang des mains de poker
 server/index.js    http statique (client/ et shared/ seulement), WebSocket, boucle 20 ticks/s, sauvegardes, w.saves()
 client/
   index.html       coquille HTML + tout le CSS (reprise de legacy)
@@ -71,9 +72,9 @@ legacy/            version solo d'origine, ne pas modifier
 La référence est l'en-tête de `shared/protocol.js` ; résumé :
 
 - Client → serveur : `{t:'join', name, hat, cls}` · `{t:'move', x, y, face}` · `{t:'act', a, ...}` · `{t:'chat', text}`
-- `a` ∈ target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll, acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn, mount, selectMount, buyMount, changeClass, fuse, tradeOffer, tradeOk, tradeCancel, duelReply
+- `a` ∈ target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll, acceptQuest, completeQuest, enterDungeon, leaveDungeon, openChest, respawn, mount, selectMount, buyMount, buySkin, wearSkin, casino, changeClass, fuse, tradeOffer, tradeOk, tradeCancel, duelReply
 - Serveur → client : `welcome {id, seed, save}` · `refused {msg}` · `self {save}` (avant `ev` et `snap`) · `ev {list}` · `snap {world, tick, ents}` (20×/s, entités de la carte du joueur ; l'entrée du joueur porte `priv` : hp, caf, cd, cast, target, auto, `crew` = autres joueurs du même donjon)
-- Événements `ev` : msg (cls sys/loot/guild/yell…), chat (`ch` = canal, absent = Général), emote, err, toast, banner, float, burst, puff, lvlup, ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade, duelInvite, count, online, announce, board.
+- Événements `ev` : msg (cls sys/loot/guild/yell…), chat (`ch` = canal, absent = Général), emote, err, toast, banner, float, burst, puff, lvlup, ach, died, respawned, tp, stop, approach, chest, campaignEnd, trade, duelInvite, count, online, announce, board, casino, poker.
 - Texte des `msg` : mini-balisage `**gras**`, `[[id_objet]]`, `[[id:rareté:nObj]]`, `[[up]]`.
 
 ## Serveur
@@ -87,7 +88,12 @@ La référence est l'en-tête de `shared/protocol.js` ; résumé :
 
 ## Systèmes de jeu (où regarder)
 
-- **Monde** : carte 160×60. Sanctuaires (pas de monstres) : `base` (Sous-Sol de Maman, spawn 7.5, 8.5), `bourg` (Bourg-Forum, marchands, retour de donjon 21.5, 20.4), `arene` (duels), puis un par zone de l'est : `preau` (Parking, Surveillant → donjon du Bac), `accueil`, `attente`, `vestiaire`, `cafet` — rectangles et points d'arrivée dans `SAFE` (data/zones.js), chacun avec un marchand d'équipement de sa zone (`STOCK`, prix `buyPrice` = `buy` ou 3 × `price`). Zones par niveau : plaine 1–2 → … → datacenter 10, puis parking 15–25, supermarché 25–40, pôle 40–55, convention 55–75, diiage 75–100. Découpage dans `zoneAt` (map.js).
+- **Une zone = une carte** : la carte du monde (200×60, tuiles uniques) est découpée en régions (`REGIONS`, data/zones.js ; `regionAt`, map.js). Snapshot, ciblage, poursuites, effets localisés (`toMap` avec x/y) et caméra restent dans la région du joueur ; passer la frontière = changer de carte (fondu `#fade`). Les monstres d'une région vide ne tournent pas (sauf morts et poursuites). Les zones de départ sans haie (plaine, steppe, lac, forêt, Bourg, Sous-Sol, Arène, Cuisine, Casino) forment une seule carte, `pres`.
+- **Monde** : carte 200×60. Sanctuaires (pas de monstres) : `base` (Sous-Sol de Maman, spawn 7.5, 8.5), `bourg` (Bourg-Forum, marchands, retour de donjon 21.5, 20.4), `arene` (duels), puis un par zone de l'est : `preau` (Parking, Surveillant → donjon du Bac), `accueil`, `attente`, `vestiaire`, `cafet` — rectangles et points d'arrivée dans `SAFE` (data/zones.js), chacun avec un marchand d'équipement de sa zone (`STOCK`, prix `buyPrice` = `buy` ou 3 × `price`). Zones par niveau : plaine 1–2 → … → datacenter 10, puis parking 15–25, supermarché 25–40, pôle 40–55, convention 55–75, diiage 75–100, puis l'après-diplôme (x ≥ 160, monstres 100–112, pour l'or et le butin) : startup, coloc, discord, chacune avec son sanctuaire (`machine_cafe`, `palier`, `salon_afk`). Découpage dans `zoneAt` (map.js).
+- **Sanctuaires (affichage)** : voile doré et liseré au sol (`paintSafe`, render.js) et sur la minimap, badge « Zone protégée » sous le nom de zone.
+- **Casino** (sanctuaire `casino`, au sud de l'Arène) : blackjack (`croupier_bj`), roulette (`croupier_roul`), Poker Chouffin entre joueurs (`croupier_pk`, une table `w.poker` pour tout le serveur, 2–6 joueurs, un échange, 30 s). Action `casino {g, op, gold|uid}` ; la mise (or ou équipement du sac) quitte le sac dès qu'elle est posée, `settle` paie. Déconnexion : main de blackjack perdue, poker rendu avant la donne, couché après.
+- **Vitesses** : champs `va` (vitesse d'attaque de base) et `vd` (déplacement), en %, sur les objets ; non mis à l'échelle par nObj, plafonnés (`VA_MAX`, `VD_MAX`, rules.js). `vd` passe par `moveSpeed` (donc la vérification serveur), `va` accélère la recharge de la compétence 1.
+- **Tenues** : `data/skins.js`, cosmétiques, achetées/portées chez le Fripier (Bourg) ; `S.skins`, `S.skin`, appliquées par `playerLook`.
 - **Sanctuaires / voyage** : entrer dans un sanctuaire le débloque (`S.tp`) ; `/tp <lieu ou joueur>` téléporte vers un sanctuaire débloqué ou à côté d'un joueur de la carte du monde, au départ d'un sanctuaire seulement. Chaque sanctuaire a un marchand (Petit Frère au sous-sol, Buvette à l'arène).
 - **Sac** : 24 places (`BAG`), `canHold` (rules.js) décide côté serveur et grise les achats côté client.
 - **Fenêtres** : une seule ouverte à la fois (`closeAll`, panels.js), carte agrandie comprise.
@@ -125,16 +131,17 @@ Ajouter du contenu = ajouter des données, pas du code spécial. Le format de ch
 | `dungeons.js` | `DUNGEONS` : npc d'entrée, exit, boss, kinds, diffs, unique, textes |
 | `quests.js` | `NEW_QUESTS` ajoutées à la suite de la campagne |
 | `mounts.js` | `MOUNTS`, `MAMAN_KILLS` |
+| `skins.js` | `SKINS` (tenues : couleurs, prix) |
 | `dialogues.js` | `LIGNES_PNJ` (répliques par PNJ) |
 | `commands.js` | `COMMANDS` `{nom, alias, args, description, droit?}` : dispatch serveur (`RUN` dans sim.js) + autocomplétion |
 
 PNJ : `{id, kind:'npc', n, tag, ti, x, y, hgt, greet, look?, dungeon?, board?}`. Les boutons d'un PNJ marchand/service sont dans `showNpc` (panels.js), indexés par `n.id`.
 
-Exceptions au « tout par les données » : une nouvelle **zone** demande aussi de modifier `genOverworld` et `zoneAt` (map.js) ; une nouvelle **compétence** demande son comportement dans sim.js ; un nouveau **type** de capacité de boss demande le moteur `bossTick`.
+Exceptions au « tout par les données » : une nouvelle **zone** demande aussi de modifier `genOverworld` et `zoneAt` (map.js) et d'ajouter sa région dans `REGIONS` (un test vérifie que les régions couvrent toute la carte sans chevauchement) ; une nouvelle **compétence** demande son comportement dans sim.js ; un nouveau **type** de capacité de boss demande le moteur `bossTick`.
 
 ## Sauvegarde (`saves/<pseudo>.json`)
 
-Forme donnée par `newSave` et réparée par `normalizeSave` (rules.js) : name, hat, cls, lvl (≤ 100), xp, gold, hp, caf, inv, eq, q, ach, compteurs (kills, deaths, chouffes, dg, duelWins…), mounts, mount, concede, guilde, tp (sanctuaires débloqués), titre?, droits?. Tout champ ajouté doit avoir sa valeur par défaut dans `newSave` et sa validation dans `normalizeSave`.
+Forme donnée par `newSave` et réparée par `normalizeSave` (rules.js) : name, hat, cls, lvl (≤ 100), xp, gold, hp, caf, inv, eq, q, ach, compteurs (kills, deaths, chouffes, dg, duelWins…), mounts, mount, skins, skin, concede, guilde, tp (sanctuaires débloqués), titre?, droits?. Tout champ ajouté doit avoir sa valeur par défaut dans `newSave` et sa validation dans `normalizeSave`.
 
 ## Conventions
 
@@ -162,7 +169,8 @@ Prédiction côté client, rollback, delta compression, comptes avec mot de pass
 
 - LAN : `npm start`, ouvrir le port 3000 dans le pare-feu (voir README). Hors LAN : Tailscale.
 - Sur une VM publique : il n'y a **aucun mot de passe** (le pseudo suffit à reprendre une sauvegarde) ; restreindre le port 3000 aux IP connues.
-- Trafic : un snapshot de la carte du monde fait ~64 Ko, ×20/s, soit ~4,6 Go/h par joueur sans compression (~0,3 Go/h avec `perMessageDeflate` de `ws`, non activé à ce jour).
+- Docker : `docker compose up -d --build` (port `${PORT:-3000}`, `saves/` monté, redémarrage automatique) ; le serveur sauvegarde tout le monde sur SIGTERM.
+- Trafic : le snapshot ne contient plus que la région du joueur (avant : ~64 Ko pour toute la carte du monde, ×20/s) ; `perMessageDeflate` de `ws` toujours non activé.
 
 ## Pièges connus
 

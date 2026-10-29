@@ -1,5 +1,7 @@
+import {SKINS} from '../shared/data/skins.js';
+import {ROUL_BETS,cardName} from '../shared/casino.js';
 import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SLOTS,STOCK} from '../shared/data.js';
-import {BAG,FUSE_PER_LEVEL,activityInfo,dgDiffs,baseRange,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,slotCandidates,stats,statsWith,upgradableSlots} from '../shared/rules.js';
+import {VA_MAX,VD_MAX,BAG,FUSE_PER_LEVEL,activityInfo,dgDiffs,baseRange,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,slotCandidates,stats,statsWith,upgradableSlots} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
@@ -63,7 +65,7 @@ export function renderBag(){
   $('#a2').onclick=()=>send({a:'drop',idx:selItem});
 }
 // q : instance d'équipement (stats mises à l'échelle) ou pile ; l'entrée de ITEMS seule (aperçu boutique) passe par newItem.
-function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);if(it.rg)sts.push(`Portée : ${it.rg} cases`);return sts.join(' · ')}
+function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(v.va)sts.push(`+${v.va} % vitesse d'attaque`);if(v.vd)sts.push(`+${v.vd} % vitesse de déplacement`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);if(it.rg)sts.push(`Portée : ${it.rg} cases`);return sts.join(' · ')}
 function deltaLine(q){
   const c=cmpInfo(S,q);if(!c)return'';if(c.same)return'<span class="eqd">Équipé actuellement</span>';
   const parts=c.rows.filter(r=>r.d).map(r=>r.d>0?`<span class="up">▲ +${r.d} ${r.sh}</span>`:`<span class="down">▼ −${-r.d} ${r.sh}</span>`);
@@ -141,7 +143,7 @@ export function renderChar(){
 export function renderCharStats(){
   if(charTab!=='eq')return;
   const st=stats(S,P.drunk),dig=Math.max(0,100-S.tips),days=6+Math.floor(S.played/60);
-  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${(S.eq.tete&&S.eq.tete.id)==='fedora'?2:3} <small>${(S.eq.tete&&S.eq.tete.id)==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
+  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],["Vitesse d'attaque",`+${st.va} % <small>(plafond ${VA_MAX} %)</small>`],['Vitesse de déplacement',`+${st.vd} % <small>(plafond ${VD_MAX} %, hors monture)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${(S.eq.tete&&S.eq.tete.id)==='fedora'?2:3} <small>${(S.eq.tete&&S.eq.tete.id)==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
   $('#cstats').innerHTML=rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
 let dlgLocked=false;
@@ -193,6 +195,16 @@ function showNpc(n){
       btns.push([own?`${m.n} (possédée)`:`Acheter : ${m.n} (${fmt(m.price)} po)`,()=>send({a:'buyMount',id}),false,own||S.lvl<m.rl||S.gold<m.price]);
     }
   }
+  if(n.id==='fripier'){
+    for(const [id,k] of Object.entries(SKINS)){
+      const own=S.skins.includes(id),on=S.skin===id;
+      html+=`<p class="rw"><b class="q-${k.r}">${esc(k.n)}</b> · ${fmt(k.price)} po${on?' · portée':own?' · possédée':''}<br><span class="ty">${esc(k.d)}</span></p>`;
+      btns.push(on?[`Retirer : ${k.n}`,()=>send({a:'wearSkin',id:null}),true]:own?[`Porter : ${k.n}`,()=>send({a:'wearSkin',id})]:[`Acheter : ${k.n} (${fmt(k.price)} po)`,()=>send({a:'buySkin',id}),false,S.gold<k.price]);
+    }
+  }
+  if(n.id==='croupier_bj')btns.unshift(['Jouer au blackjack',()=>openBj(n)]);
+  if(n.id==='croupier_roul')btns.unshift(['Jouer à la roulette',()=>openRoul(n)]);
+  if(n.id==='croupier_pk')btns.unshift(['Table de Poker Chouffin',()=>openPoker(n)]);
   if(n.id==='fanfiqueuse'){btns.unshift(['Fusionner deux objets',()=>{fusSel=[];openFusion(n)}])}
   if(n.id==='conseiller'){btns.unshift(['Changer de classe',()=>openClassMenu(n)])}
   if(n.board)html+=board?board.map(([lbl,rows])=>`<h4>${esc(lbl)}</h4><ol class="board">${rows.map(([nm,v,g],i)=>`<li><span class="ty">${i+1}.</span><b>${esc(nm)}</b>${g?` <span class="ty">&lt;${esc(g)}&gt;</span>`:''}<span>${esc(v)}</span></li>`).join('')}</ol>`).join(''):'<p class="ty">Chargement du classement…</p>';
@@ -361,3 +373,63 @@ $('#optVol').oninput=e=>setSound({vol:e.target.value/100});
 $('#optMus').onchange=e=>setSound({music:e.target.checked});
 $('#deadbtn').onclick=()=>send({a:'respawn'});
 $('#optsReset').onclick=()=>{resetKeys();waiting=null;renderOpts();refreshKeyLabels()};
+
+// ---- Casino : l'affichage seulement ; le serveur mélange, distribue et paie (événements 'casino' et 'poker'). ----
+let bj=null,roul=null,pk=null;
+// La mise choisie survit aux rafraîchissements du dialogue (chaque 'self' le redessine).
+const stake={gold:100,uid:'',bet:'rouge',num:17};
+export function setCasino(e){if(e.g==='bj')bj=e;else roul=e;refreshDialog()}
+export function setPoker(e){pk=e.result||e.phase==='draw'||e.seats.length?e:null;refreshDialog()}
+const cards=(h,hide)=>`<div class="cards">${h.map(c=>`<span class="card${(c/13|0)%3?' r':''}">${cardName(c)}</span>`).join('')}${hide?'<span class="card back">?</span>':''}</div>`;
+function stakeBox(){
+  const box=document.createElement('div');box.className='stake';
+  const eq=S.inv.filter(s=>s.uid);if(!eq.some(q=>q.uid===stake.uid))stake.uid='';
+  box.innerHTML=`<label>Mise en or <input type="number" id="stG" min="1" step="1" value="${stake.gold}"></label><label>ou un équipement du sac <select id="stI"><option value="">— aucun —</option>${eq.map(q=>`<option value="${q.uid}"${q.uid===stake.uid?' selected':''}>${esc(ITEMS[q.id].n)} · niv. ${q.nObj} · ${fmt(itemValue(q))} po</option>`).join('')}</select></label><p class="ty">Un équipement misé vaut son prix de revente : gagnant, il revient avec le gain en or ; perdant, il reste à la maison. Vous avez ${fmt(S.gold)} po.</p>`;
+  box.querySelector('#stG').oninput=e=>{stake.gold=Math.max(1,Math.floor(+e.target.value||1))};
+  box.querySelector('#stI').onchange=e=>{stake.uid=e.target.value};
+  return box;
+}
+const stakeArgs=()=>stake.uid?{uid:stake.uid}:{gold:stake.gold};
+const stakeOk=()=>!!stake.uid||(stake.gold>=1&&stake.gold<=S.gold);
+const netLine=n=>n>0?`<b class="up">+${fmt(n)} po</b>`:n<0?`<b class="down">−${fmt(-n)} po</b>`:'<b>Mise rendue</b>';
+function openBj(n){
+  const wrap=document.createElement('div'),play=bj&&!bj.done;
+  if(bj)wrap.insertAdjacentHTML('beforeend',`<h4>Banque${bj.bv!=null?` · ${bj.bv}`:''}</h4>${cards(bj.bank,!bj.done)}<h4>Vous · ${bj.yv}</h4>${cards(bj.you)}<p class="rw">Mise : ${esc(bj.stake)}${bj.done?` · ${netLine(bj.net)}`:''}</p>`);
+  else wrap.innerHTML='<p class="rw">Approchez-vous de 21 sans le dépasser. La banque tire jusqu\'à 17. Blackjack (21 en deux cartes) : payé 3 pour 2. Égalité : mise rendue.</p>';
+  if(!play)wrap.appendChild(stakeBox());
+  const btns=play?[['Tirer une carte',()=>send({a:'casino',g:'bj',op:'hit'})],['Rester',()=>send({a:'casino',g:'bj',op:'stand'})]]:[[bj?'Rejouer':'Distribuer',()=>send({a:'casino',g:'bj',op:'deal',...stakeArgs()}),false,!stakeOk()]];
+  btns.push(['Retour',()=>{if(!play)bj=null;showNpc(n)},true]);
+  dialog('Blackjack','Casino du 18-25 · contre la banque',wrap,btns,false,n);
+  dlgRedo=()=>openBj(n);
+}
+function openRoul(n){
+  const wrap=document.createElement('div');
+  if(roul)wrap.insertAdjacentHTML('beforeend',`<div class="roul ${roul.col}">${roul.n}</div><p class="rw">${roul.col} · mise ${esc(roul.stake)} · ${netLine(roul.net)}</p>`);
+  wrap.insertAdjacentHTML('beforeend',`<label class="bet">Pari <select id="rB">${Object.entries(ROUL_BETS).map(([k,l])=>`<option value="${k}"${stake.bet===k?' selected':''}>${l} · ×2</option>`).join('')}<option value="num"${stake.bet==='num'?' selected':''}>Numéro plein · ×36</option></select> <input type="number" id="rN" min="0" max="36" value="${stake.num}"${stake.bet==='num'?'':' hidden'}></label>`);
+  wrap.appendChild(stakeBox());
+  wrap.querySelector('#rB').onchange=e=>{stake.bet=e.target.value;openRoul(n)};
+  wrap.querySelector('#rN').oninput=e=>{stake.num=Math.min(36,Math.max(0,Math.floor(+e.target.value||0)))};
+  dialog('Roulette','Casino du 18-25 · roulette européenne',wrap,[['Lancer la bille',()=>send({a:'casino',g:'roul',bet:stake.bet==='num'?stake.num:stake.bet,...stakeArgs()}),false,!stakeOk()],['Retour',()=>{roul=null;showNpc(n)},true]],false,n);
+  dlgRedo=()=>openRoul(n);
+}
+let keep=new Set();
+function openPoker(n){
+  const wrap=document.createElement('div'),seated=!!(pk&&pk.hand!==undefined&&pk.seats.some(s=>s.n===S.name)&&!pk.result),draw=seated&&pk.phase==='draw'&&!pk.ok;
+  wrap.innerHTML='<p class="rw">Chacun pose sa mise au pot (or ou équipement). Cinq cartes, un seul échange : touchez les cartes à <b>garder</b>, les autres sont remplacées. La meilleure main ramasse tout. Se lever après la donne = se coucher.</p>';
+  if(pk&&pk.result)wrap.insertAdjacentHTML('beforeend',`<h4>Abattage</h4>${pk.result.map(r=>`<div class="pkrow${r.win?' win':''}"><b>${esc(r.n)}</b> · ${esc(r.main)}${r.win?' · gagne':''}${cards(r.hand)}</div>`).join('')}`);
+  else if(pk)wrap.insertAdjacentHTML('beforeend',`<h4>Table${pk.phase==='draw'?` · échange en cours (${pk.left} s)`:' · en attente de joueurs'}</h4>${pk.seats.map(s=>`<div class="pkrow"><b>${esc(s.n)}</b> · ${esc(s.stake)}${s.fold?' · couché':s.ok?' · prêt':''}</div>`).join('')}`);
+  if(seated&&pk.hand){
+    const h=document.createElement('div');h.className='cards pick';
+    pk.hand.forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.className=`card${(c/13|0)%3?' r':''}${keep.has(i)||!draw?' keep':''}`;b.textContent=cardName(c);b.disabled=!draw;b.onclick=()=>{keep.has(i)?keep.delete(i):keep.add(i);openPoker(n)};h.appendChild(b)});
+    wrap.insertAdjacentHTML('beforeend','<h4>Votre main</h4>');wrap.appendChild(h);
+  }
+  if(!seated)wrap.appendChild(stakeBox());
+  const btns=[];
+  if(!seated)btns.push(["S'asseoir et miser",()=>{keep=new Set();send({a:'casino',g:'pk',op:'sit',...stakeArgs()})},false,!stakeOk()||(pk&&pk.phase==='draw'&&!pk.result)]);
+  else if(pk.phase==='wait')btns.push([`Distribuer (${pk.seats.length} joueur${pk.seats.length>1?'s':''})`,()=>send({a:'casino',g:'pk',op:'start'}),false,pk.seats.length<2]);
+  if(draw)btns.push([`Échanger ${5-keep.size} carte${5-keep.size>1?'s':''}`,()=>{send({a:'casino',g:'pk',op:'draw',keep:[...keep]});keep=new Set()}]);
+  if(seated)btns.push([pk.phase==='wait'?'Se lever (reprendre la mise)':'Se coucher',()=>send({a:'casino',g:'pk',op:'leave'}),true]);
+  btns.push(['Retour',()=>{if(pk&&pk.result)pk=null;showNpc(n)},true]);
+  dialog('Poker Chouffin','Casino du 18-25 · entre joueurs, 2 à 6',wrap,btns,false,n);
+  dlgRedo=()=>openPoker(n);
+}

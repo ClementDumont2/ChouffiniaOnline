@@ -1,3 +1,4 @@
+import {SKINS} from '../shared/data/skins.js';
 import {clamp} from '../shared/rules.js';
 import {ITEMS} from '../shared/data.js';
 import {rnd,rr} from './util.js';
@@ -73,8 +74,12 @@ export function drawMount(g,cx,fy,s,id,o){
   }
 }
 export function playerLook(S){
-  // Soi-même : instances ; autres joueurs : identifiants seuls (voir le snapshot).
-  const id=k=>{const q=S.eq[k];return q&&(q.id||q)},t=id('torse'),h=id('tete');
+  // Soi-même : instances ; autres joueurs : identifiants seuls (voir le snapshot). Une tenue (SKINS) recouvre les couleurs du torse et des jambes.
+  const id=k=>{const q=S.eq[k];return q&&(q.id||q)},t=id('torse'),h=id('tete'),k=SKINS[S.skin];
+  if(k)return{...lookOf(S,id,t,h),coat:k.coat,coatLong:false,armor:null,shirt:k.shirt,logo:k.logo,pants:k.pants};
+  return lookOf(S,id,t,h);
+}
+function lookOf(S,id,t,h){
   return{cls:S.cls,hat:S.hat,coat:t==='trench'?'#1f1c23':t==='tshirt'?'#2d2a33':t==='sweat'?'#4a5a6a':'#4a4552',coatLong:t==='trench',armor:(t==='carton'||t==='eva'||t==='tapis_xxl')?t:null,shirt:t==='tshirt'?'#111':'#161419',logo:t==='tshirt'?'#e07a1f':'#d4ad60',band:h==='bandeau'?'#2b3a8a':'#7a2f2f',wpn:id('arme'),glasses:h!=='heaume',vr:h==='heaume',ears:h==='casque',pants:id('jambes')==='jambieres'?'#5f5e34':id('jambes')==='jogging'?'#2a2a3a':'#25232b'};
 }
 export function drawMob(g,m,cx,fy,s,t){

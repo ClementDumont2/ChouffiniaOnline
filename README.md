@@ -22,6 +22,14 @@ Chouffinia Online est lancé.
 
 Un autre port : `PORT=4000 npm start` (Windows PowerShell : `$env:PORT=4000; npm start`).
 
+## Lancer avec Docker (serveur de prod)
+
+```bash
+docker compose up -d --build
+```
+
+Le jeu tourne en arrière-plan sur le port 3000 (autre port : `PORT=4000 docker compose up -d`), redémarre seul après un plantage ou un reboot, et les sauvegardes restent dans `saves/` sur la machine. Logs : `docker compose logs -f`. Arrêt (sauvegarde tout le monde) : `docker compose down`. Mise à jour : `git pull` puis `docker compose up -d --build`.
+
 ## Pare-feu Windows
 
 Au premier lancement, Windows demande d'autoriser Node.js : coche **Réseaux privés** et valide. Si la fenêtre a disparu ou si les autres PC n'arrivent pas à se connecter : Pare-feu Windows Defender → « Autoriser une application » → Node.js, réseaux privés. À défaut, créer une règle entrante TCP pour le port 3000.
@@ -36,6 +44,8 @@ Lancer la commande `sudo ufw allow 3000` avec le port de l'application (ici 3000
 3. Choisir un pseudo et entrer dans le monde.
 
 Le pseudo est unique : s'il est déjà connecté, le serveur refuse avec un message. Le personnage est sauvegardé dans `saves/<pseudo>.json` ; se reconnecter avec le même pseudo le retrouve. Il n'y a pas de mot de passe : on joue entre potes.
+
+Nouveautés de la saison 3 : chaque zone est sa propre carte (on change de carte en passant la frontière), trois zones après le DIIAGE pour les niveaux 100, des sanctuaires bien délimités (liseré doré), le Casino du 18-25 au sud de l'Arène (blackjack, roulette, Poker Chouffin entre joueurs, en misant de l'or ou un équipement), des armes en plus chez chaque marchand, des équipements de vitesse d'attaque et de déplacement, et des tenues chez le Fripier du Bourg-Forum.
 
 Dans le jeu, `/aide` liste les commandes (`/qui`, `/mp`, `/inviter`, `/accepter`, `/quitter`…).
 

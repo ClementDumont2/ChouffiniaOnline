@@ -1,7 +1,8 @@
 import {QUESTS} from '../shared/data.js';
 import {AFFIXES} from '../shared/data/bosses.js';
 import {clamp,dist} from '../shared/rules.js';
-import {T,tileAt} from '../shared/map.js';
+import {T,isSafe,regionAt,tileAt} from '../shared/map.js';
+import {REGIONS} from '../shared/data/zones.js';
 import {$,rnd,rr} from './util.js';
 import {MOUNT_LIFT,drawChouffin,drawMob,drawMount,drawNpc,drawObj,playerLook} from './sprites.js';
 import {P,S,WD,me,targetEnt,world} from './state.js';
@@ -96,6 +97,23 @@ export function paintWorld(Wd){
   const g=Wd.c.getContext('2d');for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++)paintTile(g,Wd,x,y);
   Wd.mini=document.createElement('canvas');Wd.mini.width=Wd.w*MINI_S;Wd.mini.height=Wd.h*MINI_S;
   const m=Wd.mini.getContext('2d');for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++){m.fillStyle=MINI_COL[tileAt(Wd,x,y)]||'#000';m.fillRect(x*MINI_S,y*MINI_S,MINI_S,MINI_S)}
+  if(Wd.id==='over')paintSafe(Wd,g,m);
+}
+// Sanctuaires : voile doré dedans et liseré sur le contour (au sol et sur la minimap), pour voir d'un coup d'œil jusqu'où les monstres ne viennent pas.
+function paintSafe(Wd,g,m){
+  const safe=(x,y)=>x>=0&&y>=0&&x<Wd.w&&y<Wd.h&&isSafe(Wd,x+.5,y+.5);
+  for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++){
+    if(!safe(x,y))continue;
+    const X=x*PX,Y=y*PX;
+    g.fillStyle='rgba(255,226,140,.13)';g.fillRect(X,Y,PX,PX);m.fillStyle='rgba(255,216,74,.45)';m.fillRect(x*MINI_S,y*MINI_S,MINI_S,MINI_S);
+    g.fillStyle='rgba(240,208,112,.95)';
+    if(!safe(x,y-1))g.fillRect(X,Y,PX,3);if(!safe(x,y+1))g.fillRect(X,Y+PX-3,PX,3);
+    if(!safe(x-1,y))g.fillRect(X,Y,3,PX);if(!safe(x+1,y))g.fillRect(X+PX-3,Y,3,PX);
+    // Pointillés intérieurs le long du liseré : il reste visible sur les sols clairs (dalles, carrelage).
+    g.fillStyle='rgba(120,80,20,.6)';
+    if(!safe(x,y-1))for(let i=2;i<PX;i+=8)g.fillRect(X+i,Y+4,4,2);if(!safe(x,y+1))for(let i=2;i<PX;i+=8)g.fillRect(X+i,Y+PX-6,4,2);
+    if(!safe(x-1,y))for(let i=2;i<PX;i+=8)g.fillRect(X+4,Y+i,2,4);if(!safe(x+1,y))for(let i=2;i<PX;i+=8)g.fillRect(X+PX-6,Y+i,2,4);
+  }
 }
 export function floater(x,y,txt,col,big){floaters.push({x:x+rr(-.2,.2),y,txt,col,big,t:0,life:big?1.4:1.1})}
 export function burst(x,y,col,n,spd){for(let i=0;i<n;i++){const a=rnd()*7,s=rr(.5,1)*(spd||2.5);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1.2,t:0,life:rr(.4,.8),col,sz:rr(.06,.12)})}}
@@ -120,13 +138,16 @@ function drawBubble(txt,x,y){
   ctx.fillStyle='#1b161d';ctx.textAlign='center';ctx.textBaseline='top';lines.forEach((l,i)=>ctx.fillText(l,bx+bw/2,by+4+i*lh));ctx.textBaseline='alphabetic';
 }
 export function render(t){
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=WD.id==='over'?'#0e0c11':'#050307';ctx.fillRect(0,0,cv.width,cv.height);
-  const vw=W/TS,vh=H/TS,MW=WD.w,MH=WD.h;
-  cam.x=MW<vw?(MW-vw)/2:clamp(P.x-vw/2,0,MW-vw);
-  cam.y=MH<vh?(MH-vh)/2:clamp(P.y-.6-vh/2,0,MH-vh);
+  const bg=WD.id==='over'?'#0e0c11':'#050307';
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=bg;ctx.fillRect(0,0,cv.width,cv.height);
+  // Une zone = une carte : la caméra reste dans la région du joueur et le reste de la carte du monde est masqué.
+  const R=WD.id==='over'?REGIONS[regionAt(WD,P.x,P.y)]:[0,0,WD.w-1,WD.h-1],vw=W/TS,vh=H/TS,RW=R[2]+1-R[0],RH=R[3]+1-R[1],MW=WD.w,MH=WD.h;
+  cam.x=R[0]+(RW<vw?(RW-vw)/2:clamp(P.x-R[0]-vw/2,0,RW-vw));
+  cam.y=R[1]+(RH<vh?(RH-vh)/2:clamp(P.y-.6-R[1]-vh/2,0,RH-vh));
   ctx.imageSmoothingEnabled=false;
   const k=DPR*TS/PX;ctx.setTransform(k,0,0,k,-cam.x*TS*DPR,-cam.y*TS*DPR);if(WD.c)ctx.drawImage(WD.c,0,0);
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle=bg;ctx.beginPath();ctx.rect(0,0,W,H);ctx.rect(sx(R[0]),sy(R[1]),RW*TS,RH*TS);ctx.fill('evenodd');
   const x0=Math.max(0,Math.floor(cam.x)),y0=Math.max(0,Math.floor(cam.y)),x1=Math.min(MW,Math.ceil(cam.x+vw)),y1=Math.min(MH,Math.ceil(cam.y+vh));
   const torches=[];
   for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const tt=at(x,y);
@@ -162,7 +183,7 @@ export function render(t){
   for(const pl of Object.values(world.players))if(pl.mapId===WD.id)ents.push(pl.P);
   if(!me)ents.push(P);
   ents.sort((a,b)=>a.y-b.y);
-  const vis=e=>e.x>cam.x-2&&e.x<cam.x+vw+2&&e.y>cam.y-1&&e.y<cam.y+vh+3;
+  const vis=e=>e.x>cam.x-2&&e.x<cam.x+vw+2&&e.y>cam.y-1&&e.y<cam.y+vh+3&&e.x>=R[0]&&e.x<R[2]+1&&e.y>=R[1]&&e.y<R[3]+1;
   const S1=TS*1.12,lift=e=>e.mount?MOUNT_LIFT[e.mount]*S1/16:0;
   for(const e of ents){if(!vis(e))continue;const X=sx(e.x),Y=sy(e.y);
     if(e.kind==='mob'){ctx.globalAlpha=e.alive?1:Math.max(0,e.dieT/.7);drawMob(ctx,e,X,Y,S1*(e.d.scale||1),t);ctx.globalAlpha=1;if(e.stun>0){for(let i=0;i<3;i++){const a=t*4+i*2.1;ctx.fillStyle='#ffd84a';ctx.fillRect(X+Math.cos(a)*TS*.35-2,Y-e.hgt*TS-4+Math.sin(a)*TS*.1,4,4)}}}

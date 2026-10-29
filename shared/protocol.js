@@ -5,7 +5,8 @@
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
 //                                  acceptQuest, completeQuest, enterDungeon, launch {dg, ti} (entrer dans un donjon depuis la fiche de la carte, de n'importe où : refusé si mort, en combat < COMBAT_TP s, duel, échange, déjà en donjon, niveau trop bas), leaveDungeon, openChest, respawn,
-//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
+//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, buySkin {id}, wearSkin {id | null} (tenues, chez le Fripier),
+//                                  casino {g:'bj', op:'deal'|'hit'|'stand'} · {g:'roul', bet: rouge|noir|pair|impair|manque|passe|0–36} · {g:'pk', op:'sit'|'leave'|'start'|'draw', keep:[i]} ; deal, roul et sit portent la mise : {gold} ou {uid} d'un équipement du sac, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
 //                                  tradeOffer {items:[{uid} | {id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
 //   {t:'chat', text}
 //
@@ -18,16 +19,19 @@
 //                                  board = {tops:[[intitulé, [[pseudo, valeur, guilde], …]], …]} : réponse au 'talk' du Tableau d'Honneur.
 //                                  proj = {x, y, tx, ty} : projectile visuel d'une attaque de base à distance (arme à portée), envoyé à toute la carte ; aucun effet de jeu.
 //                                  announce = {who, text} : bannière dorée pour tous (/annonce, droit « annonce »).
+//                                  casino = {g:'bj', you, bank, yv, bv, done, mult, net, stake} (cartes 0–51, la 2e de la banque cachée tant que done est faux) · {g:'roul', n, col, bet, mult, net, stake}.
+//                                  poker = {phase, left, seats:[{n, stake, ok, fold}], hand, ok, result?:[{n, hand, main, win}]} : à chaque joueur assis, à chaque changement de la table.
 //                                  online = {names} : pseudos de tous les connectés, à chaque arrivée/départ.
 //                                  trade = {with, mine:{items,gold,ok}, theirs:{…}} à chaque changement, ou {end:true} à la fermeture
 //   {t:'snap', world, tick, ents}  20×/s : world = {id, seed, ti, done} décrit la carte du joueur (le client régénère les
-//                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte, champs de rendu seulement.
+//                                  tuiles avec genOverworld/genDungeon) ; ents = entités de CETTE carte (sur la carte du monde : de la région du joueur, REGIONS), champs de rendu seulement.
 //                                  L'entrée du joueur destinataire porte en plus `priv` (hp, caf, cd, cast, target, auto, crew : autres joueurs du même donjon,
 //                                  etape : {i, n, total, restants, fin} dans un donjon à étapes — compteur « Monstres restants : restants / total »).
 //                                  Coffre d'étape : objet {type:'chest'} dont `opened` est propre à chaque joueur ; événement `chest` {got:[id], gold:0} à son ouverture.
 import {HATS} from './data.js';
 import {CLASSES} from './data/classes.js';
 import {bossUpcoming,stats} from './rules.js';
+import {regionAt} from './map.js';
 
 export const cleanName=n=>String(n||'').trim().replace(/\s+/g,'_').replace(/[^\p{L}\p{N}_-]/gu,'').slice(0,16)||'Sire_Chouffin';
 export const cleanCls=c=>CLASSES[c]?c:undefined;
@@ -44,18 +48,19 @@ function crewRec(w,pl){
 }
 function playerRec(w,pl,mine){
   const {S,P}=pl;
-  const rec={id:pl.id,kind:'player',n:P.n,g:S.guilde||'',lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
+  const rec={id:pl.id,kind:'player',n:P.n,g:S.guilde||'',lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,skin:S.skin,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
   const D=mine&&w.maps[pl.mapId];
   if(mine)rec.priv={etape:D&&D.etape?{i:D.etape.i,n:D.etape.n,total:D.etape.total,restants:D.mobs.filter(m=>m.alive).length,fin:D.etape.fin}:undefined,hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,crew:crewRec(w,pl)};
   return rec;
 }
 
 export function snapshotFor(w,id){
-  const pl=w.players[id],map=w.maps[pl.mapId],ents=[];
-  for(const m of map.mobs)if(m.alive||m.dieT>0)ents.push(mobRec(m));
-  for(const o of map.objs)ents.push(objRec(o,id));
-  for(const b of map.bots)ents.push(botRec(b));
-  for(const n of map.npcs)if(n.sayT>0)ents.push({id:n.id,kind:'npc',say:n.say,sayT:r2(n.sayT)});
-  for(const p of Object.values(w.players))if(p.mapId===pl.mapId)ents.push(playerRec(w,p,p.id===id));
+  // Une zone = une carte : seules les entités de la région du joueur partent (c'est là que se jouait le poids du snapshot de la carte du monde).
+  const pl=w.players[id],map=w.maps[pl.mapId],ents=[],R=regionAt(map,pl.P.x,pl.P.y),here=e=>regionAt(map,e.x,e.y)===R;
+  for(const m of map.mobs)if((m.alive||m.dieT>0)&&here(m))ents.push(mobRec(m));
+  for(const o of map.objs)if(here(o))ents.push(objRec(o,id));
+  for(const b of map.bots)if(here(b))ents.push(botRec(b));
+  for(const n of map.npcs)if(n.sayT>0&&here(n))ents.push({id:n.id,kind:'npc',say:n.say,sayT:r2(n.sayT)});
+  for(const p of Object.values(w.players))if(p.mapId===pl.mapId&&here(p.P))ents.push(playerRec(w,p,p.id===id));
   return{t:'snap',world:{id:map.id,seed:map.seed,ti:map.ti,dg:map.dg,done:!!map.done},tick:w.tick,ents};
 }
