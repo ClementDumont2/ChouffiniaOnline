@@ -45,6 +45,8 @@ Lancer la commande `sudo ufw allow 3000` avec le port de l'application (ici 3000
 
 Le pseudo est unique : s'il est déjà connecté, le serveur refuse avec un message. Le personnage est sauvegardé dans `saves/<pseudo>.json` ; se reconnecter avec le même pseudo le retrouve. Il n'y a pas de mot de passe : on joue entre potes.
 
+Nouveautés de la saison 3 : chaque zone est sa propre carte (on change de carte en passant la frontière), trois zones après le DIIAGE pour les niveaux 100, des sanctuaires bien délimités (liseré doré), le Casino du 18-25 au sud de l'Arène (blackjack, roulette, Poker Chouffin entre joueurs, en misant de l'or ou un équipement), des armes en plus chez chaque marchand, des équipements de vitesse d'attaque et de déplacement, et des tenues chez le Fripier du Bourg-Forum.
+
 Dans le jeu, `/aide` liste les commandes (`/qui`, `/mp`, `/inviter`, `/accepter`, `/quitter`…).
 
 ## Jouer hors du réseau local
