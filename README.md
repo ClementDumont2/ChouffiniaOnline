@@ -22,6 +22,14 @@ Chouffinia Online est lancé.
 
 Un autre port : `PORT=4000 npm start` (Windows PowerShell : `$env:PORT=4000; npm start`).
 
+## Lancer avec Docker (serveur de prod)
+
+```bash
+docker compose up -d --build
+```
+
+Le jeu tourne en arrière-plan sur le port 3000 (autre port : `PORT=4000 docker compose up -d`), redémarre seul après un plantage ou un reboot, et les sauvegardes restent dans `saves/` sur la machine. Logs : `docker compose logs -f`. Arrêt (sauvegarde tout le monde) : `docker compose down`. Mise à jour : `git pull` puis `docker compose up -d --build`.
+
 ## Pare-feu Windows
 
 Au premier lancement, Windows demande d'autoriser Node.js : coche **Réseaux privés** et valide. Si la fenêtre a disparu ou si les autres PC n'arrivent pas à se connecter : Pare-feu Windows Defender → « Autoriser une application » → Node.js, réseaux privés. À défaut, créer une règle entrante TCP pour le port 3000.

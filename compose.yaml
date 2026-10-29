@@ -1,0 +1,10 @@
+services:
+  chouffinia:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./saves:/app/saves
+    restart: unless-stopped
+    # Le serveur sauvegarde tout le monde à l'arrêt : lui laisser le temps d'écrire.
+    stop_grace_period: 15s

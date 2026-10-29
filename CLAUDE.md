@@ -7,7 +7,7 @@ MMORPG parodique en pixel art (canvas 2D) où l'on joue un chouffin. Objectif du
 - JavaScript **ES modules natifs**, Node ≥ 20. Pas de TypeScript, pas de framework, pas de bundler.
 - Une seule dépendance runtime : `ws`. Le serveur HTTP est le module `http` de Node (fichiers statiques).
 - Persistance : **un fichier JSON par joueur** dans `saves/`. Pas de base de données.
-- Pas de Docker, pas de comptes, pas d'anti-triche. On joue entre potes.
+- Docker seulement pour l'hébergement (`Dockerfile` + `compose.yaml`, image `node:20-alpine`, `saves/` monté) ; pas de comptes, pas d'anti-triche. On joue entre potes.
 - Si une solution demande une nouvelle dépendance ou une nouvelle couche, proposer d'abord l'alternative sans.
 
 ## Commandes

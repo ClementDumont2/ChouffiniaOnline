@@ -147,5 +147,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   console.log(`  Sur cette machine : http://localhost:${port}`);
   if (urls.length) console.log(`  Sur le réseau local (à donner à tes potes) :\n${urls.map(u => '    ' + u).join('\n')}`);
   else console.log('  Aucune carte réseau détectée : seul localhost fonctionne.');
-  process.on('SIGINT', async () => { await close(); process.exit(0); });
+  // SIGTERM : envoyé par `docker compose stop` ; sans lui, les 10 dernières secondes de jeu seraient perdues.
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { await close(); process.exit(0); });
 }
