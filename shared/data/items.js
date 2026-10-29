@@ -175,3 +175,24 @@ Object.assign(ITEMS,{
   multiprise_parafoudre:{n:"Multiprise Parafoudre",t:'eq',s:'arme',r:'epic',atk:52,hp:30,rl:20,price:1100,d:"Neuf prises, un interrupteur lumineux et un parafoudre qui n'a jamais servi. Corps à corps uniquement : le câble fait deux mètres, et la loi des multiprises interdit de la brancher en cascade."},
   tapis_xxl:{n:"Tapis de Souris XXL",t:'eq',s:'torse',r:'epic',atk:4,arm:40,hp:90,rl:20,price:1100,d:"90 × 40 cm de pure surface de glisse, porté en cape. Il a connu trois souris, deux Coca renversés et une rage. Il glisse sur tout, sauf sur vos responsabilités."},
 });
+
+// ---- Saison 3 : équipement de l'après-diplôme (rl 100, même échelle que le Lot 9 ; le butin des monstres 100–112 a un niveau d'objet plus haut). ----
+Object.assign(ITEMS,{
+  lanyard:eq9("Lanyard de Startup",'tete','rare',100,"Il ouvre la porte, la cafétéria et le cœur du manager. Le dernier est verrouillé."),
+  doudoune_manager:eq9("Doudoune Sans Manches de Manager",'torse','epic',100,"Brodée au logo d'un fonds d'investissement. Elle tient chaud au torse et laisse les bras dans le doute."),
+  macbook:eq9("MacBook Pro Couvert d'Autocollants",'arme','rare',100,"Plus d'autocollants que de touches. Il frappe fort, il chauffe fort, il coûte un loyer."),
+  gants_vaisselle:eq9("Gants de Vaisselle Jaunes",'mains','epic',100,"Ils ont touché des choses qu'aucun gant ne devrait toucher. Ils protègent de tout, même de la culpabilité."),
+  pyjama_coloc:eq9("Pantalon de Pyjama de Coloc",'jambes','epic',100,"Porté pour télétravailler, dormir, sortir les poubelles et, une fois, à un entretien."),
+  balai_coloc:eq9("Balai de la Coloc (Jamais Utilisé)",'arme','rare',100,"Il n'a jamais balayé. Il a toujours tapé. C'est sa vraie vocation."),
+  casque_streamer:eq9("Casque de Streamer à Micro Rétractable",'tete','epic',100,"Le micro ne se rétracte plus depuis 2021. Vous parlez toujours trop fort."),
+  clavier_60:{...eq9("Clavier 60 % Lanceur de Touches",'arme','epic',100,"Il lui manque les flèches, le pavé numérique et la dignité. Les touches partent toutes seules, à cinq cases."),rg:ARME_RG},
+  jogging_rgb:eq9("Jogging RGB Synchronisé",'jambes','rare',100,"Il clignote au rythme du bot musique. Il est désynchronisé aussi."),
+  stock_options:eq9("Stock-Options (Sans Valeur)",'arme','leg',100,"Elles vaudront des millions. Après la sortie. Après la prochaine levée. Après."),
+  trousseau_proprio:eq9("Trousseau de Clés du Proprio",'arme','leg',100,"Quarante clés, aucune n'ouvre la boîte aux lettres. Elles tranchent quand même les cautions."),
+  role_admin:eq9("Rôle Admin (Tranchant)",'arme','leg',100,"Une couleur rouge dans la liste des membres. Ça suffit à tout couper."),
+});
+Object.assign(STOCK,{
+  barista:['chips','chouffe','lanyard','macbook'],
+  coloc_ancien:['chips','chouffe','gants_vaisselle','balai_coloc'],
+  modo_afk:['chips','chouffe','jogging_rgb','clavier_60'],
+});

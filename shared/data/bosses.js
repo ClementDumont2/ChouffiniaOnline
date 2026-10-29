@@ -141,3 +141,10 @@ Object.assign(BOSSES,{
   cosplay_ultime:bossMonde(zone('transfo','Transformation','vous aveugle de paillettes.','PAILLETTES',['TRANSFORMATION !','MA FORME FINALE !']),'cosplayeur','MES FANS, À MOI !','CE N\'ÉTAIT PAS ENCORE MA FORME FINALE.'),
   heisenbug:bossMonde(zone('heisen','Comportement Indéterminé','vous plante sans laisser de trace.','PLANTÉ',['ÇA MARCHE CHEZ MOI !','IMPOSSIBLE À REPRODUIRE !']),'bug','BUGS EN PROD, DÉPLOYEZ-VOUS !','JE NE SUIS PLUS REPRODUCTIBLE.'),
 });
+
+// Saison 3 : boss des zones de l'après-diplôme.
+Object.assign(BOSSES,{
+  ceo:bossMonde(zone('levee','Levée de Fonds','vous dilue au tour de table.','DILUÉ',['ON LÈVE !','DISRUPTION !']),'stagiaire','STAGIAIRES, ON SHIP !','ON PIVOTE.'),
+  agent_immo:bossMonde(zone('dossier','Dossier Incomplet','vous refuse le logement.','REFUSÉ',['IL MANQUE UNE PIÈCE !','TROIS GARANTS !']),'proprio','PROPRIÉTAIRES, VISITE !','LES PRIX MONTENT.'),
+  fondateur:bossMonde(zone('everyone','@everyone','vous ping à 4 h du matin.','PING',['@EVERYONE !','ANNONCE IMPORTANTE !']),'notif','NOTIFICATIONS, SPAMMEZ-LE !','BAN DÉFINITIF DU SERVEUR.'),
+});

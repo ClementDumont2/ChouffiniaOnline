@@ -81,3 +81,29 @@ Object.assign(NEW_MOBS,{
   pote:{n:"Pote Sans Sa Tour",l:20,hpM:1,atkM:1,sp:2,ag:4,cd:1.7,hgt:1.2,v:"vous demande si vous avez un écran de rechange",
     lines:["T'as une prise ? Une souris ? Un écran ?","J'ai ramené mon écran. Pas ma tour.","On peut jouer sur ton PC ? Juste un truc."],loot:[['chips',.35],['poignee',.3],['chouffe',.1]]},
 });
+
+// ---- Saison 3 : l'après-diplôme (x 160–199). Monstres au-delà du niveau max des joueurs : l'XP est plafonnée, on y vient pour l'or et le butin de niveau 100+.
+// look : sprite d'un monstre existant (ces zones n'ont pas de dessin propre).
+Object.assign(NEW_MOBS,{
+  stagiaire:{n:"Stagiaire Non Rémunéré",l:100,look:'assistant',hpM:.9,atkM:1.1,sp:2.6,ag:5,cd:1.4,hgt:1.1,v:"vous refile sa to-do list",
+    lines:["C'est formateur, on m'a dit.","Je fais le café, les slides et la prod.","Ma gratification, c'est l'expérience."],loot:[['chips',.35],['poignee',.3],['lanyard',.04],['chouffe',.1]]},
+  manager:{n:"Manager « On Est Une Famille »",l:102,look:'conseillerabs',hpM:1.3,atkM:1,sp:1.9,ag:4.5,cd:1.7,hgt:1.25,v:"vous propose un point rapide de deux heures",
+    lines:["On est une famille.","Tu peux rester un peu ce soir ? C'est pour l'équipe.","Bienveillance. Agilité. Livrable pour demain."],loot:[['chips',.35],['poignee',.3],['doudoune_manager',.04]]},
+  babyfoot:{n:"Baby-Foot de la Cohésion",l:103,look:'caddie',hpM:1,atkM:1.3,sp:3,ag:5,cd:1.4,hgt:1,v:"vous met une gamelle",
+    lines:["*CLAC CLAC CLAC*","Pas de pissette !","La cohésion, c'est obligatoire."],loot:[['chips',.35],['poignee',.3],['macbook',.04]]},
+  vaisselle:{n:"Pile de Vaisselle Sale",l:104,look:'promo',hpM:1.4,atkM:.9,sp:1.2,ag:4,cd:1.9,hgt:1.1,v:"vous éclabousse d'eau de trempage",
+    lines:["Je trempe. Depuis mardi.","Ce n'est pas à moi, c'est à la coloc.","*une fourchette tombe*"],loot:[['chips',.35],['poignee',.3],['gants_vaisselle',.04],['chouffe',.1]]},
+  coloc_fantome:{n:"Colocataire Fantôme",l:105,look:'fantome',hpM:.9,atkM:1.3,sp:2.5,ag:5,cd:1.5,hgt:1.2,v:"mange votre fromage sans laisser de trace",
+    lines:["Je paie ma part. Un jour.","Ce fromage ? Jamais vu.","Je suis là depuis trois mois. Personne ne m'a vu."],loot:[['chips',.35],['poignee',.3],['pyjama_coloc',.04]]},
+  proprio:{n:"Le Propriétaire (Visite Surprise)",l:106,look:'vigile',hpM:1.6,atkM:1,sp:1.6,ag:4,cd:1.9,hgt:1.25,v:"vous retient la caution",
+    lines:["Je passe juste voir.","C'est quoi ce trou dans le mur ?","Les charges augmentent. Tout augmente."],loot:[['chips',.35],['poignee',.3],['balai_coloc',.04]]},
+  notif:{n:"Notification @everyone",l:107,look:'spam',hpM:.8,atkM:1.4,sp:3.2,ag:5.5,cd:1.3,hgt:1,v:"vous réveille à 4 h du matin",
+    lines:["@everyone","@here @everyone @everyone","DING."],loot:[['chips',.35],['poignee',.3],['casque_streamer',.04],['chouffe',.1]]},
+  admin_discord:{n:"Admin de Serveur Discord",l:108,look:'modo',hpM:1.3,atkM:1.2,sp:2,ag:4.5,cd:1.6,hgt:1.25,v:"vous mute pour « ambiance »",
+    lines:["Lisez #règles.","Mute 24 h. Pour l'exemple.","J'ai le rôle. J'ai le pouvoir."],loot:[['chips',.35],['poignee',.3],['clavier_60',.04]]},
+  bot_musique:{n:"Bot Musique Désynchronisé",l:110,look:'lag',hpM:1,atkM:1.4,sp:2.8,ag:5,cd:1.4,hgt:1,v:"vous joue la même chanson en boucle, décalée",
+    lines:["♪ Never gonna give… ♪","Ajouté à la file : 412 morceaux.","♪… you up ♪ (avec 3 s de retard)"],loot:[['chips',.35],['poignee',.3],['jogging_rgb',.04]]},
+  ceo:bossZone("Le CEO en Trottinette","Le CEO",'scooter',104,2,"vous annonce une levée de fonds",["ON LÈVE 40 MILLIONS.","On pivote. Encore.","Les salaires ? On en parlera au prochain board."],[['doudoune_manager',.25],['stock_options',.08]]),
+  agent_immo:bossZone("L'Agent Immobilier (Dossier Complet Exigé)","L'Agent Immobilier",'conseillerabs',108,2.1,"vous demande trois garants et un rein",["Il me faut trois garants.","Le logement est lumineux. Il n'a pas de fenêtre.","Frais d'agence : un loyer. Et votre âme."],[['pyjama_coloc',.25],['trousseau_proprio',.08]]),
+  fondateur:bossZone("Le Fondateur du Serveur (Nitro ×14)","Le Fondateur",'khey',112,2.2,"vous bannit de son serveur, et de votre vie",["J'AI CRÉÉ CE SERVEUR EN 2016.","Nitro Boost ×14. Respecte.","Tu es banni. Tu étais banni avant d'arriver."],[['casque_streamer',.25],['role_admin',.08]]),
+});

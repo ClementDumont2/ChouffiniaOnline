@@ -97,7 +97,8 @@ test('marchands des sanctuaires : équipement au niveau de leur zone, achat chez
 test('un boss de zone par zone de la carte du monde, à son niveau, avec ses capacités', () => {
   const w = createWorld({seed: 1}), map = w.maps.over;
   const zones = {plaine: [1, 3], steppe: [2, 4], lac: [3, 5], foret: [4, 7], marais: [6, 8], sel: [8, 10], datacenter: [10, 12],
-    parking: [15, 26], supermarche: [25, 41], pole: [40, 56], convention: [55, 76], diiage: [75, 100]};
+    parking: [15, 26], supermarche: [25, 41], pole: [40, 56], convention: [55, 76], diiage: [75, 100],
+    startup: [100, 112], coloc: [100, 112], discord: [100, 112]};
   const boss = map.mobs.filter(m => m.d.boss && m.type !== 'maman');
   assert.deepEqual(boss.map(m => zoneAt(map, m.x, m.y)).sort(), Object.keys(zones).sort());
   for (const m of boss) {
@@ -148,7 +149,7 @@ test('/tp <joueur> : à côté d\'un joueur de la carte du monde, pas dans un do
 test('un boss de zone ne crie qu\'aux joueurs à portée de voix', () => {
   const w = createWorld({seed: 1}), map = w.maps.over, m = map.mobs.find(x => x.type === 'modo_supreme');
   const pres = addPlayer(w, 'p', {name: 'Pres'}), loin = addPlayer(w, 'l', {name: 'Loin'});
-  pres.S.lvl = 30; place(pres, m.x + 1, m.y);
+  pres.S.lvl = 30; pres.S.hp = 1e9; place(pres, m.x + 1, m.y);
   handleAction(w, 'p', {a: 'target', id: m.id}); handleAction(w, 'p', {a: 'skill', i: 0});
   run(w, 8);
   const cris = id => takeEvents(w, id).filter(e => e.cls === 'yell').length;
