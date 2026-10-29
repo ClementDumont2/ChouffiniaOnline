@@ -55,6 +55,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 
 #mapbox{top:12px;right:12px;width:168px;padding:6px}
 #zone{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--gold);text-align:center;line-height:1.2;min-height:2.4em;display:grid;place-items:center;text-wrap:balance}
+#zone.safe::after{content:'🛡 Zone protégée';display:block;font-family:var(--f-body);font-weight:600;font-size:9px;letter-spacing:0;color:#7be37b}
 #mini{display:block;width:100%;height:auto;border:1px solid #000;margin-top:4px;image-rendering:pixelated;background:#000}
 #mini{cursor:zoom-in}
 #fiche{position:fixed;top:50%;right:16px;transform:translateY(-50%);width:min(360px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;z-index:9;padding:12px 14px;font-size:14px}

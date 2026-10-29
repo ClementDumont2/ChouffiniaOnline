@@ -1,7 +1,7 @@
 import {QUESTS} from '../shared/data.js';
 import {AFFIXES} from '../shared/data/bosses.js';
 import {clamp,dist} from '../shared/rules.js';
-import {T,regionAt,tileAt} from '../shared/map.js';
+import {T,isSafe,regionAt,tileAt} from '../shared/map.js';
 import {REGIONS} from '../shared/data/zones.js';
 import {$,rnd,rr} from './util.js';
 import {MOUNT_LIFT,drawChouffin,drawMob,drawMount,drawNpc,drawObj,playerLook} from './sprites.js';
@@ -97,6 +97,23 @@ export function paintWorld(Wd){
   const g=Wd.c.getContext('2d');for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++)paintTile(g,Wd,x,y);
   Wd.mini=document.createElement('canvas');Wd.mini.width=Wd.w*MINI_S;Wd.mini.height=Wd.h*MINI_S;
   const m=Wd.mini.getContext('2d');for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++){m.fillStyle=MINI_COL[tileAt(Wd,x,y)]||'#000';m.fillRect(x*MINI_S,y*MINI_S,MINI_S,MINI_S)}
+  if(Wd.id==='over')paintSafe(Wd,g,m);
+}
+// Sanctuaires : voile doré dedans et liseré sur le contour (au sol et sur la minimap), pour voir d'un coup d'œil jusqu'où les monstres ne viennent pas.
+function paintSafe(Wd,g,m){
+  const safe=(x,y)=>x>=0&&y>=0&&x<Wd.w&&y<Wd.h&&isSafe(Wd,x+.5,y+.5);
+  for(let y=0;y<Wd.h;y++)for(let x=0;x<Wd.w;x++){
+    if(!safe(x,y))continue;
+    const X=x*PX,Y=y*PX;
+    g.fillStyle='rgba(255,226,140,.13)';g.fillRect(X,Y,PX,PX);m.fillStyle='rgba(255,216,74,.45)';m.fillRect(x*MINI_S,y*MINI_S,MINI_S,MINI_S);
+    g.fillStyle='rgba(240,208,112,.95)';
+    if(!safe(x,y-1))g.fillRect(X,Y,PX,3);if(!safe(x,y+1))g.fillRect(X,Y+PX-3,PX,3);
+    if(!safe(x-1,y))g.fillRect(X,Y,3,PX);if(!safe(x+1,y))g.fillRect(X+PX-3,Y,3,PX);
+    // Pointillés intérieurs le long du liseré : il reste visible sur les sols clairs (dalles, carrelage).
+    g.fillStyle='rgba(120,80,20,.6)';
+    if(!safe(x,y-1))for(let i=2;i<PX;i+=8)g.fillRect(X+i,Y+4,4,2);if(!safe(x,y+1))for(let i=2;i<PX;i+=8)g.fillRect(X+i,Y+PX-6,4,2);
+    if(!safe(x-1,y))for(let i=2;i<PX;i+=8)g.fillRect(X+4,Y+i,2,4);if(!safe(x+1,y))for(let i=2;i<PX;i+=8)g.fillRect(X+PX-6,Y+i,2,4);
+  }
 }
 export function floater(x,y,txt,col,big){floaters.push({x:x+rr(-.2,.2),y,txt,col,big,t:0,life:big?1.4:1.1})}
 export function burst(x,y,col,n,spd){for(let i=0;i<n;i++){const a=rnd()*7,s=rr(.5,1)*(spd||2.5);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1.2,t:0,life:rr(.4,.8),col,sz:rr(.06,.12)})}}
