@@ -1,3 +1,4 @@
+import {SKINS} from '../shared/data/skins.js';
 import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SLOTS,STOCK} from '../shared/data.js';
 import {VA_MAX,VD_MAX,BAG,FUSE_PER_LEVEL,activityInfo,dgDiffs,baseRange,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,slotCandidates,stats,statsWith,upgradableSlots} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
@@ -191,6 +192,13 @@ function showNpc(n){
       const own=S.mounts.includes(id);
       html+=`<p class="rw"><b class="q-${m.r}">${esc(m.n)}</b> · niveau ${m.rl} · ${fmt(m.price)} po<br><span class="ty">${esc(m.d)}</span></p>`;
       btns.push([own?`${m.n} (possédée)`:`Acheter : ${m.n} (${fmt(m.price)} po)`,()=>send({a:'buyMount',id}),false,own||S.lvl<m.rl||S.gold<m.price]);
+    }
+  }
+  if(n.id==='fripier'){
+    for(const [id,k] of Object.entries(SKINS)){
+      const own=S.skins.includes(id),on=S.skin===id;
+      html+=`<p class="rw"><b class="q-${k.r}">${esc(k.n)}</b> · ${fmt(k.price)} po${on?' · portée':own?' · possédée':''}<br><span class="ty">${esc(k.d)}</span></p>`;
+      btns.push(on?[`Retirer : ${k.n}`,()=>send({a:'wearSkin',id:null}),true]:own?[`Porter : ${k.n}`,()=>send({a:'wearSkin',id})]:[`Acheter : ${k.n} (${fmt(k.price)} po)`,()=>send({a:'buySkin',id}),false,S.gold<k.price]);
     }
   }
   if(n.id==='fanfiqueuse'){btns.unshift(['Fusionner deux objets',()=>{fusSel=[];openFusion(n)}])}

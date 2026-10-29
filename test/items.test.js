@@ -4,6 +4,9 @@ import {createWorld, addPlayer, handleAction, handleChat, tick} from '../shared/
 import {ITEMS, RARITY_MULT, NPCS} from '../shared/data.js';
 import {VA_MAX, VD_MAX, classOf, moveSpeed, newItem, itemStats, normalizeSave, stats} from '../shared/rules.js';
 import {STOCK} from '../shared/data.js';
+import {SKINS} from '../shared/data/skins.js';
+import {snapshotFor} from '../shared/protocol.js';
+import {canStand} from '../shared/map.js';
 
 const eqIds = Object.keys(ITEMS).filter(id => ITEMS[id].t === 'eq');
 
@@ -116,4 +119,24 @@ test('vitesse d\'attaque et de déplacement : par l\'équipement, plafonnées, a
   assert.ok(Math.abs(P.cd[k0] - (1 - .5 * (1 + stats(S).va / 100))) < 1e-9 && Math.abs(P.cd[k1] - .5) < 1e-9);
   // Chaque marchand d'équipement vend au moins deux armes.
   for (const [k, ids] of Object.entries(STOCK)) if (ids.some(id => ITEMS[id].t === 'eq')) assert.ok(ids.filter(id => ITEMS[id].s === 'arme').length >= 2, k);
+});
+
+test('tenues : achat et port chez le Fripier, visibles des autres, sauvegarde réparée', () => {
+  const w = createWorld({seed: 1}), p = addPlayer(w, 'p1', {name: 'P1'}), f = NPCS.find(n => n.id === 'fripier');
+  assert.ok(canStand(w.maps.over, f.x, f.y));
+  p.S.gold = SKINS.survet.price;
+  handleAction(w, 'p1', {a: 'buySkin', id: 'survet'});
+  assert.equal(p.S.skin, null, 'loin du Fripier : rien');
+  p.P.x = f.x; p.P.y = f.y + 1;
+  handleAction(w, 'p1', {a: 'buySkin', id: 'doree'});
+  assert.deepEqual([p.S.skins, p.S.gold], [[], SKINS.survet.price], 'trop cher');
+  handleAction(w, 'p1', {a: 'buySkin', id: 'survet'});
+  assert.deepEqual([p.S.skins, p.S.skin, p.S.gold], [['survet'], 'survet', 0]);
+  assert.equal(snapshotFor(w, 'p1').ents.find(e => e.id === 'p1').look.skin, 'survet');
+  handleAction(w, 'p1', {a: 'wearSkin', id: null});
+  assert.equal(p.S.skin, null);
+  handleAction(w, 'p1', {a: 'wearSkin', id: 'costard'});
+  assert.equal(p.S.skin, null, 'tenue non possédée');
+  const S = normalizeSave({name: 'x', skins: ['survet', 'survet', 'inconnue'], skin: 'costard'});
+  assert.deepEqual([S.skins, S.skin], [['survet'], null]);
 });

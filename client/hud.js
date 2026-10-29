@@ -64,7 +64,7 @@ export function updTarget(){
   else{un.className='uname friendly';$('#tname').textContent=t.n;$('#tlvl').textContent=t.lvl;$('#tsub').textContent=t.g?`<${t.g}> · Chouffin`:'Chouffin · Sans guilde';$('#thpw').className='bar npc'}
 }
 const miniC=$('#mini'),mctx=miniC.getContext('2d'),mapbox=$('#mapbox');
-const SELLERS=new Set([...Object.keys(STOCK),...Object.values(MOUNTS).map(m=>m.seller)]);
+const SELLERS=new Set([...Object.keys(STOCK),...Object.values(MOUNTS).map(m=>m.seller),'fripier']);
 const npcCol=n=>{const q=QUESTS[S.q.i];return q&&q.g===n.id&&S.q.st!=='active'?'#ffd84a':n.dungeon?'#ff4fd8':SELLERS.has(n.id)?'#4ad8ff':n.look==='sign'?'#d8d0b8':'#7be37b'};
 function wrapText(txt,max){const lines=[];for(const wd of txt.split(' ')){const l=lines.length?lines[lines.length-1]+' '+wd:wd;if(lines.length&&mctx.measureText(l).width<=max)lines[lines.length-1]=l;else lines.push(wd)}return lines}
 let zoneLbl=[];

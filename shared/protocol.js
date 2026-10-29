@@ -5,7 +5,7 @@
 //   {t:'move', x, y, face}         ~10 fois/s ; refusé si mur ou vitesse > 5 cases/s (le serveur renvoie alors un 'tp')
 //   {t:'act', a, ...args}          a = target, talk, skill, useItem, equip, unequip, drop, buy, sell, sellAll,
 //                                  acceptQuest, completeQuest, enterDungeon, launch {dg, ti} (entrer dans un donjon depuis la fiche de la carte, de n'importe où : refusé si mort, en combat < COMBAT_TP s, duel, échange, déjà en donjon, niveau trop bas), leaveDungeon, openChest, respawn,
-//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
+//                                  mount (monter/descendre), selectMount {id}, buyMount {id}, buySkin {id}, wearSkin {id | null} (tenues, chez le Fripier), changeClass {cls}, fuse {x,y} (uid de deux objets du sac),
 //                                  tradeOffer {items:[{uid} | {id,n}], gold}, tradeOk, tradeCancel (échange ouvert par /echanger + /accepter)
 //   {t:'chat', text}
 //
@@ -45,7 +45,7 @@ function crewRec(w,pl){
 }
 function playerRec(w,pl,mine){
   const {S,P}=pl;
-  const rec={id:pl.id,kind:'player',n:P.n,g:S.guilde||'',lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
+  const rec={id:pl.id,kind:'player',n:P.n,g:S.guilde||'',lvl:S.lvl,cls:S.cls,titre:S.titre,mount:P.mount,hp:Math.round(S.hp),mhp:stats(S,P.drunk).maxhp,look:{hat:S.hat,skin:S.skin,eq:Object.fromEntries(Object.entries(S.eq).map(([k,q])=>[k,q&&q.id]))},x:r2(P.x),y:r2(P.y),face:P.face,moving:P.moving,step:r2(P.step),tipT:r2(Math.max(0,P.tipT)),dead:P.dead,drunk:r2(Math.max(0,P.drunk)),hgt:P.hgt,say:P.sayT>0?P.say:'',sayT:r2(Math.max(0,P.sayT))};
   const D=mine&&w.maps[pl.mapId];
   if(mine)rec.priv={etape:D&&D.etape?{i:D.etape.i,n:D.etape.n,total:D.etape.total,restants:D.mobs.filter(m=>m.alive).length,fin:D.etape.fin}:undefined,hp:r2(S.hp),caf:r2(S.caf),buffs:P.buffs,cd:P.cd,cast:P.cast,target:P.target,auto:P.auto,crew:crewRec(w,pl)};
   return rec;

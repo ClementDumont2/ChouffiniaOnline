@@ -5,6 +5,7 @@ import {ACH,ART_POOLS,BOTS,BOT_LINES,BOT_REPLIES,DIFFS,DUNGEONS,ENFAIT,ITEMS,LVL
 import {ARME_DIST_MULT,BAG,COMBAT_TP,dgDiffs,baseRange,classRange,buyPrice,canHold,clamp,classOf,cmpInfo,dist,fmt,itemValue,newItem,newSave,normalizeSave,npcById,rollArt,fuse,fuseCost,moveSpeed,score,skillsOf,stackable,stats,statsDeMob,withUid,xpNeed} from './rules.js';
 import {CLASSES,CLASS_COST,SKILL_DEFS} from './data/classes.js';
 import {MAMAN_KILLS,MOUNTS} from './data/mounts.js';
+import {SKINS} from './data/skins.js';
 import {AFFIXES,BOSSES} from './data/bosses.js';
 import {canStand,findPath,genDungeon,genOverworld,isSafe,isSolid,randSpot,regionAt,stepToward,zoneAt} from './map.js';
 import {SAFE} from './data/zones.js';
@@ -622,6 +623,18 @@ function buyMount(w,pl,id){
   S.gold-=m.price;S.mounts.push(id);if(!S.mount)S.mount=id;
   msg(w,pl.id,'loot',`Vous achetez la monture **${m.n}** pour ${fmt(m.price)} po.`);
 }
+// Tenue : achat et changement chez le Fripier seulement (il faut une cabine d'essayage).
+function buySkin(w,pl,id){
+  const {S}=pl,k=SKINS[id];
+  if(!k||!nearNpc(pl,'fripier')||S.skins.includes(id))return;
+  if(S.gold<k.price){err(w,pl.id,'Pas assez d\'or. Le Fripier ne fait pas de prix, même aux habitués.');return}
+  S.gold-=k.price;S.skins.push(id);S.skin=id;
+  msg(w,pl.id,'loot',`Vous achetez la tenue **${k.n}** pour ${fmt(k.price)} po. Vous la portez déjà : elle sent le neuf, et un peu le grenier.`);
+}
+function wearSkin(w,pl,id){
+  if(!nearNpc(pl,'fripier')||(id!==null&&!pl.S.skins.includes(id)))return;
+  pl.S.skin=id;
+}
 function mamanKill(w,pl){
   const {S}=pl;
   S.mamanKills=(S.mamanKills||0)+1;
@@ -1009,6 +1022,8 @@ export function handleAction(w,id,a){
     case 'mount':mountToggle(w,pl);break;
     case 'selectMount':if(S.mounts.includes(a.id))S.mount=a.id;break;
     case 'buyMount':buyMount(w,pl,a.id);break;
+    case 'buySkin':buySkin(w,pl,a.id);break;
+    case 'wearSkin':wearSkin(w,pl,a.id??null);break;
     case 'fuse':fusion(w,pl,a.x,a.y);break;
     case 'changeClass':changeClass(w,pl,a.cls);break;
     case 'respawn':if(P.dead)respawn(w,pl);break;

@@ -2,6 +2,7 @@ import {ITEMS,MOBS,DIFFS,DUNGEONS,ART_POOL,HATS,MAXLVL,NPCS,QUESTS,RARITY_MULT,S
 import {rngTools} from './rng.js';
 import {CLASSES,DEFAULT_CLASS,SKILL_DEFS} from './data/classes.js';
 import {MOUNTS} from './data/mounts.js';
+import {SKINS} from './data/skins.js';
 import {BOSSES} from './data/bosses.js';
 export {ARME_RG,ARME_DIST_MULT} from './data/items.js';
 import {SAFE} from './data/zones.js';
@@ -109,7 +110,7 @@ export const hasRight=(pl,droit)=>(pl.S.droits||[]).includes(droit);
 export const fmt=n=>Math.round(n).toLocaleString('fr-FR');
 export const npcById=id=>NPCS.find(n=>n.id===id);
 
-export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null,tp:['base','bourg']});
+export const newSave=(name='Sire_Chouffin',hat=HATS[0][0],cls=DEFAULT_CLASS)=>({name,hat,cls,lvl:1,xp:0,gold:5,hp:60,caf:50,inv:[{id:'chips',n:3},{id:'chouffe',n:1}],eq:{tete:null,torse:null,mains:null,jambes:null,arme:null},q:{i:0,st:'avail',n:0},ach:{},tips:0,deaths:0,kills:0,herbe:0,played:0,chouffes:0,dg:0,artSold:0,mounts:[],mount:null,duelWins:0,duelLosses:0,concede:null,guilde:null,tp:['base','bourg'],skins:[],skin:null});
 // Les sauvegardes viennent d'un fichier (parfois édité à la main, parfois abîmé) : on les remet d'aplomb sans jamais lever d'exception.
 // Entier borné ; une valeur absente donne `def`, une valeur absurde (texte, NaN, négatif) donne `min`.
 const int=(v,def,min=0,max=1e12)=>v===undefined?def:Number.isFinite(+v)&&v!==null&&v!==''?Math.min(max,Math.max(min,Math.floor(+v))):min;
@@ -144,6 +145,8 @@ export function normalizeSave(sv){
   if(!CLASSES[S.cls])S.cls=DEFAULT_CLASS;
   S.mounts=(Array.isArray(sv.mounts)?sv.mounts:[]).filter(id=>MOUNTS[id]);
   if(!S.mounts.includes(S.mount))S.mount=S.mounts[0]||null;
+  S.skins=[...new Set(Array.isArray(sv.skins)?sv.skins:[])].filter(id=>SKINS[id]);
+  if(!S.skins.includes(S.skin))S.skin=null;
   S.droits=Array.isArray(sv.droits)?sv.droits.filter(d=>typeof d==='string'):[];
   return S;
 }
