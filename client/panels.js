@@ -1,5 +1,5 @@
 import {DEATH,DIFFS,DUNGEONS,ITEMS,MOBS,QUESTS,RN,SLOTS,STOCK} from '../shared/data.js';
-import {BAG,FUSE_PER_LEVEL,activityInfo,dgDiffs,baseRange,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,slotCandidates,stats,statsWith,upgradableSlots} from '../shared/rules.js';
+import {VA_MAX,VD_MAX,BAG,FUSE_PER_LEVEL,activityInfo,dgDiffs,baseRange,buyPrice,canHold,cmpInfo,classOf,dist,fuse,fuseCost,itemStats,itemValue,newItem,npcById,slotCandidates,stats,statsWith,upgradableSlots} from '../shared/rules.js';
 import {CLASSES,CLASS_COST} from '../shared/data/classes.js';
 import {$,esc,fmt,pick} from './util.js';
 import {drawChouffin,iconCanvas,playerLook} from './sprites.js';
@@ -63,7 +63,7 @@ export function renderBag(){
   $('#a2').onclick=()=>send({a:'drop',idx:selItem});
 }
 // q : instance d'équipement (stats mises à l'échelle) ou pile ; l'entrée de ITEMS seule (aperçu boutique) passe par newItem.
-function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);if(it.rg)sts.push(`Portée : ${it.rg} cases`);return sts.join(' · ')}
+function statLine(q){const it=ITEMS[q.id],v=it.t==='eq'?itemStats(q):it,sts=[];if(v.atk)sts.push(`+${v.atk} Attaque`);if(v.arm)sts.push(`+${v.arm} Protection`);if(v.hp)sts.push(`+${v.hp} PV`);if(v.va)sts.push(`+${v.va} % vitesse d'attaque`);if(v.vd)sts.push(`+${v.vd} % vitesse de déplacement`);if(it.pct)sts.push(`Rend ${Math.round(it.pct*100)} % des PV`);if(it.rg)sts.push(`Portée : ${it.rg} cases`);return sts.join(' · ')}
 function deltaLine(q){
   const c=cmpInfo(S,q);if(!c)return'';if(c.same)return'<span class="eqd">Équipé actuellement</span>';
   const parts=c.rows.filter(r=>r.d).map(r=>r.d>0?`<span class="up">▲ +${r.d} ${r.sh}</span>`:`<span class="down">▼ −${-r.d} ${r.sh}</span>`);
@@ -141,7 +141,7 @@ export function renderChar(){
 export function renderCharStats(){
   if(charTab!=='eq')return;
   const st=stats(S,P.drunk),dig=Math.max(0,100-S.tips),days=6+Math.floor(S.played/60);
-  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${(S.eq.tete&&S.eq.tete.id)==='fedora'?2:3} <small>${(S.eq.tete&&S.eq.tete.id)==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
+  const rows=[['Points de vie',`${Math.ceil(S.hp)} / ${st.maxhp}`],['Caféine',`${Math.floor(S.caf)} / ${st.maxcaf}`],['Attaque',`${st.atk}${P.drunk>0?' <small>(Pompette +15 %)</small>':''}`],['Protection',`${st.arm} <small>(−${Math.round(st.red*100)} % de dégâts subis)</small>`],["Vitesse d'attaque",`+${st.va} % <small>(plafond ${VA_MAX} %)</small>`],['Vitesse de déplacement',`+${st.vd} % <small>(plafond ${VD_MAX} %, hors monture)</small>`],['Dignité',`${dig} % <small>${dig===0?'(épuisée)':'(−1 par M\'lady)'}</small>`],['Charisme',`${(S.eq.tete&&S.eq.tete.id)==='fedora'?2:3} <small>${(S.eq.tete&&S.eq.tete.id)==='fedora'?'(−1 fedora)':'(plafonné)'}</small>`],['Herbe touchée','0 <small>(frappée : '+S.herbe+')</small>'],['Dernière douche',`il y a ${days} jours`],['Chouffes bues',fmt(S.chouffes||0)],['Archives terminées',fmt(S.dg||0)],['Duels (victoires / défaites)',`${S.duelWins||0} / ${S.duelLosses||0}`],['Ennemis vaincus',fmt(S.kills)],['Morts',S.deaths],['Or',`${fmt(S.gold)} po`]];
   $('#cstats').innerHTML=rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
 let dlgLocked=false;

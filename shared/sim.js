@@ -151,7 +151,8 @@ function tickPlayer(w,pl,dt){
   P.dots=P.dots.filter(o=>o.t>0);
   const tg=findEnt(w,pl.mapId,P.target),sk0=SKILL_DEFS[classOf(S).skills[0]];
   if(tg&&attackable(w,pl,tg)&&P.auto&&!P.cast&&dist(P,tg)<=baseRange(S)&&(P.cd[classOf(S).skills[0]]||0)<=0)useSkill(w,pl,0,true);
-  for(const k in P.cd)if(P.cd[k]>0)P.cd[k]-=k==='pot'?dt:dt*haste;
+  // Vitesse d'attaque : seule l'attaque de base (compétence 1) recharge plus vite.
+  for(const k in P.cd)if(P.cd[k]>0)P.cd[k]-=k==='pot'?dt:dt*haste*(k===classOf(S).skills[0]?1+st.va/100:1);
 }
 
 function finishCast(w,pl,c){
