@@ -26,6 +26,9 @@ Un autre port : `PORT=4000 npm start` (Windows PowerShell : `$env:PORT=4000; npm
 
 Au premier lancement, Windows demande d'autoriser Node.js : coche **Réseaux privés** et valide. Si la fenêtre a disparu ou si les autres PC n'arrivent pas à se connecter : Pare-feu Windows Defender → « Autoriser une application » → Node.js, réseaux privés. À défaut, créer une règle entrante TCP pour le port 3000.
 
+## Pare-feu Linux
+Lancer la commande `sudo ufw allow 3000` avec le port de l'application (ici 3000)
+
 ## Rejoindre une partie
 
 1. Être sur le même réseau (même box, même Wi-Fi).
